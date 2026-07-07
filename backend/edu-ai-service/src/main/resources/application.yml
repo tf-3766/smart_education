@@ -1,0 +1,36 @@
+server:
+  port: ${AI_SERVER_PORT:18082}
+
+spring:
+  application:
+    name: edu-ai-service
+  cloud:
+    nacos:
+      config:
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        username: ${NACOS_USERNAME:}
+        password: ${NACOS_PASSWORD:}
+      discovery:
+        enabled: ${NACOS_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        username: ${NACOS_USERNAME:}
+        password: ${NACOS_PASSWORD:}
+edu:
+  ai:
+    jwt:
+      secret: ${JWT_SECRET}
+      ttl: ${JWT_TTL:PT2H}
+      issuer: ${JWT_ISSUER:edu-biz-service}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    level: "%5p [traceId:%X{traceId:-}]"

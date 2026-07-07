@@ -1,0 +1,11 @@
+spring:
+  config:
+    import: nacos:${spring.application.name}.yml?group=${NACOS_GROUP:DEFAULT_GROUP}&refreshEnabled=true
+  cloud:
+    nacos:
+      discovery:
+        enabled: true
+      config:
+        enabled: true
+
+# Redis、Nacos、JWT 和 CORS 均从 ../.env.example 注入。

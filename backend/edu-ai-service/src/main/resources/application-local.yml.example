@@ -1,0 +1,12 @@
+spring:
+  config:
+    import: nacos:${spring.application.name}.yml?group=${NACOS_GROUP:DEFAULT_GROUP}&refreshEnabled=true
+  cloud:
+    nacos:
+      discovery:
+        enabled: true
+      config:
+        enabled: true
+
+# 本阶段只提供可启动服务与 Actuator 健康检查，不接入模型、向量库或 RAG。
+# 后续模型 API Key 只能通过环境变量或密钥管理系统注入。

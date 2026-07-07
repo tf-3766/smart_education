@@ -1,0 +1,36 @@
+# Frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Java / Maven
+target/
+backend/**/target/
+backend/.mvn/timing.properties
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Local configuration and secrets
+.env
+application-local.yml
+application-dev.yml
+backend/**/application-local.yml
+backend/**/application-local.yaml
+backend/**/application-local.properties
+backend/**/application-dev.yml
+backend/**/application-dev.yaml
+backend/**/application-dev.properties
+*.pem
+*.key
+
+# Logs / runtime
+*.log
+logs/
+data/

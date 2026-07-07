@@ -1,0 +1,18 @@
+spring:
+  config:
+    import: nacos:${spring.application.name}.yml?group=${NACOS_GROUP:DEFAULT_GROUP}&refreshEnabled=true
+  flyway:
+    locations: classpath:db/migration,classpath:db/localmigration
+  cloud:
+    nacos:
+      discovery:
+        enabled: true
+      config:
+        enabled: true
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 所有值通过 ../.env.example 中的环境变量注入。
+# 复制为 application-local.yml 后可使用 --spring.profiles.active=local 启动。

@@ -1,0 +1,48 @@
+server:
+  port: ${GATEWAY_SERVER_PORT:18080}
+
+spring:
+  application:
+    name: edu-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  cloud:
+    nacos:
+      config:
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        username: ${NACOS_USERNAME:}
+        password: ${NACOS_PASSWORD:}
+      discovery:
+        enabled: ${NACOS_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        username: ${NACOS_USERNAME:}
+        password: ${NACOS_PASSWORD:}
+
+edu:
+  gateway:
+    jwt:
+      secret: ${JWT_SECRET}
+      ttl: ${JWT_TTL:PT2H}
+      issuer: ${JWT_ISSUER:edu-biz-service}
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    ai-rate-limit:
+      replenish-rate: ${AI_RATE_REPLENISH:5}
+      burst-capacity: ${AI_RATE_BURST:10}
+      requested-tokens: 1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  pattern:
+    level: "%5p [traceId:%X{traceId:-}]"
