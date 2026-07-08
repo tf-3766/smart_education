@@ -1,0 +1,117 @@
+name: Auto Dev Log
+
+on:
+  push:
+    branches:
+      - "**"
+    paths-ignore:
+      - "docs/dev-log/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-dev-log-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update-dev-log:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Generate dev log
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p docs/dev-log
+
+          DATE=$(TZ=Asia/Shanghai date +%F)
+          NOW=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S %Z')
+          FILE="docs/dev-log/${DATE}.md"
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          RANGE=""
+          ROOT_COMMIT=false
+
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            if git rev-parse "${AFTER}^" >/dev/null 2>&1; then
+              RANGE="${AFTER}^..${AFTER}"
+            else
+              ROOT_COMMIT=true
+            fi
+          else
+            RANGE="${BEFORE}..${AFTER}"
+          fi
+
+          {
+            echo ""
+            echo "## ${DATE} - ${GITHUB_REF_NAME}"
+            echo ""
+            echo "- Event: ${GITHUB_EVENT_NAME}"
+            echo "- Generated at: ${NOW}"
+            echo "- Source SHA: ${AFTER}"
+            echo ""
+            echo "### Commits"
+          } >> "$FILE"
+
+          if [ "$ROOT_COMMIT" = true ]; then
+            COMMITS=$(git log --no-merges --pretty=format:'- `%h` %s (%an)' -1 "$AFTER" || true)
+          else
+            COMMITS=$(git log --no-merges --pretty=format:'- `%h` %s (%an)' "$RANGE" || true)
+          fi
+
+          if [ -n "$COMMITS" ]; then
+            printf '%s\n' "$COMMITS" >> "$FILE"
+          else
+            echo "- 无新增非合并提交。" >> "$FILE"
+          fi
+
+          {
+            echo ""
+            echo "### Changed Files"
+          } >> "$FILE"
+
+          if [ "$ROOT_COMMIT" = true ]; then
+            CHANGED_FILES=$(git diff-tree --no-commit-id --name-status -r --root "$AFTER" | sed 's/^/- /' || true)
+          else
+            CHANGED_FILES=$(git diff --name-status "$RANGE" | sed 's/^/- /' || true)
+          fi
+
+          if [ -n "$CHANGED_FILES" ]; then
+            printf '%s\n' "$CHANGED_FILES" >> "$FILE"
+          else
+            echo "- 无文件变化。" >> "$FILE"
+          fi
+
+          {
+            echo ""
+            echo "### Notes"
+            echo "- 本日志由 GitHub Actions 自动生成。"
+            echo "- 具体功能总结由 ChatGPT 每日简报进一步归纳。"
+          } >> "$FILE"
+
+      - name: Commit dev log
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/dev-log/
+          if git diff --cached --quiet; then
+            echo "No dev log changes."
+          else
+            git commit -m "chore: auto update dev log [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
