@@ -43,6 +43,9 @@ These are planning slots only. Do not create the SQL until the corresponding API
 | `VyyyyMMddHHmmss__create_notice_tables.sql` | Member A | course notice, system notice | notice contract reviewed |
 | `VyyyyMMddHHmmss__extend_exam_session_tables.sql` | Member B | exam session, autosave, proctor log, auto grading rules | exam session ADR reviewed |
 | `VyyyyMMddHHmmss__extend_ai_audit_tables.sql` | Member A+B | AI citation persistence or adoption history extensions | ADR 0001 boundary and relevant Biz workflow reviewed |
+| `VyyyyMMddHHmmss__extend_assignment_grade_workflow.sql` | Member A | assignment, submission, grade workflow gaps only if contract review proves current tables are insufficient | `docs/api-contract-assignment.md` and `docs/api-contract-grade.md` reviewed |
+| `VyyyyMMddHHmmss__extend_forum_warning_workflow.sql` | Member A | forum governance or warning handling gaps only if current tables are insufficient | `docs/api-contract-forum.md` and `docs/api-contract-warning.md` reviewed |
+| `VyyyyMMddHHmmss__create_submission_attachment_tables.sql` | Member A | submission attachment metadata only if frontend requires multiple submission files | submission attachment contract reviewed |
 
 ## Review Checklist
 
