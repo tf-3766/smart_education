@@ -25,7 +25,7 @@
 /api/v1/teacher/courses/{courseId}/assignments
 /api/v1/teacher/assignments/{assignmentId}/submissions
 /api/v1/admin/course-reviews/{reviewId}
-/api/v1/ai/course-qa/streams
+/api/v1/ai/courses/{courseId}/qa/stream
 ```
 
 - 使用小写复数名词和连字符。
@@ -351,7 +351,7 @@ Content-Type: multipart/form-data
 推荐使用 POST 创建流：
 
 ```http
-POST /api/v1/ai/course-qa/streams
+POST /api/v1/ai/courses/{courseId}/qa/stream
 Accept: text/event-stream
 Content-Type: application/json
 Authorization: Bearer <token>

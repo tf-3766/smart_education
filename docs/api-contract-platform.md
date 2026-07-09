@@ -41,7 +41,7 @@ ID 对外统一按字符串传输；时间使用 RFC 3339；分页参数为 `pag
 
 ## 3. 课程与学习
 
-课程与学习接口已在 `docs/course-api-contract.md` 和 `docs/openapi/course-module.openapi.yaml` 细化。本接口文档保留总入口：
+课程与学习接口已在当前代码和 `docs/openapi/course-module.openapi.yaml` 中细化。本接口文档保留总入口，并作为前端联调的统一索引：
 
 | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|

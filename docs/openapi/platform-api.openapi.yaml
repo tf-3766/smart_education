@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: 在线教育辅助教学系统 - 全局前后端接口契约
   version: 0.3.0
-  description: 面向前端、Biz 后端和 AI 后端并行开发的接口草案。已实现课程接口以 course-module.openapi.yaml 为准。
+  description: 面向前端、Biz 后端和 AI 后端并行开发的接口草案。课程学习已实现接口另保留 course-module.openapi.yaml 作为导入型补充契约。
 servers:
   - url: http://localhost:18080
     description: edu-gateway

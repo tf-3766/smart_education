@@ -1,7 +1,7 @@
 # 在线教育辅助教学系统前端视觉规范
 
 > 适用技术：Vue 3 + Vite + TypeScript + Element Plus  
-> 依据文档：[`design-research.md`](./design-research.md)、[`sitemap.md`](./sitemap.md)  
+> 依据文档：[`sitemap.md`](./sitemap.md)、[`wireframes.md`](./wireframes.md)、[`docs/three-person-development-plan.md`](./docs/three-person-development-plan.md)  
 > 当前阶段：统一视觉、组件与交互规则；不包含具体 Vue 页面代码或依赖安装。
 
 ## 1. 规范目标
@@ -1100,4 +1100,3 @@ AI 区域不能覆盖原业务的保存、提交、发布和权限校验。
 - [空状态](https://element-plus.org/en-US/component/empty)
 - [骨架屏](https://element-plus.org/en-US/component/skeleton)
 - [图标](https://element-plus.org/en-US/component/icon)
-

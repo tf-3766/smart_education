@@ -22,7 +22,6 @@ OUT_MD = ROOT / "在线教育辅助教学系统_需求分析说明书_第1组.md
 
 PROJECT_FILES = [
     "E:/第1组-Xxxx需求规格说明书.doc",
-    "design-research.md",
     "sitemap.md",
     "ui-spec.md",
     "wireframes.md",
@@ -31,10 +30,12 @@ PROJECT_FILES = [
     "docs/backend-architecture.md",
     "docs/api-style.md",
     "docs/database-conventions.md",
-    "docs/course-module-design.md",
-    "docs/course-api-contract.md",
-    "docs/course-module-delivery.md",
+    "docs/api-contract-platform.md",
+    "docs/database-schema-design.md",
+    "docs/requirements-compliance-review.md",
+    "docs/three-person-development-plan.md",
     "docs/openapi/course-module.openapi.yaml",
+    "docs/openapi/platform-api.openapi.yaml",
     "backend/README.md",
     "backend/pom.xml",
     "package.json",
@@ -315,8 +316,8 @@ def add_material_check(builder: Builder) -> None:
         ["检查项", "结果"],
         [
             ["老师模板/样例", "已找到 E:/第1组-Xxxx需求规格说明书.doc，并转换为可读 docx/txt 作为格式参考。该样例文件业务主题与本项目不同，本文只参考其章节层级、封面、目录和正式程度，不复制其业务内容。"],
-            ["项目设计材料", "已找到 design-research.md、sitemap.md、ui-spec.md、wireframes.md、CONTEXT.md、README.md。"],
-            ["后端与接口材料", "已找到 backend-architecture.md、api-style.md、database-conventions.md、course-module-design.md、course-api-contract.md、course-module-delivery.md、OpenAPI 文件、Flyway 脚本和后端 pom.xml。"],
+            ["项目设计材料", "已找到 sitemap.md、ui-spec.md、wireframes.md、CONTEXT.md、README.md。"],
+            ["后端与接口材料", "已找到 backend-architecture.md、api-style.md、database-conventions.md、api-contract-platform.md、database-schema-design.md、requirements-compliance-review.md、three-person-development-plan.md、OpenAPI 文件、Flyway 脚本和后端 pom.xml。"],
             ["当前能确认的信息", "项目名称为在线教育辅助教学系统；小组为第一组；技术栈包含 Vue 3、Vite、TypeScript、Element Plus、Spring Boot 3.5.0、JDK 21、Spring Cloud Alibaba、MyBatis-Plus、MySQL 8、Redis、RabbitMQ、Nacos，并规划 AI 服务、RAG、SSE 和向量库。"],
             ["来自真实材料的范围", "课程、章节、课时、课程资料、教师负责人/协作者、课程审核、学生选课、学习记录、进度聚合、JWT、资源级权限、统一响应、Flyway、AI 服务边界。"],
             ["合理需求设计补足", "作业、考试、题库、成绩、论坛、公告、学习风险预警、管理员统计、AI 评语草稿、摘要、组卷建议等在项目材料中已有规划方向但未全部实现，本文按教学闭环补足需求。"],
@@ -353,7 +354,7 @@ def add_intro(builder: Builder) -> None:
         "Spring Boot 官方参考文档: https://docs.spring.io/spring-boot/documentation.html",
         "Element Plus 官方文档: https://element-plus.org/",
         "Spring AI 官方参考文档: https://docs.spring.io/spring-ai/reference/index.html",
-        "第一组在线教育辅助教学系统项目材料: design-research.md、sitemap.md、ui-spec.md、wireframes.md、docs/backend-architecture.md、docs/course-module-design.md、docs/course-api-contract.md.",
+        "第一组在线教育辅助教学系统项目材料: sitemap.md、ui-spec.md、wireframes.md、docs/backend-architecture.md、docs/api-contract-platform.md、docs/database-schema-design.md.",
         "老师样例文件: E:/第1组-Xxxx需求规格说明书.doc.",
     ]
     builder.numbered(refs)

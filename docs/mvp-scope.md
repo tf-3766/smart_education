@@ -88,35 +88,35 @@ MVP 必须能演示下面的闭环：
 | 学习预警 | A | 正式预警记录、证据、状态由 Biz 保存；AI 只生成解释和建议草稿 |
 | AI 评语 | B 提供草稿，A 保存事实 | 教师确认前不是正式评语；确认后由 A 写入成绩/评语记录 |
 
-## 7. 第 1 阶段前最终检查清单
+## 7. 第 1 阶段启动检查清单
 
-- [ ] 只完成第 0 阶段文档，没有创建作业、考试、AI、论坛业务表。
-- [ ] 没有批量生成 Controller、Service、Mapper。
-- [ ] ADR 0001 明确 AI 不访问 Biz MySQL、不写正式业务表。
-- [ ] ADR 0002 明确 Flyway 秒级时间戳和历史迁移不可修改。
-- [ ] ADR 0003 明确 Fake Adapter、Spring AI + Qdrant、GitHub + `.gitlab-ci.yml`。
-- [ ] `docs/migration-register.md` 登记现有 V1-V3 和未来迁移 slots。
-- [ ] `docs/module-ownership.md` 明确 A/B 独占包、独占表和禁止修改区域。
-- [ ] `dev` 是唯一后端集成分支。
-- [ ] `backend-1`、`backend-2` 只作为个人备份或临时分支。
-- [ ] 成员 B 负责每日公共 PR 排队和合并执行；数据库/权限/Flyway 必须 A review。
-- [ ] 成员 B 主负责最终 Docker、CI、启动文档；成员 A 主负责最终 Biz 演示数据。
+- [x] ADR 0001 明确 AI 不访问 Biz MySQL、不写正式业务表。
+- [x] ADR 0002 明确 Flyway 秒级时间戳和历史迁移不可修改。
+- [x] ADR 0003 明确 Fake Adapter、Spring AI + Qdrant、GitHub + `.gitlab-ci.yml`。
+- [x] `docs/migration-register.md` 登记 V1、V2、V3 和 `V20260709110000`。
+- [x] 作业、考试、AI 采用审计、论坛、预警基础表已创建。
+- [x] 对应 Entity/Mapper 骨架已创建。
+- [x] `edu-feign-api` 已纳入 Maven 模块和 AI/Biz 依赖。
+- [x] `docs/three-person-development-plan.md` 明确前端 C 与后端 A/B 的协作方式。
+- [ ] 后端 A 补作业/成绩/论坛/预警 Controller、Service、DTO/VO、集成测试。
+- [ ] 后端 B 补 AI Fake Adapter/SSE、考试题库 Controller、Service、Gateway 联调。
+- [ ] 前端 C 接入真实 API、登录态、错误态和联调数据。
+- [ ] `dev` 是唯一后端集成分支，功能分支从最新 `dev` 创建。
 
-## 8. 明天第一个分支
+## 8. 推荐第一个实现分支
 
-成员 A 明天第一个分支：
-
-```text
-feature/assignment-grade-contract
-```
-
-目标：只写作业、提交、评分、成绩统计的 API/表设计文档和测试计划；不要创建业务表。
-
-成员 B 明天第一个分支：
+成员 A 第一个实现分支：
 
 ```text
-feature/ai-fake-adapter-contract
+feature/assignment-grade-api
 ```
 
-目标：只写 AI Fake Adapter、SSE 事件、引用结构、错误响应和 Spring AI/Qdrant 替换点契约；不要实现真实模型调用。
+目标：基于已完成的表、Entity/Mapper 和接口契约，实现作业、提交、评分、成绩统计的最小闭环。
 
+成员 B 第一个实现分支：
+
+```text
+feature/ai-fake-sse-exam-api
+```
+
+目标：实现 AI Fake Adapter、SSE 事件、引用结构、考试题库最小 API 和 Gateway 转发验证。

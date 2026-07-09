@@ -2,7 +2,7 @@
 
 ## 1. 当前交付范围
 
-当前已完成基础工程、统一响应、JWT 登录、角色/权限校验、Flyway 认证表、Gateway 路由与 AI 服务健康检查。尚未实现注册、找回密码、刷新令牌、Redis Token 黑名单、课程、章节、作业、成绩、考试、论坛、模型、向量库、RAG 或 SSE 业务。
+当前已完成基础工程、统一响应、JWT 登录、角色/权限校验、课程学习基础接口、课程审核、Flyway 认证/课程/协作学习表、Gateway 路由、`edu-feign-api` 契约模块、AI 服务健康检查和 Biz 课程上下文内部接口。尚未实现注册、找回密码、刷新令牌、Redis Token 黑名单、作业/成绩/考试/论坛/预警的公开业务闭环、真实模型、向量库、RAG 或公开 SSE 业务。
 
 版本基线：JDK 21、Spring Boot 3.5.0、Spring Cloud 2025.0.0、Spring Cloud Alibaba 2025.0.0.0、MyBatis-Plus 3.5.12、MySQL 8.0。
 
@@ -22,12 +22,23 @@ backend/
 ├─ edu-biz-service/
 │  └─ src/main/
 │     ├─ java/.../auth/            # 登录、当前用户、角色权限
+│     ├─ java/.../course/          # 课程、章节、课时、资料、选课、学习进度
+│     ├─ java/.../assignment/      # 作业、附件、提交 Entity/Mapper 骨架
+│     ├─ java/.../grade/           # 成绩 Entity/Mapper 骨架
+│     ├─ java/.../forum/           # 论坛 Entity/Mapper 骨架
+│     ├─ java/.../warning/         # 学习预警 Entity/Mapper 骨架
+│     ├─ java/.../exam/            # 考试、题库、试卷 Entity/Mapper 骨架
+│     ├─ java/.../ai/              # Biz 提供给 AI 的内部上下文接口
 │     ├─ java/.../shared/          # Security、异常、审计、MyBatis-Plus
 │     └─ resources/db/
 │        ├─ migration/V1__init_auth_tables.sql
+│        ├─ migration/V2__create_course_tables.sql
+│        ├─ migration/V3__create_course_review_table.sql
+│        ├─ migration/V20260709110000__create_learning_collaboration_tables.sql
 │        ├─ localmigration/R__local_test_accounts.sql
-│        └─ localmigration/R__local_course_test_data.sql
-└─ edu-ai-service/                 # 可启动骨架与 Actuator 健康检查
+│        ├─ localmigration/R__local_course_test_data.sql
+│        └─ localmigration/R__local_learning_collaboration_demo.sql
+└─ edu-ai-service/                 # 可启动骨架、Actuator 健康检查和 Feign 客户端接入
 
 deploy/docker-compose.yml          # MySQL、Redis、RabbitMQ、Nacos
 docs/                              # 架构、编码、数据库、API 与协作规范
@@ -80,8 +91,8 @@ java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.
 
 ## 5. Flyway 初始化
 
-- Biz 启动时自动执行 `db/migration/V1__init_auth_tables.sql`，创建 5 张认证表并初始化 `STUDENT/TEACHER/ADMIN` 和最小权限。
-- local/test profile 随后加载 `db/localmigration/R__local_test_accounts.sql`，创建 BCrypt 测试账号。
+- Biz 启动时自动执行 `db/migration`，创建认证、课程、课程审核、作业、成绩、论坛、预警、考试、题库和 AI 采用审计基础表。
+- local/test profile 随后加载 `db/localmigration`，创建 BCrypt 测试账号、课程测试数据和协作学习演示数据。
 - dev/生产只加载 `db/migration`，不创建测试账号。
 - 迁移不使用物理外键；关联一致性由应用服务、唯一约束和索引保证。
 - 禁止手工修改共享数据库，也禁止修改已经在共享环境执行过的迁移。
@@ -103,6 +114,24 @@ java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.
 POST /api/v1/auth/login
 GET  /api/v1/auth/me
 POST /api/v1/auth/logout
+GET/POST /api/v1/teacher/courses
+GET/PUT  /api/v1/teacher/courses/{courseId}
+POST /api/v1/teacher/courses/{courseId}/submit-review
+POST /api/v1/teacher/courses/{courseId}/publish
+POST /api/v1/teacher/courses/{courseId}/offline
+GET/POST /api/v1/teacher/courses/{courseId}/chapters
+GET/POST /api/v1/teacher/chapters/{chapterId}/lessons
+GET/POST /api/v1/teacher/courses/{courseId}/materials
+GET  /api/v1/admin/course-reviews
+POST /api/v1/admin/course-reviews/{courseId}/approve
+POST /api/v1/admin/course-reviews/{courseId}/reject
+GET  /api/v1/student/courses/catalog
+GET  /api/v1/student/courses
+POST /api/v1/student/courses/{courseId}/enroll
+GET  /api/v1/student/courses/{courseId}/outline
+POST /api/v1/student/lessons/{lessonId}/start
+POST /api/v1/student/lessons/{lessonId}/complete
+POST /_internal/v1/ai-context/course # 内部 Feign，不经 Gateway 对外暴露
 GET  /api/v1/test/student
 GET  /api/v1/test/teacher
 GET  /api/v1/test/admin

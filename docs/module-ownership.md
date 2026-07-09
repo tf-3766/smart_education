@@ -1,11 +1,12 @@
-# 双人模块归属与协作边界
+# 三人开发中的后端模块归属与协作边界
 
-> 本文冻结双人后端协作基线。它划分的是代码、数据和评审责任，不代表新增微服务。除 `edu-gateway` 和 `edu-ai-service` 外，传统业务仍部署在 `edu-biz-service`；`edu-common` 与 `edu-feign-api` 都只是 Maven 模块。
+> 本文冻结三人开发中的后端协作基线。它划分的是代码、数据和评审责任，不代表新增微服务。除 `edu-gateway` 和 `edu-ai-service` 外，传统业务仍部署在 `edu-biz-service`；`edu-common` 与 `edu-feign-api` 都只是 Maven 模块。前端成员的页面与联调任务见 `docs/three-person-development-plan.md`。
 
 ## 1. 基线决策
 
 - 成员 A 负责 Biz 主链和正式业务事实。
 - 成员 B 负责 AI、考试题库、网关、Docker、CI 和联调。
+- 成员 C 负责 Vue 前端页面、API client、路由守卫、加载/错误/空状态和演示流程联调。
 - `dev` 是唯一后端集成分支。
 - `backend-1`、`backend-2` 只作为个人备份或临时分支，不作为长期集成分支。
 - 所有 `feature/*`、`fix/*`、`docs/*` 从最新 `dev` 创建，通过 PR 回到 `dev`。

@@ -1,6 +1,6 @@
 # 在线教育辅助教学系统 Sitemap 与路由规划
 
-> 基于 [`design-research.md`](./design-research.md) 的视觉方向与信息架构继续细化。  
+> 基于需求说明书、[`ui-spec.md`](./ui-spec.md) 与 [`docs/api-contract-platform.md`](./docs/api-contract-platform.md) 的页面、权限和接口边界继续细化。  
 > 当前阶段只定义页面、导航、路由、权限与跳转关系，不包含 Vue 页面、组件或业务代码。
 
 ## 1. 规划结论
@@ -77,10 +77,10 @@
 │  │  ├─ [二级] 成绩总览                        /student/grades
 │  │  │  └─ [详情] 课程成绩详情                  /student/grades/courses/:courseId
 │  │  └─ [二级][AI] 学习进度与预警               /student/progress
-│  │     └─ [详情][AI] 预警详情与改进计划         /student/progress/warnings/:warningId
+│  │     └─ [详情][AI] 预警详情与改进计划         /student/warnings/:warningId
 │  ├─ [一级] 互动交流
 │  │  ├─ [二级] 课程论坛                        /student/forums
-│  │  │  └─ [详情] 帖子详情与评论                /student/forums/posts/:postId
+│  │  │  └─ [详情] 主题详情与回复                /student/courses/:courseId/forum/topics/:topicId
 │  │  └─ [二级] 公告中心                        /student/announcements
 │  │     └─ [详情] 公告详情                      /student/announcements/:announcementId
 │  └─ [一级][AI] AI 学习助手                    /student/ai-assistant
@@ -234,9 +234,9 @@
 | 成绩总览 | `StudentGradeOverview` | `/student/grades` | 学生 | 跨课程查看成绩结论 | 学期筛选、课程成绩、成绩趋势、未发布状态、进入明细 | 传统业务 | 登录 + `student`；仅本人已授权成绩 |
 | 课程成绩详情 | `StudentCourseGrade` | `/student/grades/courses/:courseId` | 学生 | 理解单门课程成绩构成 | 作业/考试/平时权重、逐项得分、评语、及格线、发布状态 | 传统业务 | 登录 + `student`；仅本人且已选课程 |
 | 学习进度与预警 | `StudentProgress` | `/student/progress` | 学生 | 查看进度、风险和改进行动 | 课程进度、近期活跃、缺交/低分提醒、预警列表、建议动作 | 传统 + AI 嵌入 | 登录 + `student`；仅本人数据；AI 建议不可替代正式成绩 |
-| 预警详情 | `StudentWarningDetail` | `/student/progress/warnings/:warningId` | 学生 | 理解某条预警的原因与改进计划 | 触发依据、相关任务、风险解释、建议计划、已读/完成状态 | 传统 + AI 嵌入 | 登录 + `student`；仅本人预警；隐藏不应公开的模型内部信息 |
+| 预警详情 | `StudentWarningDetail` | `/student/warnings/:warningId` | 学生 | 理解某条预警的原因与改进计划 | 触发依据、相关任务、风险解释、建议计划、已读/完成状态 | 传统 + AI 嵌入 | 登录 + `student`；仅本人预警；隐藏不应公开的模型内部信息 |
 | 课程论坛 | `StudentForumList` | `/student/forums` | 学生 | 跨课程查看并参与讨论 | 课程筛选、帖子列表、发帖、我的帖子/回复 | 传统业务 | 登录 + `student`；仅已选课程论坛，遵守内容状态 |
-| 帖子详情 | `StudentForumPost` | `/student/forums/posts/:postId` | 学生 | 阅读帖子并发表评论 | 帖子、评论、回复、编辑/删除本人内容、举报 | 传统业务 | 登录 + `student`；课程成员可见；只能管理本人内容 |
+| 主题详情 | `StudentForumTopic` | `/student/courses/:courseId/forum/topics/:topicId` | 学生 | 阅读主题并回复 | 主题、回复、编辑/删除本人内容、举报 | 传统业务 | 登录 + `student`；课程成员可见；只能管理本人内容 |
 | 公告中心 | `StudentAnnouncementList` | `/student/announcements` | 学生 | 查看校级和课程公告 | 课程筛选、未读、置顶、详情、业务链接 | 传统业务 | 登录 + `student`；仅目标范围包含该学生的公告 |
 | 公告详情 | `StudentAnnouncementDetail` | `/student/announcements/:announcementId` | 学生 | 阅读完整公告 | 正文、附件、发布时间、相关课程跳转 | 传统业务 | 登录 + `student`；校验公告受众与发布状态 |
 | AI 学习助手 | `StudentAiAssistant` | `/student/ai-assistant` | 学生 | 在完整视图中延续课程答疑 | 会话历史、课程/章节上下文、来源、提示式问答、生成练习 | AI 模块 | 登录 + `student`；只能引用本人有权访问的课程材料；必须携带或选择上下文 |

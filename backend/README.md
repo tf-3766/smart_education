@@ -3,9 +3,10 @@
 Maven 多模块后端：
 
 - `edu-common`：稳定技术协议，不包含业务 Entity/Service/DTO。
+- `edu-feign-api`：服务间 Feign Client 与内部 DTO 契约，不单独部署。
 - `edu-gateway`：统一入口、JWT、CORS、traceId、AI Redis 限流。
-- `edu-biz-service`：业务事实、MySQL/Flyway、权限和审计。
-- `edu-ai-service`：当前阶段只有可启动骨架和健康检查；尚未接入模型、向量库、RAG 或 SSE。
+- `edu-biz-service`：业务事实、MySQL/Flyway、权限、课程学习、作业/成绩/论坛/预警/考试基础表和审计。
+- `edu-ai-service`：当前阶段有可启动骨架、健康检查和 Feign 契约接入；尚未接入模型、向量库、RAG 或公开 SSE。
 
 构建：
 
