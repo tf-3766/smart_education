@@ -42,7 +42,7 @@ class CourseSchemaMigrationTest {
                         "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS "
                                 + "WHERE CONSTRAINT_SCHEMA = 'public' AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
                         Integer.class));
-        assertEquals("3", flyway.info().current().getVersion().getVersion());
+        assertEquals("20260709110000", flyway.info().current().getVersion().getVersion());
     }
 
     @Test

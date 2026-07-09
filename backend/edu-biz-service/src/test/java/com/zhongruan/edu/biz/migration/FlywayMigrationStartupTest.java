@@ -29,6 +29,18 @@ class FlywayMigrationStartupTest {
                 String.class));
         assertTrue(tables.containsAll(Set.of(
                 "sys_user", "sys_role", "sys_permission", "sys_user_role", "sys_role_permission")));
+        assertTrue(tables.containsAll(Set.of(
+                "edu_assignment",
+                "edu_assignment_submission",
+                "edu_grade_record",
+                "edu_forum_topic",
+                "edu_learning_warning",
+                "edu_exam",
+                "edu_question_bank",
+                "edu_question",
+                "edu_exam_paper",
+                "edu_exam_attempt",
+                "edu_ai_generation_record")));
         assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
         assertEquals(
                 4,
@@ -48,6 +60,11 @@ class FlywayMigrationStartupTest {
                         "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS "
                                 + "WHERE CONSTRAINT_SCHEMA = 'public' AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
                         Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_assignment", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_assignment_submission", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_grade_record", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_exam_attempt", Integer.class));
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_ai_generation_record", Integer.class));
         assertEquals("1", flyway.info().applied()[0].getVersion().getVersion());
     }
 }

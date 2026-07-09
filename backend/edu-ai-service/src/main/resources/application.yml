@@ -18,6 +18,12 @@ spring:
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         username: ${NACOS_USERNAME:}
         password: ${NACOS_PASSWORD:}
+    openfeign:
+      client:
+        config:
+          edu-biz-service:
+            connect-timeout: ${BIZ_FEIGN_CONNECT_TIMEOUT_MS:1500}
+            read-timeout: ${BIZ_FEIGN_READ_TIMEOUT_MS:5000}
 edu:
   ai:
     jwt:

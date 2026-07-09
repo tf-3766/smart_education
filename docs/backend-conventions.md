@@ -106,6 +106,22 @@ com.example.edu.ai
 └─ shared
 ```
 
+### 2.4 `edu-feign-api`
+
+```text
+com.example.edu.feign
+├─ ai/
+│  ├─ BizAiContextFeignClient
+│  ├─ AiCourseContextRequest
+│  └─ AiCourseContextResponse
+└─ <domain>/
+   ├─ XxxFeignClient
+   ├─ XxxContextRequest
+   └─ XxxContextResponse
+```
+
+`edu-feign-api` 只保存跨服务同步调用契约。允许放 Feign Client、内部 DTO、稳定枚举和少量契约常量；禁止放数据库 Entity、Mapper、业务 Service、Controller 实现、前端 VO、模型 provider 或任何连接配置。Biz 服务实现契约，AI/Gateway 等消费方依赖契约。
+
 ## 3. 类型职责边界
 
 | 类型 | 职责 | 允许 | 禁止 |

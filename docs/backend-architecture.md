@@ -6,7 +6,7 @@
 
 ## 1. 架构原则
 
-1. 只部署三个应用服务：`edu-gateway`、`edu-biz-service`、`edu-ai-service`。Maven 公共库不算微服务。
+1. 只部署三个应用服务：`edu-gateway`、`edu-biz-service`、`edu-ai-service`。`edu-common` 和 `edu-feign-api` 都是 Maven 模块，不算微服务。
 2. `edu-biz-service` 是用户、权限、课程、提交、成绩、考试等业务事实的唯一权威来源。
 3. `edu-ai-service` 是无状态计算服务。它可以使用自己负责的 Qdrant/Milvus 向量集合和短期 Redis 任务状态，但不读取、写入 `edu-biz-service` 的 MySQL。
 4. 外部请求只进入网关；服务之间的同步调用走内部接口和 OpenFeign，异步处理走 RabbitMQ。
@@ -30,6 +30,8 @@ flowchart LR
     A --> AR[("Redis: 短期任务状态")]
 
     A -->|"OpenFeign: 权限校验与最小上下文"| B
+    F["edu-feign-api: Feign DTO/Client 契约"] -.-> A
+    F -.-> B
     B -->|"索引、通知、批处理事件"| MQ[("RabbitMQ")]
     MQ --> A
     A -->|"索引完成/失败事件"| MQ
@@ -140,7 +142,7 @@ edu-ai-service
 - 原始用户 `userId`、当前角色、`traceId`；用户身份不能仅靠可伪造普通请求头。
 - 明确的用途 `purpose`，如 `COURSE_QA`、`GRADING_COMMENT_DRAFT`。
 
-内部 API 只在确有两个适配器时建立接口：生产使用 Feign adapter，测试使用 in-memory adapter。不要为了分层制造一组只透传的方法。
+内部 API 只在确有两个适配器时建立接口：生产使用 Feign adapter，测试使用 in-memory adapter。服务间同步调用的 DTO 和 Feign Client 放在 `edu-feign-api`，不要让 AI 或 Gateway 依赖 Biz Entity、Mapper 或 Service 实现，也不要为了分层制造一组只透传的方法。
 
 ### 4.3 AI 交互闭环
 
@@ -283,6 +285,7 @@ zhongruan/
 ├─ backend/
 │  ├─ pom.xml                         # 聚合父工程、BOM 和插件版本
 │  ├─ edu-common/                    # 只放技术协议，不部署
+│  ├─ edu-feign-api/                 # 服务间 Feign DTO/Client 契约，不部署
 │  ├─ edu-gateway/
 │  ├─ edu-biz-service/
 │  └─ edu-ai-service/
@@ -299,15 +302,18 @@ zhongruan/
 
 `edu-common` 不是第四个服务。它只能包含 `ApiResponse`、`PageResponse`、错误码接口、请求追踪和少量通用校验；一旦出现课程、作业、用户 Entity 或业务状态枚举，应移回所有者模块。
 
+`edu-feign-api` 也不是第四个服务。它只能包含跨服务 DTO、Feign Client 和版本化内部契约；不得放数据库 Entity、Mapper、业务 Service、Controller 实现或前端 VO。
+
 ## 11. 第一阶段最小可运行骨架
 
 第一阶段只创建：
 
 1. Maven 父工程：JDK 21、依赖 BOM、编译/测试/格式插件。
 2. `edu-common`：统一响应、分页、异常码接口、traceId，不放业务模型。
-3. `edu-gateway`：Nacos 注册、显式路由、JWT 验证骨架、CORS、统一网关错误、AI 限流占位。
-4. `edu-biz-service`：MySQL/Flyway/MyBatis-Plus/Redis、全局异常、参数校验、审计字段自动填充、健康检查。
-5. `edu-ai-service`：本阶段只提供可启动骨架和 Actuator 健康检查，不接入模型、向量库、RAG 或 SSE 业务。
+3. `edu-feign-api`：服务间 Feign DTO/Client 契约，不放业务实现。
+4. `edu-gateway`：Nacos 注册、显式路由、JWT 验证骨架、CORS、统一网关错误、AI 限流占位。
+5. `edu-biz-service`：MySQL/Flyway/MyBatis-Plus/Redis、全局异常、参数校验、审计字段自动填充、健康检查。
+6. `edu-ai-service`：本阶段只提供可启动骨架和 Actuator 健康检查，不接入模型、向量库、RAG 或 SSE 业务。
 6. 本地依赖编排：Nacos、MySQL、Redis、RabbitMQ；向量库留到 AI 阶段选型后再加入。
 7. 冒烟测试：网关显式路由、未登录返回 401、Biz 可在空库执行 Flyway、AI 服务健康检查为 UP。
 

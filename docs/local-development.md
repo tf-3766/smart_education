@@ -17,6 +17,7 @@ backend/
 ├─ .env.example
 ├─ scripts/import-env.ps1
 ├─ edu-common/                     # 响应、分页、错误码、异常、JWT、请求上下文
+├─ edu-feign-api/                  # 服务间 Feign DTO/Client 契约，不单独启动
 ├─ edu-gateway/                    # 路由、CORS、JWT、X-Trace-Id、AI 限流预留
 ├─ edu-biz-service/
 │  └─ src/main/
@@ -42,7 +43,7 @@ Copy-Item backend\edu-ai-service\src\main\resources\application-local.yml.exampl
 . .\backend\scripts\import-env.ps1
 ```
 
-`application-dev.yml.example` 也已在三个服务中提供；共享 dev 环境复制为 `application-dev.yml` 后使用，不能提交真实文件。
+`application-dev.yml.example` 也已在三个应用服务中提供；共享 dev 环境复制为 `application-dev.yml` 后使用，不能提交真实文件。`edu-common` 与 `edu-feign-api` 是库模块，不需要 profile 文件。
 
 | 变量 | 用途 | 是否必填 |
 |---|---|---|
@@ -199,7 +200,7 @@ Set-Location backend
 - `RequestContext`、`RequestSource`、`TraceIds`；
 - Biz 内的 `BaseAuditEntity`、`ResourceScopeAuthorizer` 和统一安全/异常设施。
 
-不要随意修改：父 POM 版本矩阵、`edu-common` 公共契约、Security filter chain、`BaseAuditEntity`、已执行 Flyway 脚本、Gateway 路由和三个服务的基础配置。公共改动必须单独 PR 并说明兼容性。
+不要随意修改：父 POM 版本矩阵、`edu-common` 公共契约、`edu-feign-api` 服务间契约、Security filter chain、`BaseAuditEntity`、已执行 Flyway 脚本、Gateway 路由和三个服务的基础配置。公共改动必须单独 PR 并说明兼容性。
 
 后续新增规则：
 

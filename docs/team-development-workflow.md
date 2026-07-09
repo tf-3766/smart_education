@@ -156,6 +156,7 @@ chore(build): align Spring BOM versions
 
 - Maven 父 `pom.xml`、BOM、插件或 JDK 版本。
 - `edu-common` 公共类型。
+- `edu-feign-api` 服务间契约类型。
 - Gateway 路由、CORS、JWT、安全过滤器、AI 限流。
 - `application.yml`、Nacos 配置、环境变量名。
 - Flyway 脚本、核心表、公共索引。
@@ -171,6 +172,7 @@ chore(build): align Spring BOM versions
 |---|---|---|
 | `backend/pom.xml`、各模块 `pom.xml` | 依赖/BOM 冲突 | 由基础负责人评审；同一时段指定一人合并依赖升级 |
 | `edu-common/**` | 全服务编译影响、错误抽象 | 只放技术契约；修改需至少两个服务验证 |
+| `edu-feign-api/**` | 服务间契约漂移、调用双方编译影响 | 只放 Feign Client 和内部 DTO；修改需提供方和消费方同时验证 |
 | `edu-gateway/**` | 全入口安全和路由影响 | 网关负责人所有；业务组只提契约需求 |
 | `shared/security/**` | 权限绕过 | 权限负责人评审；必须补越权测试 |
 | `db/migration/**` | 版本号、表结构冲突 | 时间戳版本；已执行脚本不可改；冲突方新建更晚 migration |
@@ -192,7 +194,7 @@ chore(build): align Spring BOM versions
 - 模块负责人拥有表、接口前缀和状态枚举，详见 [`module-ownership.md`](./module-ownership.md)。
 - 依赖模块只能调用公开的 application interface、HTTP contract 或事件；禁止直接调用对方 Mapper。
 - 需要修改他人模块时，优先提交接口需求或由所有者实现；紧急共同修改也必须由所有者 review。
-- 服务间禁止共享数据库和复制业务 Entity；公共库只共享技术协议。
+- 服务间禁止共享数据库和复制业务 Entity；`edu-common` 只共享技术协议，`edu-feign-api` 只共享服务间契约 DTO。
 - 多模块功能按“契约 → 提供方 → 消费方 → 端到端测试”的顺序合并，避免互相等待未定义接口。
 
 ## 8. 数据库协作

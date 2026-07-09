@@ -20,6 +20,7 @@
 
     <modules>
         <module>edu-common</module>
+        <module>edu-feign-api</module>
         <module>edu-gateway</module>
         <module>edu-biz-service</module>
         <module>edu-ai-service</module>

@@ -43,7 +43,8 @@ class MySqlFlywayMigrationTest {
     void migrationsRunAgainstMySqlEight() {
         String version = jdbcTemplate.queryForObject("SELECT VERSION()", String.class);
         assertTrue(version.startsWith("8."));
-        assertEquals(3, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
+        assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_assignment", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_exam_attempt", Integer.class));
     }
 }
-

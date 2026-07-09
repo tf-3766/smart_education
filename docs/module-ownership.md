@@ -1,6 +1,6 @@
 # 双人模块归属与协作边界
 
-> 本文冻结第 0 阶段的双人后端协作基线。它划分的是代码、数据和评审责任，不代表新增微服务。除 `edu-gateway` 和 `edu-ai-service` 外，传统业务仍部署在 `edu-biz-service`。
+> 本文冻结双人后端协作基线。它划分的是代码、数据和评审责任，不代表新增微服务。除 `edu-gateway` 和 `edu-ai-service` 外，传统业务仍部署在 `edu-biz-service`；`edu-common` 与 `edu-feign-api` 都只是 Maven 模块。
 
 ## 1. 基线决策
 
@@ -19,6 +19,7 @@
 | 主责 | Biz 主链、正式业务事实、数据库迁移规则、权限和资源范围评审 | AI 服务、考试题库、Gateway、Docker、CI、公共 PR 排队 |
 | 主要服务 | `edu-biz-service` | `edu-ai-service`、`edu-gateway`，以及 `edu-biz-service` 中的 `exam/**` |
 | 独占包 | `auth/**` 主维护，`course/**` 基线维护，`forum/**`，`assignment/**`，`grade/**`，`warning/**` | `com.zhongruan.edu.ai/**`，`exam/**`，`edu-gateway/**`，`backend/scripts/**`，CI 配置 |
+| 共同契约模块 | `edu-common` 技术协议主审 | `edu-feign-api` Feign 契约主审，A 必须 review Biz 上下文和数据字段 |
 | 独占数据 | auth 表、课程表、课程论坛表、作业/提交/成绩/预警表 | 考试安排、题库、试卷草稿表；AI 自有 Redis namespace、Qdrant collection |
 | 依赖对方 | AI 评语草稿、风险解释、组卷建议、Gateway 路由 | 课程、选课、课时、提交、成绩、预警的授权后 context |
 | 禁止越界 | 不直接改 AI provider、SSE 协议、Gateway 限流、Qdrant 配置 | 不直接改作业、成绩、预警、课程正式表或 Biz Mapper |
@@ -55,28 +56,31 @@ edu_course_lesson
 edu_course_material
 edu_lesson_learning_record
 edu_course_review
-```
-
-### 3.3 后续计划表
-
-以下表名是所有权边界，不能在第 0 阶段创建 SQL：
-
-```text
 edu_assignment
 edu_assignment_attachment
 edu_assignment_submission
+edu_grade_record
+edu_forum_topic
+edu_forum_reply
+edu_learning_warning
+edu_warning_evidence
+edu_ai_generation_record
+```
+
+### 3.3 后续扩展表
+
+以下表名仍属于成员 A 的所有权边界。创建前需要先补契约、状态规则和迁移登记：
+
+```text
 edu_submission_attachment
 edu_submission_version
 edu_rubric
 edu_rubric_item
 edu_submission_rubric_score
-edu_grade
 edu_grade_version
-edu_warning
-edu_warning_evidence
 edu_warning_action
-edu_forum_post
-edu_forum_reply
+edu_course_notice
+edu_system_notice
 ```
 
 ### 3.4 业务边界
@@ -95,26 +99,25 @@ edu_forum_reply
 backend/edu-ai-service/src/main/java/com/zhongruan/edu/ai/**
 backend/edu-gateway/src/main/java/com/zhongruan/edu/gateway/**
 backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/exam/**
+backend/edu-feign-api/src/main/java/com/zhongruan/edu/feign/**
 backend/scripts/**
 .gitlab-ci.yml
 ```
 
-### 4.2 后续计划表
-
-以下表名是所有权边界，不能在第 0 阶段创建 SQL：
+### 4.2 已有考试与题库表
 
 ```text
 edu_exam
-edu_exam_candidate
 edu_question_bank
 edu_question
-edu_question_version
 edu_question_option
 edu_exam_paper
 edu_exam_paper_question
+edu_exam_attempt
+edu_exam_answer
 ```
 
-首版不创建完整在线考试会话和答题引擎；如后续需要 `edu_exam_session`、`edu_exam_answer`、`edu_exam_grade`，必须先更新 MVP 范围和 ADR。
+首版已具备题库、试卷、答题记录的基础表。后续如需要复杂在线考试会话、断线恢复、监考和自动判分，可扩展 `edu_exam_session`、`edu_question_version`、`edu_exam_proctor_log`、`edu_exam_auto_grade_rule` 等表，必须先更新 MVP 范围和 ADR。
 
 ### 4.3 AI 自有数据
 
@@ -165,7 +168,8 @@ taskStatus
 | 位置 | Owner | 规则 |
 |---|---|---|
 | `backend/pom.xml`、各模块 `pom.xml` | A+B | 单独 PR，说明依赖影响 |
-| `backend/edu-common/**` | A 主审 | 只放技术协议，不放业务 Entity/DTO |
+| `backend/edu-common/**` | A 主审 | 只放技术协议，不放业务 Entity 或跨服务业务 DTO |
+| `backend/edu-feign-api/**` | B 主审，A review | 只放服务间 Feign Client、内部 DTO 和契约常量，不放实现逻辑 |
 | `backend/edu-biz-service/src/main/resources/db/migration/**` | A 主审 | 使用秒级时间戳；历史迁移不可修改 |
 | `backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/shared/**` | A 主审 | 权限、审计、异常、trace 改动需 B review |
 | `backend/edu-gateway/**` | B 主审 | 业务模块只提路由/限流需求，不写业务逻辑 |
@@ -191,6 +195,6 @@ taskStatus
 - [ ] `docs/mvp-scope.md` 已合并。
 - [ ] `docs/module-ownership.md` 已更新为双人 owner。
 - [ ] 当前第 0 阶段文档 PR 从 `dev` 创建，并准备合回 `dev`。
-- [ ] 未新增作业、考试、AI、论坛业务表。
-- [ ] 未批量生成 Controller、Service、Mapper。
+- [x] 作业、考试、AI 采用审计、论坛、预警基础表已通过 `V20260709110000__create_learning_collaboration_tables.sql` 新增。
+- [x] 已生成对应 Entity/Mapper 骨架；业务 Controller/Service 仍按接口契约分阶段实现。
 - [ ] 成员 A 和成员 B 明确明天的第一个分支。

@@ -18,7 +18,7 @@
 | Git 状态 | 生成本文前当前分支为 `backend-2`，工作区干净，本地领先 `origin/backend-2` 1 个提交 | Git 可用；先提交本文，再 push 或 PR 当前后端提交 |
 | 远端 | `origin = https://github.com/tf-3766/smart_education.git` | 可以按 PR/分支流程协作 |
 | 远端默认分支 | `origin/HEAD -> origin/dev` | 日常集成分支使用 `dev`，不是旧计划里的 `develop` |
-| 已有后端目录 | `backend/edu-common`、`backend/edu-gateway`、`backend/edu-biz-service`、`backend/edu-ai-service` | 继续保持四模块，不新增微服务 |
+| 已有后端目录 | `backend/edu-common`、`backend/edu-feign-api`、`backend/edu-gateway`、`backend/edu-biz-service`、`backend/edu-ai-service` | 继续保持三个应用服务，`edu-common` 与 `edu-feign-api` 是 Maven 模块 |
 | 已有文档目录 | `docs/`，已有架构、规范、课程契约、模块归属、团队 Git 流程 | 本文只补“双人执行计划”，不替代通用规范 |
 
 建议先阅读并保持一致的文档：
@@ -70,6 +70,7 @@ Vue 3 + Docker + GitLab CI/CD deliverable
 | 模块 | 当前职责 | 状态判断 |
 |---|---|---|
 | `edu-common` | 统一响应、错误码、JWT、trace/request context 等技术协议 | 已有基础能力，是高风险公共区 |
+| `edu-feign-api` | 服务间 Feign Client、内部 DTO 和版本化上下文契约 | 新增契约模块，不部署，不放业务 Entity/Mapper |
 | `edu-gateway` | 统一入口、JWT 网关过滤、traceId、AI 限流配置、路由 | 已有骨架，后续需验证 SSE、限流和 CORS |
 | `edu-biz-service` | 认证权限、课程学习、MySQL/Flyway、业务事实 | 已有 auth 和 course 主体，后续业务都应先落在这里 |
 | `edu-ai-service` | AI 服务入口、安全过滤、异常处理、健康检查 | 目前是可启动骨架，尚未形成 RAG/摘要/评语/组卷闭环 |
@@ -127,6 +128,7 @@ V202607071530__create_warning_tables.sql
 
 - `backend/pom.xml` 和各模块 `pom.xml`
 - `backend/edu-common/**`
+- `backend/edu-feign-api/**`
 - `backend/edu-gateway/**`
 - `backend/edu-biz-service/src/main/resources/db/migration/**`
 - `backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/shared/**`
@@ -190,7 +192,7 @@ V202607071530__create_warning_tables.sql
 - AI 只能返回建议、草稿、引用、任务状态；正式保存由 Biz 用例完成。
 - B 做考试时不能直接写 A 的成绩总表。考试成绩如进入总成绩，必须通过 A 提供的成绩接口或事件。
 - A 做作业和预警时不能直接调用 B 的 AI 实现类。只能通过 HTTP 契约、Feign client 或明确 adapter。
-- 两个人都不能“顺手”修改 `edu-common`、父 POM、历史 Flyway、JWT claims、Gateway 安全规则。
+- 两个人都不能“顺手”修改 `edu-common`、`edu-feign-api`、父 POM、历史 Flyway、JWT claims、Gateway 安全规则。
 
 ## 4. MVP 功能范围
 
@@ -251,7 +253,7 @@ V202607071530__create_warning_tables.sql
 | 阶段 | 目标 | 成员 A 任务 | 成员 B 任务 | 共同任务 | 迁移和契约 | 合并顺序 | 验证方式 | 主要冲突 |
 |---|---|---|---|---|---|---|---|---|
 | 第 0 阶段 | 协作基线 | 确认 Biz owner、数据库命名、现有课程状态 | 确认 Gateway/AI owner、部署端口、AI 首版策略 | push 或 PR 当前 `backend-2` 提交；确认 `dev` 为集成分支；更新 owner 文档 | 不新增业务表；先确认时间戳 migration 规则 | docs/chore 先合入 `dev` | `git status` 干净，远端分支可拉取 | `dev`、`backend-1`、`backend-2` 的用途不清 |
-| 第 1 阶段 | 稳固基础 | 冻结 auth/course 公共接口；补缺失权限测试 | 验证 Gateway 到 Biz/AI 路由、401/403/429、SSE 预留 | 补 API style 和错误码约定 | 不改 V1-V3；只新增必要契约文档 | 公共配置 PR 先合，业务 PR 后合 | `mvn clean verify`，Gateway smoke test | `edu-common`、JWT、Gateway 配置 |
+| 第 1 阶段 | 稳固基础 | 冻结 auth/course 公共接口；补缺失权限测试 | 验证 Gateway 到 Biz/AI 路由、401/403/429、SSE 预留 | 补 API style、错误码和 `edu-feign-api` 契约约定 | 不改 V1-V3；新增契约文档和后续时间戳迁移 | 公共配置 PR 先合，业务 PR 后合 | `mvn clean verify`，Gateway smoke test | `edu-common`、`edu-feign-api`、JWT、Gateway 配置 |
 | 第 2 阶段 | 作业、成绩和论坛契约 | 设计作业/提交/评分/成绩/论坛最小表和 API | 设计 AI 评语草稿输入输出 | 确认教师/学生/无关教师权限场景 | A 写 assignment/grade/forum migration；B 写 AI grading contract | 契约 -> migration -> A 实现 -> B 接入 | 作业发布、提交、评分、论坛发帖集成测试 | 作业是否绑定 lesson，成绩是否允许更正，论坛是否属于课程域 |
 | 第 3 阶段 | 作业成绩和论坛闭环 | 实现作业发布、学生提交、教师评分、成绩发布、课程论坛列表/发帖/回复 | 提供 fake AI 评语草稿接口 | 联调教师采用 AI 草稿后保存正式评语 | AI 不写成绩表；正式评语由 A 保存 | A 的 Biz API 先合，B 的 AI 接入后合 | 正常、越权、截止后、重复提交、发布后修改、论坛越权测试 | AI 评语和正式评语边界 |
 | 第 4 阶段 | 课程 AI 答疑和章节摘要 | 提供课程/资料/选课授权 context | 实现课程 QA SSE、引用、无来源、摘要草稿 | 统一 SSE 事件和错误码 | 课程 context 走 `/_internal/v1/ai-context/**` | A context -> B AI -> Gateway 路由 | 学生只能问自己有权课程，SSE 可中断 | AI 越权读取课程资料 |
@@ -302,7 +304,7 @@ V202607071530__create_warning_tables.sql
 |---|---|---|
 | A 比 B 快 | 补作业/成绩/论坛测试；补 dev seed；整理 ER 图；补接口文档；补成绩统计；准备演示数据 | 直接改 AI provider、SSE 协议、Gateway 限流、Qdrant 配置 |
 | B 比 A 快 | 补 Docker/CI；补 Gateway smoke test；完善 fake AI；整理 AI 文档；补 Qdrant/RabbitMQ 健康检查；写 contract test | 直接改作业/成绩/预警正式表，直接写 Biz Mapper 或替 A 定义状态枚举 |
-| 任意一人快 | 补 README、ADR、OpenAPI 示例、Postman/HTTP 请求样例、答辩脚本、错误码表、越权用例 | 修改历史 migration、改 JWT claims、改 `edu-common` 公共类型而不评审 |
+| 任意一人快 | 补 README、ADR、OpenAPI 示例、Postman/HTTP 请求样例、答辩脚本、错误码表、越权用例 | 修改历史 migration、改 JWT claims、改 `edu-common` 或 `edu-feign-api` 公共类型而不评审 |
 
 影响判断：
 
@@ -383,6 +385,7 @@ docs/adr-ai-stack-spring-ai-qdrant
 
 - 父 `backend/pom.xml` 和各模块 `pom.xml`
 - `edu-common` 公共类型
+- `edu-feign-api` 跨服务契约类型
 - JWT claims、权限码、公共错误码
 - Gateway 路由、安全过滤器、限流
 - Flyway 历史脚本或基础表
@@ -398,7 +401,7 @@ docs/adr-ai-stack-spring-ai-qdrant
 - [ ] API 契约、请求、响应、错误码已更新。
 - [ ] 角色权限、资源归属、越权场景已测试。
 - [ ] Flyway migration 不修改历史文件，空库和升级均可执行。
-- [ ] `edu-common`、POM、Gateway、配置文件变更已单独说明影响面。
+- [ ] `edu-common`、`edu-feign-api`、POM、Gateway、配置文件变更已单独说明影响面。
 - [ ] AI 功能只返回建议/草稿/引用/任务状态，不直接写 Biz 正式表。
 - [ ] 通过后端构建和相关集成测试。
 
@@ -425,7 +428,7 @@ chore(build): align gateway dependencies
 ### 6.7 必须暂停编码先同步的情况
 
 - 想改对方 owned 表或 owned package。
-- 需要修改 `edu-common`、JWT、权限框架、Gateway。
+- 需要修改 `edu-common`、`edu-feign-api`、JWT、权限框架、Gateway。
 - 需要修改已共享的 Flyway 历史 migration。
 - AI 想直接保存课程、成绩、评语、预警、试卷等正式业务数据。
 - 考试成绩要进入 A 的成绩总表。
