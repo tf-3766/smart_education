@@ -4,8 +4,7 @@
 
 当前核心文档：
 
-- `docs/requirements-compliance-review.md`：需求符合性审查和实现缺口。
-- `docs/three-person-development-plan.md`：两名后端 + 一名前端的并行开发任务拆分。
-- `docs/api-contract-platform.md`：前后端接口契约。
-- `docs/database-schema-design.md`：数据库脚本设计说明。
+- `docs/api-reference.md`：项目唯一 API 文档，包含已实现、未实现和内部接口。
+- `docs/team-division.md`：当前三人分工、交付顺序和协作边界。
+- `docs/README.md`：全部项目文档的用途和维护优先级。
 - `在线教育辅助教学系统_项目设计文档_第一组.md`：项目设计文档 Markdown 源。

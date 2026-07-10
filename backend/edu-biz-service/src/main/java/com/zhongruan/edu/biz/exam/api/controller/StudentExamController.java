@@ -1,0 +1,40 @@
+package com.zhongruan.edu.biz.exam.api.controller;
+
+import com.zhongruan.edu.biz.exam.api.dto.query.ExamListQuery;
+import com.zhongruan.edu.biz.exam.api.vo.StudentExamListItemVO;
+import com.zhongruan.edu.biz.exam.application.service.ExamManagementService;
+import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
+import com.zhongruan.edu.biz.shared.web.RequestContextFactory;
+import com.zhongruan.edu.common.api.ApiResponse;
+import com.zhongruan.edu.common.api.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/student/courses")
+@PreAuthorize("hasRole(T(com.zhongruan.edu.biz.auth.domain.enums.RoleCode).STUDENT.name())"
+        + " and hasAuthority(T(com.zhongruan.edu.biz.auth.domain.enums.SystemPermission).STUDENT_ACCESS.code())")
+public class StudentExamController {
+    private final ExamManagementService service;
+    private final RequestContextFactory contextFactory;
+
+    public StudentExamController(ExamManagementService service, RequestContextFactory contextFactory) {
+        this.service = service;
+        this.contextFactory = contextFactory;
+    }
+
+    @GetMapping("/{courseId}/exams")
+    public ApiResponse<PageResponse<StudentExamListItemVO>> list(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long courseId,
+            @Valid ExamListQuery query,
+            HttpServletRequest request) {
+        return ApiResponse.success(service.listStudentExams(user.userId(), courseId, query), contextFactory.current(request).traceId());
+    }
+}

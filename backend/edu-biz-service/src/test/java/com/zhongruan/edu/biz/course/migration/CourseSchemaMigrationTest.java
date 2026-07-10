@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,13 +24,10 @@ class CourseSchemaMigrationTest {
             "edu_course_review");
 
     @Autowired
-    private Flyway flyway;
-
-    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void emptyDatabaseCreatesCourseSchemaWithoutPhysicalForeignKeys() {
+    void bootstrapScriptCreatesCourseSchemaWithoutPhysicalForeignKeys() {
         Set<String> tables = Set.copyOf(jdbcTemplate.queryForList(
                 "SELECT LOWER(TABLE_NAME) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'public'",
                 String.class));
@@ -42,7 +38,6 @@ class CourseSchemaMigrationTest {
                         "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS "
                                 + "WHERE CONSTRAINT_SCHEMA = 'public' AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
                         Integer.class));
-        assertEquals("20260709110000", flyway.info().current().getVersion().getVersion());
     }
 
     @Test
