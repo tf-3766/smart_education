@@ -1,6 +1,6 @@
 # 三人开发中的后端模块归属与协作边界
 
-> 本文冻结三人开发中的后端协作基线。它划分的是代码、数据和评审责任，不代表新增微服务。除 `edu-gateway` 和 `edu-ai-service` 外，传统业务仍部署在 `edu-biz-service`；`edu-common` 与 `edu-feign-api` 都只是 Maven 模块。前端成员的页面与联调任务见 `docs/three-person-development-plan.md`。
+> 本文冻结三人开发中的后端协作基线。它划分的是代码、数据和评审责任，不代表新增微服务。除 `edu-gateway` 和 `edu-ai-service` 外，传统业务仍部署在 `edu-biz-service`；`edu-common` 与 `edu-feign-api` 都只是 Maven 模块。前端成员的页面与联调任务见 `docs/team-division.md`。
 
 ## 1. 基线决策
 
@@ -10,7 +10,7 @@
 - `dev` 是唯一后端集成分支。
 - `backend-1`、`backend-2` 只作为个人备份或临时分支，不作为长期集成分支。
 - 所有 `feature/*`、`fix/*`、`docs/*` 从最新 `dev` 创建，通过 PR 回到 `dev`。
-- 每日公共 PR 由成员 B 负责排队和执行合并；涉及数据库、权限、Biz shared、Flyway 的 PR 必须成员 A review 后才能合并。
+- 每日公共 PR 由成员 B 负责排队和执行合并；涉及数据库、权限、Biz shared、Bootstrap SQL 的 PR 必须成员 A review 后才能合并。
 - 最终 Docker、CI、启动文档由成员 B 主负责；最终 Biz 演示数据、账号、课程/作业/成绩/预警 seed 由成员 A 主负责。
 
 ## 2. 总览
@@ -171,13 +171,13 @@ taskStatus
 | `backend/pom.xml`、各模块 `pom.xml` | A+B | 单独 PR，说明依赖影响 |
 | `backend/edu-common/**` | A 主审 | 只放技术协议，不放业务 Entity 或跨服务业务 DTO |
 | `backend/edu-feign-api/**` | B 主审，A review | 只放服务间 Feign Client、内部 DTO 和契约常量，不放实现逻辑 |
-| `backend/edu-biz-service/src/main/resources/db/migration/**` | A 主审 | 使用秒级时间戳；历史迁移不可修改 |
+| `backend/edu-biz-service/src/main/resources/db/online_education_bootstrap.sql` | A 主审 | 唯一初始化来源；结构和演示数据变更须在空 MySQL 8.4 验证 |
 | `backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/shared/**` | A 主审 | 权限、审计、异常、trace 改动需 B review |
 | `backend/edu-gateway/**` | B 主审 | 业务模块只提路由/限流需求，不写业务逻辑 |
 | `backend/edu-ai-service/**` | B 主审 | Biz 只提 context 和契约需求 |
 | `application*.yml`、Nacos 配置 | B 主审 | 不提交真实密钥 |
 | `.gitlab-ci.yml`、Docker、启动脚本 | B 主审 | 提供可复现启动和验证方式 |
-| `docs/openapi/**`、API 契约 | 对应模块 owner | 破坏性变更必须双方确认 |
+| `docs/api-reference.md` | 对应模块 owner | 破坏性变更必须双方确认 |
 
 ## 7. 跨模块接力规则
 
@@ -190,10 +190,9 @@ taskStatus
 ## 8. 第 1 阶段前检查清单
 
 - [ ] `docs/adr/0001-ai-boundary.md` 已合并。
-- [ ] `docs/adr/0002-flyway-versioning.md` 已合并。
+- [ ] Bootstrap SQL 初始化规则已确认并同步到团队文档。
 - [ ] `docs/adr/0003-ai-stack.md` 已合并。
 - [ ] `docs/migration-register.md` 已合并。
-- [ ] `docs/mvp-scope.md` 已合并。
 - [ ] `docs/module-ownership.md` 已更新为双人 owner。
 - [ ] 当前第 0 阶段文档 PR 从 `dev` 创建，并准备合回 `dev`。
 - [x] 作业、考试、AI 采用审计、论坛、预警基础表已通过 `V20260709110000__create_learning_collaboration_tables.sql` 新增。

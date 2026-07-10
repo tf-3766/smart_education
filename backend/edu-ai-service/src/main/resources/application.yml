@@ -10,12 +10,12 @@ spring:
         enabled: ${NACOS_CONFIG_ENABLED:false}
         import-check:
           enabled: false
-        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:18848}
         username: ${NACOS_USERNAME:}
         password: ${NACOS_PASSWORD:}
       discovery:
         enabled: ${NACOS_ENABLED:false}
-        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:18848}
         username: ${NACOS_USERNAME:}
         password: ${NACOS_PASSWORD:}
     openfeign:

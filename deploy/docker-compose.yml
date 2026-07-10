@@ -1,73 +1,119 @@
+name: smart-education
+
 services:
   mysql:
-    image: mysql:8.0
-    container_name: edu-mysql
+    image: mysql:8.4.10
+    container_name: smart-education-mysql
+    restart: unless-stopped
     environment:
       TZ: UTC
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: edu_biz
-      MYSQL_USER: ${DB_USERNAME:-edu}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "${MYSQL_PORT:-3307}:3306"
-    volumes:
-      - edu-mysql-data:/var/lib/mysql
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: smart_education
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
       - --default-time-zone=+00:00
+    ports:
+      - "3307:3306"
+    volumes:
+      - smart-education-mysql-data:/var/lib/mysql
+      - ../backend/edu-biz-service/src/main/resources/db/online_education_bootstrap.sql:/docker-entrypoint-initdb.d/01-online-education-bootstrap.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 12
+    networks:
+      - smart-education-net
 
   redis:
     image: redis:7-alpine
-    container_name: edu-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - edu-redis-data:/data
+    container_name: smart-education-redis
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - smart-education-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 12
+    networks:
+      - smart-education-net
 
   rabbitmq:
     image: rabbitmq:4-management
-    container_name: edu-rabbitmq
+    container_name: smart-education-rabbitmq
+    restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-edu}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_USER: smart_education
+      RABBITMQ_DEFAULT_PASS: "123456"
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5673:5672"
+      - "15673:15672"
     volumes:
-      - edu-rabbitmq-data:/var/lib/rabbitmq
+      - smart-education-rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 12
+    networks:
+      - smart-education-net
 
   nacos:
     image: nacos/nacos-server:v3.0.3
-    container_name: edu-nacos
+    container_name: smart-education-nacos
+    restart: unless-stopped
+
     environment:
       MODE: standalone
+
       NACOS_AUTH_ENABLE: "false"
+
+      # Nacos 3.x 必填
+      NACOS_AUTH_TOKEN: "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo="
+
+      NACOS_AUTH_IDENTITY_KEY: "nacos"
+
+      NACOS_AUTH_IDENTITY_VALUE: "nacos"
+
     ports:
-      - "8848:8848"
-      - "9848:9848"
-      - "9849:9849"
+      - "18848:8848"
+      - "19848:9848"
+      - "19849:9849"
+
     volumes:
-      - edu-nacos-data:/home/nacos/data
+      - smart-education-nacos-data:/home/nacos/data
+
+    networks:
+      - smart-education-net
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    container_name: smart-education-qdrant
+    restart: unless-stopped
+
+    ports:
+      - "16333:6333"
+      - "16334:6334"
+
+    volumes:
+      - smart-education-qdrant-data:/qdrant/storage
+
+    networks:
+      - smart-education-net
+
+networks:
+  smart-education-net:
+    driver: bridge
 
 volumes:
-  edu-mysql-data:
-  edu-redis-data:
-  edu-rabbitmq-data:
-  edu-nacos-data:
+  smart-education-mysql-data:
+  smart-education-redis-data:
+  smart-education-rabbitmq-data:
+  smart-education-nacos-data:
+  smart-education-qdrant-data:

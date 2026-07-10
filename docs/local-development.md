@@ -2,7 +2,7 @@
 
 ## 1. 当前交付范围
 
-当前已完成基础工程、统一响应、JWT 登录、角色/权限校验、课程学习基础接口、课程审核、Flyway 认证/课程/协作学习表、Gateway 路由、`edu-feign-api` 契约模块、AI 服务健康检查和 Biz 课程上下文内部接口。尚未实现注册、找回密码、刷新令牌、Redis Token 黑名单、作业/成绩/考试/论坛/预警的公开业务闭环、真实模型、向量库、RAG 或公开 SSE 业务。
+当前已完成基础工程、统一响应、JWT 登录、角色/权限校验、课程学习基础接口、课程审核、Bootstrap SQL 认证/课程/协作学习表、Gateway 路由、`edu-feign-api` 契约模块、AI 服务健康检查和 Biz 课程上下文内部接口。尚未实现注册、找回密码、刷新令牌、Redis Token 黑名单、作业/成绩/考试/论坛/预警的公开业务闭环、真实模型、向量库、RAG 或公开 SSE 业务。
 
 版本基线：JDK 21、Spring Boot 3.5.0、Spring Cloud 2025.0.0、Spring Cloud Alibaba 2025.0.0.0、MyBatis-Plus 3.5.12、MySQL 8.0。
 
@@ -31,16 +31,10 @@ backend/
 │     ├─ java/.../ai/              # Biz 提供给 AI 的内部上下文接口
 │     ├─ java/.../shared/          # Security、异常、审计、MyBatis-Plus
 │     └─ resources/db/
-│        ├─ migration/V1__init_auth_tables.sql
-│        ├─ migration/V2__create_course_tables.sql
-│        ├─ migration/V3__create_course_review_table.sql
-│        ├─ migration/V20260709110000__create_learning_collaboration_tables.sql
-│        ├─ localmigration/R__local_test_accounts.sql
-│        ├─ localmigration/R__local_course_test_data.sql
-│        └─ localmigration/R__local_learning_collaboration_demo.sql
+│        └─ online_education_bootstrap.sql  # 完整建表和本地演示数据
 └─ edu-ai-service/                 # 可启动骨架、Actuator 健康检查和 Feign 客户端接入
 
-deploy/docker-compose.yml          # MySQL、Redis、RabbitMQ、Nacos
+deploy/docker-compose.yml          # MySQL、Redis、RabbitMQ、Nacos、Qdrant
 docs/                              # 架构、编码、数据库、API 与协作规范
 ```
 
@@ -75,7 +69,7 @@ Copy-Item backend\edu-ai-service\src\main\resources\application-local.yml.exampl
 ```powershell
 Set-Location backend
 . .\scripts\import-env.ps1
-docker compose -f ..\deploy\docker-compose.yml --env-file .env up -d
+docker compose -f ..\deploy\docker-compose.yml up -d
 .\mvnw.cmd clean package
 ```
 
@@ -87,17 +81,17 @@ java -jar .\edu-ai-service\target\edu-ai-service-0.1.0-SNAPSHOT.jar --spring.pro
 java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
-顺序：MySQL/Redis/RabbitMQ/Nacos → Biz `18081` → AI `18082` → Gateway `18080`。前端只访问 Gateway。
+顺序：MySQL/Redis/RabbitMQ/Nacos/Qdrant → Biz `18081` → AI `18082` → Gateway `18080`。前端只访问 Gateway。
 
-## 5. Flyway 初始化
+## 5. SQL 初始化
 
-- Biz 启动时自动执行 `db/migration`，创建认证、课程、课程审核、作业、成绩、论坛、预警、考试、题库和 AI 采用审计基础表。
-- local/test profile 随后加载 `db/localmigration`，创建 BCrypt 测试账号、课程测试数据和协作学习演示数据。
-- dev/生产只加载 `db/migration`，不创建测试账号。
-- 迁移不使用物理外键；关联一致性由应用服务、唯一约束和索引保证。
-- 禁止手工修改共享数据库，也禁止修改已经在共享环境执行过的迁移。
+- 项目只使用 `backend/edu-biz-service/src/main/resources/db/online_education_bootstrap.sql` 初始化数据库；它包含完整表结构、测试账号和演示数据。
+- Compose 仅在首次创建 `smart-education-mysql-data` 数据卷时自动执行该脚本。若需要重新初始化，先停止 Compose，再删除该项目的 MySQL 数据卷后重新启动。
+- Biz 服务启动时不会修改表结构，也不会执行 Flyway。
+- 脚本不使用物理外键；关联一致性由应用服务、唯一约束和索引保证。
+- 任何表结构或演示数据变更都必须同步修改这一个脚本，并在空 MySQL 8 数据库中验证。
 
-已有 MySQL 8 时，只需由管理员创建 `edu_biz` 数据库和最小权限账号，再设置 `DB_*`；表仍由 Flyway 创建。
+已有 MySQL 8 时，先创建 `smart_education` 数据库，再手工执行 `online_education_bootstrap.sql`；数据库连接配置使用 `DB_*`。
 
 ## 6. 测试账号
 
@@ -217,7 +211,7 @@ Set-Location backend
 .\mvnw.cmd clean verify
 ```
 
-无 Docker 时，H2 MySQL 模式执行快速认证、审计与 Flyway 测试；真实 MySQL 8 Testcontainers 测试会明确跳过。启动 Docker Desktop 后重新执行同一命令即可运行 MySQL 8 验证。
+无 Docker 时，H2 MySQL 模式执行快速认证、审计与 Bootstrap SQL 测试；真实 MySQL 8 Testcontainers 测试会明确跳过。启动 Docker Desktop 后重新执行同一命令即可运行 MySQL 8 验证。
 
 ## 9. 组员开发规则
 
@@ -229,7 +223,7 @@ Set-Location backend
 - `RequestContext`、`RequestSource`、`TraceIds`；
 - Biz 内的 `BaseAuditEntity`、`ResourceScopeAuthorizer` 和统一安全/异常设施。
 
-不要随意修改：父 POM 版本矩阵、`edu-common` 公共契约、`edu-feign-api` 服务间契约、Security filter chain、`BaseAuditEntity`、已执行 Flyway 脚本、Gateway 路由和三个服务的基础配置。公共改动必须单独 PR 并说明兼容性。
+不要随意修改：父 POM 版本矩阵、`edu-common` 公共契约、`edu-feign-api` 服务间契约、Security filter chain、`BaseAuditEntity`、Bootstrap SQL、Gateway 路由和三个服务的基础配置。公共改动必须单独 PR 并说明兼容性。
 
 后续新增规则：
 

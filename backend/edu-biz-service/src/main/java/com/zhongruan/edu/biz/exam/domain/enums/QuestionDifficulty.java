@@ -1,0 +1,7 @@
+package com.zhongruan.edu.biz.exam.domain.enums;
+
+public enum QuestionDifficulty {
+    EASY,
+    MEDIUM,
+    HARD
+}

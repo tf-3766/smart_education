@@ -2,7 +2,7 @@
 
 > 分支策略：本文在本地 `backend-2` 编写，等待后端 B 完成后再统一合并到 `dev`。
 > 适用范围：后端 A 的 Biz 主链，重点是作业、提交、成绩、论坛和学习预警。
-> 本文只记录检查结论和后续契约要求，不实现 Controller、Service、Mapper、Entity 或 Flyway SQL。
+> 本文只记录检查结论和后续契约要求，不实现 Controller、Service、Mapper、Entity 或 Bootstrap SQL。
 
 ## 1. 读取与缺失文档
 
@@ -10,31 +10,21 @@
 
 | 文件 | 结论 |
 |---|---|
-| `docs/three-person-development-plan.md` | 明确后端 A 负责 `auth`、`course`、`assignment`、`grade`、`forum`、`warning`、`shared` |
+| `docs/team-division.md` | 明确后端 A 负责 `auth`、`course`、`assignment`、`grade`、`forum`、`warning`、`shared` |
 | `docs/module-ownership.md` | 明确 `dev` 是唯一后端集成分支，`backend-2` 只作为本地/临时分支 |
-| `docs/mvp-scope.md` | 明确作业、提交、评分、成绩统计、论坛、预警属于 A 的 MVP |
-| `docs/api-style.md` | 明确 `/api/v1`、统一响应、分页、错误码、幂等和 SSE 红线 |
-| `docs/database-conventions.md` | 明确 Flyway、审计字段、逻辑删除、乐观锁和状态流转规则 |
-| `docs/migration-register.md` | 已登记 `V1`、`V2`、`V3`、`V20260709110000` |
-| `docs/api-contract-platform.md` | 已有平台级路径索引，但缺少作业/成绩/论坛/预警细节契约 |
-| `docs/openapi/platform-api.openapi.yaml` | 已有全局 OpenAPI 草案，后续实现应保持一致或先更新契约 |
+| `docs/api-reference.md` | 明确 `/api/v1`、统一响应、分页、错误码、幂等和 SSE 规则 |
+| `docs/database-conventions.md` | 明确 Bootstrap SQL、审计字段、逻辑删除、乐观锁和状态流转规则 |
+| `docs/migration-register.md` | 记录 Bootstrap SQL 的变更规则和当前基线 |
+| `docs/api-reference.md` | 汇总已实现和未实现接口，后续实现必须同步更新状态 |
 | `backend/README.md` | 明确五个 Maven 模块及当前服务职责 |
 
-指定但当前不存在的文档：
+已统一纳入以下现有文档：
 
 ```text
-docs/backend-two-person-collaboration-plan.md
-docs/course-api-contract.md
-docs/course-module-delivery.md
-```
-
-相关补充文档：
-
-```text
-docs/database-schema-design.md
-docs/requirements-compliance-review.md
-docs/backend-conventions.md
-docs/team-development-workflow.md
+docs/api-reference.md
+docs/team-division.md
+docs/database-conventions.md
+docs/module-ownership.md
 ```
 
 ## 2. 当前分支和合并策略
@@ -110,8 +100,8 @@ backend-2
 
 ## 8. 第一阶段完成标准
 
-- `docs/api-contract-assignment.md`、`docs/api-contract-grade.md`、`docs/api-contract-forum.md`、`docs/api-contract-warning.md` 已写清楚接口、状态、权限和错误码。
+- `docs/api-reference.md` 已写清楚接口、状态、权限和错误码。
 - 不修改 `edu-common`、`edu-gateway`、`edu-ai-service`、`edu-biz-service/exam/**`。
-- 不创建或修改 Flyway SQL。
+- 不创建或修改 Bootstrap SQL。
 - 不新增 Controller、Service、Mapper、Entity。
 - 后续编码前先从这些契约拆分 issue，再用测试驱动作业/成绩最小闭环。

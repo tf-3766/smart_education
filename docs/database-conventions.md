@@ -1,4 +1,4 @@
-# 数据库设计与迁移规范
+# 数据库设计与初始化规范
 
 > 适用范围：`edu-biz-service` 所有 MySQL 8.0 表。AI 向量集合由 `edu-ai-service` 独立管理，不得与业务 MySQL 共享账号或连接。
 
@@ -6,12 +6,12 @@
 
 | 项目 | 决策 |
 |---|---|
-| 业务数据库 | MySQL 8.0，schema 建议名 `edu_biz` |
+| 业务数据库 | MySQL 8.4，schema 名 `smart_education` |
 | 字符集/排序规则 | `utf8mb4` + `utf8mb4_0900_ai_ci`，所有环境一致 |
 | 存储引擎 | InnoDB |
 | 主键 | MySQL `BIGINT`、Java `Long`、MyBatis-Plus `ASSIGN_ID` 雪花 ID |
 | 对外 ID | JSON 字符串，避免 JavaScript 超过安全整数范围 |
-| 数据库迁移 | 只允许 Flyway；禁止 `ddl-auto=update` |
+| 数据库初始化 | 只允许 `online_education_bootstrap.sql`；禁止 `ddl-auto=update` |
 | 时间 | `DATETIME(3)`，统一存 UTC |
 | 逻辑删除 | 核心表统一 `deleted TINYINT NOT NULL DEFAULT 0` |
 | 乐观锁 | 核心表统一 `version INT NOT NULL DEFAULT 0` |
@@ -230,58 +230,48 @@ CREATE INDEX idx_assignment_course_status_deadline
 | `edu_forum_post`、`edu_forum_comment` | 课程与学习/互动 | 课程成员参与；教师/管理员按范围治理 | 用户软删；治理处置保留证据 |
 | `sys_outbox_event` | 公共基础 | 仅系统任务访问 | 发送成功后按保留期归档清理 |
 
-## 10. Flyway 迁移规范
+## 10. Bootstrap SQL 维护规范
 
-### 10.1 文件位置和命名
+### 10.1 唯一初始化来源
 
 ```text
-edu-biz-service/src/main/resources/db/migration/
-├─ V1__init_auth_tables.sql
-├─ V2__init_course_tables.sql
-└─ V3__add_assignment_deadline_index.sql
+backend/edu-biz-service/src/main/resources/db/
+└─ online_education_bootstrap.sql
 ```
 
-- 使用连续版本 `V<version>__description.sql`。新增前必须更新 `develop` 并在 issue/PR 中登记下一个版本号，避免多人占用同一编号。
-- description 使用小写英文和下划线。
-- 每个 migration 聚焦一个模块/一个目的，不把全项目表塞入一个超大脚本。
-- migration 必须显式指定表、字段、索引、注释和默认值。
-
-### 10.2 不可变原则
-
-- 已在共享环境执行的 migration 禁止修改、重命名或删除。
-- 修复必须新增 migration；禁止为了“看起来整洁”重写历史。
-- 禁止多人手工直接修改线上、测试或共享数据库结构。
+- `online_education_bootstrap.sql` 是项目唯一的建表和演示数据初始化脚本。
+- Compose 仅在 MySQL 数据卷为空时自动执行该脚本；应用启动不修改表结构。
 - 禁止 Hibernate/MyBatis 自动建表更新共享环境。
-- 本地临时库也应通过 Flyway 初始化，以确保可复现。
 
-### 10.3 PR 要求
+### 10.2 变更要求
 
-含数据库变更的 PR 必须说明：
+含数据库变更的 PR 必须同时修改该脚本，并说明：
 
 - 表/字段所有者和业务目的。
-- 向前/向后兼容性、是否允许旧代码运行。
-- 数据回填和大表锁风险。
 - 新增/删除索引依据。
-- 回滚思路；对不可逆迁移给出恢复/备份方案。
-- 本地空库迁移和已有数据升级测试结果。
+- 演示数据是否需要同步更新。
+- 空 MySQL 8 数据库执行脚本的验证结果。
+
+### 10.3 重建与备份
+
+- Bootstrap SQL 面向空数据库；不用于保留既有业务数据的升级。
+- 需要重建本地环境时，停止 Compose 后删除本项目 MySQL 数据卷，再重新执行 Compose。
+- 有真实业务数据的环境必须先备份，并由管理员审核重建计划。
 
 ## 11. 多人协作规则
 
 - 一张核心表只由 [`module-ownership.md`](./module-ownership.md) 指定模块维护。
 - 跨模块新增字段先由数据所有者确认，不允许在自己的 PR 顺手修改他人表。
-- 公共迁移目录是高冲突区；开发前先拉取 `develop` 并登记连续版本号，合并前再次执行全量 Flyway。
-- 冲突时不得删除或改写他人 migration；两个版本相同时，由后合并方创建新的下一版本。
-- 系统运行必需的角色、权限等基础数据可与首次建表迁移一起交付；测试账号、演示课程必须使用可重复的 local/dev seed。
+- `online_education_bootstrap.sql` 是公共高冲突文件；开发前先拉取 `dev`，合并前在空 MySQL 8 数据库完整执行脚本。
+- 系统运行必需的角色、权限和演示课程都随 Bootstrap SQL 一起维护，避免表结构与本地数据分散。
 
 ## 12. 验证清单
 
 每次数据库 PR 至少执行：
 
-1. 全新 MySQL 8 空库执行全部 migration 成功。
-2. 从 `develop` 当前 schema 升级成功。
-3. Flyway validate 成功，无 checksum 漂移。
-4. Mapper 集成测试通过。
-5. 检查关联列/高频查询索引、唯一约束、无物理外键和逻辑删除条件。
-6. 检查所有核心表包含七个统一审计字段。
-7. 检查状态字段有枚举、含义和流转说明。
-8. 检查数据库账号没有跨服务授权。
+1. 全新 MySQL 8 空库执行 Bootstrap SQL 成功。
+2. Mapper 集成测试通过。
+3. 检查关联列/高频查询索引、唯一约束、无物理外键和逻辑删除条件。
+4. 检查所有核心表包含七个统一审计字段。
+5. 检查状态字段有枚举、含义和流转说明。
+6. 检查数据库账号没有跨服务授权。

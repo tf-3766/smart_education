@@ -1,4 +1,6 @@
-# Flyway uses second-level timestamp versions
+# Superseded: Flyway uses second-level timestamp versions
+
+> Superseded by the Bootstrap SQL decision. The active database initialization source is `backend/edu-biz-service/src/main/resources/db/online_education_bootstrap.sql`; this ADR is retained only as historical context.
 
 We decided that all future production schema changes in `edu-biz-service` use Flyway files named `VyyyyMMddHHmmss__description.sql`, such as `V20260707143025__create_assignment_grade_tables.sql`. Existing shared migrations `V1__init_auth_tables.sql`, `V2__create_course_tables.sql`, and `V3__create_course_review_table.sql` are immutable: do not edit, rename, delete, reorder, or rewrite them after they have been shared.
 
