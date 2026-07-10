@@ -1,0 +1,15 @@
+package com.zhongruan.edu.biz.forum.api.vo;
+
+import java.time.OffsetDateTime;
+
+public record ForumReplyVO(
+        String replyId,
+        String topicId,
+        String courseId,
+        String authorId,
+        String authorName,
+        String parentReplyId,
+        String content,
+        CodeLabelVO status,
+        OffsetDateTime createdAt,
+        Integer version) {}

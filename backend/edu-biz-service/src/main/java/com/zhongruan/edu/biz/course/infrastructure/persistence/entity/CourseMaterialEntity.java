@@ -10,6 +10,7 @@ public class CourseMaterialEntity extends BaseAuditEntity {
     private Long lessonId;
     private String name;
     private String materialType;
+    private Long fileId;
     private String fileKey;
     private String fileUrl;
     private Long fileSize;
@@ -28,6 +29,8 @@ public class CourseMaterialEntity extends BaseAuditEntity {
     public void setName(String name) { this.name = name; }
     public String getMaterialType() { return materialType; }
     public void setMaterialType(String materialType) { this.materialType = materialType; }
+    public Long getFileId() { return fileId; }
+    public void setFileId(Long fileId) { this.fileId = fileId; }
     public String getFileKey() { return fileKey; }
     public void setFileKey(String fileKey) { this.fileKey = fileKey; }
     public String getFileUrl() { return fileUrl; }

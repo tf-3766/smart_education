@@ -1,6 +1,7 @@
 package com.zhongruan.edu.biz.auth.api.controller;
 
 import com.zhongruan.edu.biz.auth.api.dto.request.LoginRequest;
+import com.zhongruan.edu.biz.auth.api.dto.request.UpdateAvatarRequest;
 import com.zhongruan.edu.biz.auth.api.vo.CurrentUserVO;
 import com.zhongruan.edu.biz.auth.api.vo.LoginVO;
 import com.zhongruan.edu.biz.auth.api.vo.LogoutVO;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,6 +42,16 @@ public class AuthController {
             @AuthenticationPrincipal AuthenticatedUser principal, HttpServletRequest servletRequest) {
         return ApiResponse.success(
                 authApplicationService.currentUser(principal), requestContextFactory.current(servletRequest).traceId());
+    }
+
+    @PutMapping("/me/avatar")
+    public ApiResponse<CurrentUserVO> updateAvatar(
+            @AuthenticationPrincipal AuthenticatedUser principal,
+            @Valid @RequestBody UpdateAvatarRequest request,
+            HttpServletRequest servletRequest) {
+        return ApiResponse.success(
+                authApplicationService.updateAvatar(principal, request),
+                requestContextFactory.current(servletRequest).traceId());
     }
 
     @PostMapping("/logout")

@@ -2,6 +2,7 @@ package com.zhongruan.edu.biz.auth.application.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.zhongruan.edu.biz.auth.api.dto.request.LoginRequest;
+import com.zhongruan.edu.biz.auth.api.dto.request.UpdateAvatarRequest;
 import com.zhongruan.edu.biz.auth.api.vo.CurrentUserVO;
 import com.zhongruan.edu.biz.auth.api.vo.LoginVO;
 import com.zhongruan.edu.biz.auth.domain.enums.RoleCode;
@@ -12,6 +13,8 @@ import com.zhongruan.edu.biz.auth.infrastructure.persistence.mapper.RoleMapper;
 import com.zhongruan.edu.biz.auth.infrastructure.persistence.mapper.UserMapper;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.security.JwtProperties;
+import com.zhongruan.edu.biz.storage.application.service.FileStorageService;
+import com.zhongruan.edu.biz.storage.domain.FilePurpose;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
 import com.zhongruan.edu.common.security.JwtTokenService;
@@ -29,6 +32,7 @@ public class AuthApplicationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final JwtProperties jwtProperties;
+    private final FileStorageService fileStorageService;
 
     public AuthApplicationService(
             UserMapper userMapper,
@@ -36,13 +40,15 @@ public class AuthApplicationService {
             PermissionMapper permissionMapper,
             PasswordEncoder passwordEncoder,
             JwtTokenService jwtTokenService,
-            JwtProperties jwtProperties) {
+            JwtProperties jwtProperties,
+            FileStorageService fileStorageService) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.permissionMapper = permissionMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.jwtProperties = jwtProperties;
+        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -84,15 +90,35 @@ public class AuthApplicationService {
         return toCurrentUser(user, activeRole, roles, permissions);
     }
 
+    @Transactional
+    public CurrentUserVO updateAvatar(AuthenticatedUser principal, UpdateAvatarRequest request) {
+        UserEntity user = userMapper.selectById(principal.userId());
+        if (user == null || !UserStatus.ENABLED.name().equals(user.getUserStatus())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
+        }
+        if (request.fileId() != null) {
+            fileStorageService.requireOwnedFile(principal.userId(), request.fileId(), FilePurpose.AVATAR);
+        }
+        user.setAvatarFileId(request.fileId());
+        user.setVersion(request.version());
+        if (userMapper.updateById(user) != 1) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT);
+        }
+        return currentUser(principal);
+    }
+
     private CurrentUserVO toCurrentUser(
             UserEntity user, String activeRole, Set<String> roles, Set<String> permissions) {
         return new CurrentUserVO(
                 String.valueOf(user.getId()),
                 user.getUsername(),
                 user.getDisplayName(),
+                user.getAvatarFileId() == null ? null : String.valueOf(user.getAvatarFileId()),
+                user.getAvatarFileId() == null ? null : fileStorageService.accessUrl(user.getAvatarFileId()),
                 activeRole,
                 roles,
-                permissions);
+                permissions,
+                user.getVersion());
     }
 
     private String selectActiveRole(Set<String> roles) {

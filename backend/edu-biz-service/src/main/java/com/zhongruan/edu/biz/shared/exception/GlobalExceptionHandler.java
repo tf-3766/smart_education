@@ -1,6 +1,7 @@
 package com.zhongruan.edu.biz.shared.exception;
 
 import com.zhongruan.edu.biz.shared.web.RequestTrace;
+import com.zhongruan.edu.biz.storage.domain.StorageErrorCode;
 import com.zhongruan.edu.common.api.ApiError;
 import com.zhongruan.edu.common.api.ApiResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -43,6 +45,12 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiResponse<Void>> handleBusiness(BusinessException exception, HttpServletRequest request) {
         log.info("Business request rejected errorCode={} message={}", exception.errorCode().code(), exception.getMessage());
         return response(exception.errorCode(), exception.getMessage(), List.of(), request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiResponse<Void>> handleUploadTooLarge(
+            MaxUploadSizeExceededException exception, HttpServletRequest request) {
+        return response(StorageErrorCode.FILE_TOO_LARGE, StorageErrorCode.FILE_TOO_LARGE.message(), List.of(), request);
     }
 
     @ExceptionHandler(AuthenticationException.class)

@@ -8,6 +8,7 @@ public class UserEntity extends BaseAuditEntity {
     private String username;
     private String passwordHash;
     private String displayName;
+    private Long avatarFileId;
     private String userStatus;
 
     public String getUsername() {
@@ -34,6 +35,14 @@ public class UserEntity extends BaseAuditEntity {
         this.displayName = displayName;
     }
 
+    public Long getAvatarFileId() {
+        return avatarFileId;
+    }
+
+    public void setAvatarFileId(Long avatarFileId) {
+        this.avatarFileId = avatarFileId;
+    }
+
     public String getUserStatus() {
         return userStatus;
     }
@@ -42,4 +51,3 @@ public class UserEntity extends BaseAuditEntity {
         this.userStatus = userStatus;
     }
 }
-

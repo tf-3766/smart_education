@@ -194,10 +194,11 @@ public class StudentLearningService {
         }
         MaterialType type = MaterialType.valueOf(material.getMaterialType());
         boolean externalLink = type == MaterialType.LINK && material.getFileUrl() != null;
+        boolean managedFile = material.getFileId() != null;
         return new MaterialAccessVO(assembler.id(material.getId()), material.getName(), CodeLabelVO.of(type),
                 material.getFileSize(), material.getMimeType(),
-                externalLink ? "EXTERNAL_LINK" : "MOCK_METADATA_ONLY",
-                externalLink ? material.getFileUrl() : null);
+                managedFile ? "MANAGED_FILE" : externalLink ? "EXTERNAL_LINK" : "MOCK_METADATA_ONLY",
+                managedFile || externalLink ? material.getFileUrl() : null);
     }
 
     private LearningRecordVO completeExisting(LessonLearningRecordEntity record, LocalDateTime now) {

@@ -19,7 +19,7 @@
 |---|---|---|
 | 主责 | Biz 主链、正式业务事实、数据库迁移规则、权限和资源范围评审 | AI 服务、考试题库、Gateway、Docker、CI、公共 PR 排队 |
 | 主要服务 | `edu-biz-service` | `edu-ai-service`、`edu-gateway`，以及 `edu-biz-service` 中的 `exam/**` |
-| 独占包 | `auth/**` 主维护，`course/**` 基线维护，`forum/**`，`assignment/**`，`grade/**`，`warning/**` | `com.zhongruan.edu.ai/**`，`exam/**`，`edu-gateway/**`，`backend/scripts/**`，CI 配置 |
+| 独占包 | `auth/**` 主维护，`storage/**`，`course/**` 基线维护，`forum/**`，`assignment/**`，`grade/**`，`warning/**` | `com.zhongruan.edu.ai/**`，`exam/**`，`edu-gateway/**`，`backend/scripts/**`，CI 配置 |
 | 共同契约模块 | `edu-common` 技术协议主审 | `edu-feign-api` Feign 契约主审，A 必须 review Biz 上下文和数据字段 |
 | 独占数据 | auth 表、课程表、课程论坛表、作业/提交/成绩/预警表 | 考试安排、题库、试卷草稿表；AI 自有 Redis namespace、Qdrant collection |
 | 依赖对方 | AI 评语草稿、风险解释、组卷建议、Gateway 路由 | 课程、选课、课时、提交、成绩、预警的授权后 context |
@@ -31,6 +31,7 @@
 
 ```text
 backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/auth/**
+backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/storage/**
 backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/course/**
 backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/forum/**
 backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/assignment/**
@@ -60,6 +61,7 @@ edu_course_review
 edu_assignment
 edu_assignment_attachment
 edu_assignment_submission
+sys_file
 edu_grade_record
 edu_forum_topic
 edu_forum_reply

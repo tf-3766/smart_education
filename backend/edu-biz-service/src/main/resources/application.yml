@@ -19,6 +19,10 @@ spring:
     port: ${RABBITMQ_PORT:5673}
     username: ${RABBITMQ_USERNAME:smart_education}
     password: ${RABBITMQ_PASSWORD:}
+  servlet:
+    multipart:
+      max-file-size: ${FILE_MAX_SIZE:50MB}
+      max-request-size: ${FILE_MAX_REQUEST_SIZE:52MB}
   cloud:
     nacos:
       config:
@@ -50,6 +54,9 @@ edu:
       secret: ${JWT_SECRET}
       ttl: ${JWT_TTL:PT2H}
       issuer: ${JWT_ISSUER:edu-biz-service}
+  storage:
+    root: ${FILE_STORAGE_ROOT:./data/uploads}
+    max-file-size: ${FILE_MAX_SIZE:50MB}
 
 management:
   endpoints:

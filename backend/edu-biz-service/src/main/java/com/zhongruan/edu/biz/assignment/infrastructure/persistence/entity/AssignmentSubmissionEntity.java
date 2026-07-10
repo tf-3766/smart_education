@@ -12,6 +12,7 @@ public class AssignmentSubmissionEntity extends BaseAuditEntity {
     private Long studentId;
     private Integer attemptNo;
     private String content;
+    private Long fileId;
     private String fileKey;
     private String fileUrl;
     private String status;
@@ -33,6 +34,8 @@ public class AssignmentSubmissionEntity extends BaseAuditEntity {
     public void setAttemptNo(Integer attemptNo) { this.attemptNo = attemptNo; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+    public Long getFileId() { return fileId; }
+    public void setFileId(Long fileId) { this.fileId = fileId; }
     public String getFileKey() { return fileKey; }
     public void setFileKey(String fileKey) { this.fileKey = fileKey; }
     public String getFileUrl() { return fileUrl; }

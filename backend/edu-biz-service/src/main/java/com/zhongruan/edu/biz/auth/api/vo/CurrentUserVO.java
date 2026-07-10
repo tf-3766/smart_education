@@ -6,12 +6,14 @@ public record CurrentUserVO(
         String userId,
         String username,
         String displayName,
+        String avatarFileId,
+        String avatarUrl,
         String activeRole,
         Set<String> roles,
-        Set<String> permissions) {
+        Set<String> permissions,
+        Integer version) {
     public CurrentUserVO {
         roles = Set.copyOf(roles);
         permissions = Set.copyOf(permissions);
     }
 }
-

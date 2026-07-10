@@ -7,6 +7,7 @@ public record CourseMaterialVO(
         String lessonId,
         String name,
         CodeLabelVO materialType,
+        String fileId,
         String fileKey,
         String fileUrl,
         Long fileSize,

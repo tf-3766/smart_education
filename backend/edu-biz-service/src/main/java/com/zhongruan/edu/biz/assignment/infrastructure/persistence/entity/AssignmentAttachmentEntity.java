@@ -7,6 +7,7 @@ import com.zhongruan.edu.biz.shared.persistence.BaseAuditEntity;
 public class AssignmentAttachmentEntity extends BaseAuditEntity {
     private Long assignmentId;
     private String name;
+    private Long fileId;
     private String fileKey;
     private String fileUrl;
     private Long fileSize;
@@ -17,6 +18,8 @@ public class AssignmentAttachmentEntity extends BaseAuditEntity {
     public void setAssignmentId(Long assignmentId) { this.assignmentId = assignmentId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public Long getFileId() { return fileId; }
+    public void setFileId(Long fileId) { this.fileId = fileId; }
     public String getFileKey() { return fileKey; }
     public void setFileKey(String fileKey) { this.fileKey = fileKey; }
     public String getFileUrl() { return fileUrl; }

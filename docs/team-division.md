@@ -7,9 +7,9 @@
 
 | 成员 | 主要职责 | 主要目录 | 当前优先交付 |
 |---|---|---|---|
-| 后端 A | Biz 主链、权限、课程、作业、成绩、论坛、预警 | `backend/edu-biz-service` 的 `auth`、`course`、`assignment`、`grade`、`forum`、`warning`、`shared` | 作业发布、学生提交、教师批改、学生成绩查询 |
+| 后端 A | Biz 主链、权限、课程、文件、作业、成绩、论坛、预警 | `backend/edu-biz-service` 的 `auth`、`storage`、`course`、`assignment`、`grade`、`forum`、`warning`、`shared` | 已完成主链，进入联调与缺陷修复 |
 | 后端 B | 考试题库、AI 服务边界、网关、服务间契约、部署联调 | `edu-ai-service`、`edu-gateway`、`edu-feign-api`、`edu-biz-service/exam`、`deploy` | 考试题库和考试安排；维护 Gateway、Compose 和接口契约 |
-| 前端 C | Vue 页面、API Client、路由守卫、联调和演示流程 | `src/**`、`ui-spec.md`、`wireframes.md`、`sitemap.md` | 登录、课程、学习页与课程审核接入真实接口 |
+| 前端 C | Vue 页面、API Client、路由守卫、联调和演示流程 | `frontend/**`、`ui-spec.md`、`wireframes.md`、`sitemap.md` | 在空 `frontend/` 目录中独立初始化并开发 |
 
 ## 2. 后端 A：业务主链
 
@@ -19,12 +19,15 @@
 - `online_education_bootstrap.sql` 中 Biz 表结构和演示数据的一致性。
 - 课程审核流程与管理员接口。
 
-### 新任务顺序
+### 已完成任务
 
 1. 作业：教师创建、修改、发布；学生列表、草稿/提交和截止校验。
 2. 成绩：教师查看提交、评分、发布；学生只读已发布成绩。
 3. 论坛：课程成员发帖、回复；教师/管理员治理可见性。
 4. 预警：基于缺交、低分、进度生成记录；学生查看、教师处理。
+5. 文件与头像：统一文件元数据、本地存储适配、授权下载、头像绑定，以及课程资料和作业文件引用。
+
+当前 Backend A 的上述接口已实现并有集成测试；后续以接口联调、缺陷修复和数据库空库验证为主，不再把这些模块标记为 Mock。
 
 ### 验收标准
 
@@ -66,7 +69,7 @@
 
 - 当前只调用 [API 参考](./api-reference.md) 标为“已实现”的接口。
 - 待实现模块使用独立 Mock，不在页面中伪装成已联调完成。
-- `ui-spec.md`、`wireframes.md`、`sitemap.md` 是设计输入；实际页面和 API 状态以 `src/**` 与 API 参考为准。
+- `ui-spec.md`、`wireframes.md`、`sitemap.md` 是设计输入；实际页面和 API 状态以 `frontend/**` 与 API 参考为准。
 
 ### 验收标准
 

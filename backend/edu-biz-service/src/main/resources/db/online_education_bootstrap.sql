@@ -12,6 +12,7 @@ CREATE TABLE sys_user (
     username VARCHAR(64) NOT NULL,
     password_hash VARCHAR(100) NOT NULL,
     display_name VARCHAR(128) NOT NULL,
+    avatar_file_id BIGINT NULL,
     user_status VARCHAR(32) NOT NULL,
     created_at DATETIME(3) NOT NULL,
     created_by BIGINT NOT NULL,
@@ -24,6 +25,31 @@ CREATE TABLE sys_user (
 );
 
 CREATE INDEX idx_user_status_deleted ON sys_user (user_status, deleted, id);
+CREATE INDEX idx_user_avatar ON sys_user (avatar_file_id, deleted, id);
+
+CREATE TABLE sys_file (
+    id BIGINT NOT NULL,
+    owner_user_id BIGINT NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    object_key VARCHAR(512) NOT NULL,
+    storage_provider VARCHAR(32) NOT NULL,
+    file_size BIGINT NOT NULL,
+    mime_type VARCHAR(128) NOT NULL,
+    sha256 CHAR(64) NOT NULL,
+    purpose VARCHAR(32) NOT NULL,
+    file_status VARCHAR(32) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    created_by BIGINT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    updated_by BIGINT NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_file_object_key UNIQUE (object_key)
+);
+
+CREATE INDEX idx_file_owner_status ON sys_file (owner_user_id, file_status, deleted, created_at, id);
+CREATE INDEX idx_file_purpose_status ON sys_file (purpose, file_status, deleted, id);
 
 CREATE TABLE sys_role (
     id BIGINT NOT NULL,
@@ -243,6 +269,7 @@ CREATE TABLE edu_course_material (
     lesson_id BIGINT NULL,
     name VARCHAR(160) NOT NULL,
     material_type VARCHAR(32) NOT NULL,
+    file_id BIGINT NULL,
     file_key VARCHAR(512) NULL,
     file_url VARCHAR(1024) NULL,
     file_size BIGINT NULL,
@@ -262,6 +289,7 @@ CREATE TABLE edu_course_material (
 CREATE INDEX idx_material_course ON edu_course_material (course_id, status, deleted, sort_order, id);
 CREATE INDEX idx_material_chapter ON edu_course_material (chapter_id, status, deleted, sort_order, id);
 CREATE INDEX idx_material_lesson ON edu_course_material (lesson_id, status, deleted, sort_order, id);
+CREATE INDEX idx_material_file ON edu_course_material (file_id, deleted, id);
 
 CREATE TABLE edu_lesson_learning_record (
     id BIGINT NOT NULL,
@@ -344,6 +372,7 @@ CREATE TABLE edu_assignment_attachment (
     id BIGINT NOT NULL,
     assignment_id BIGINT NOT NULL,
     name VARCHAR(160) NOT NULL,
+    file_id BIGINT NULL,
     file_key VARCHAR(512) NULL,
     file_url VARCHAR(1024) NULL,
     file_size BIGINT NULL,
@@ -359,6 +388,7 @@ CREATE TABLE edu_assignment_attachment (
 );
 
 CREATE INDEX idx_assignment_attachment_assignment ON edu_assignment_attachment (assignment_id, deleted, sort_order, id);
+CREATE INDEX idx_assignment_attachment_file ON edu_assignment_attachment (file_id, deleted, id);
 
 CREATE TABLE edu_assignment_submission (
     id BIGINT NOT NULL,
@@ -367,6 +397,7 @@ CREATE TABLE edu_assignment_submission (
     student_id BIGINT NOT NULL,
     attempt_no INT NOT NULL,
     content TEXT NULL,
+    file_id BIGINT NULL,
     file_key VARCHAR(512) NULL,
     file_url VARCHAR(1024) NULL,
     status VARCHAR(32) NOT NULL,
@@ -389,6 +420,7 @@ CREATE TABLE edu_assignment_submission (
 
 CREATE INDEX idx_submission_assignment_status ON edu_assignment_submission (assignment_id, status, deleted, submitted_at, id);
 CREATE INDEX idx_submission_student_course ON edu_assignment_submission (student_id, course_id, status, deleted, updated_at);
+CREATE INDEX idx_submission_file ON edu_assignment_submission (file_id, deleted, id);
 
 CREATE TABLE edu_grade_record (
     id BIGINT NOT NULL,

@@ -38,7 +38,7 @@ X-Trace-Id: <optional-trace-id>
 | `内部接口` | 仅供服务间 Feign 调用 | 前端不得调用 |
 | `测试接口` | 用于权限自动化测试 | 前端不得作为业务功能使用 |
 
-当前公开可联调的是认证、课程、课程内容、选课、学习进度和课程审核。作业、成绩、论坛、预警、考试和 AI 目前均为契约待实现。
+当前公开可联调的是认证、文件与头像、课程、课程内容、选课、学习进度、课程审核、作业、成绩、论坛、预警，以及考试题库的首版接口。AI 和未冻结字段的扩展接口仍不可联调。
 
 ## 3. 已实现公开接口
 
@@ -49,6 +49,7 @@ X-Trace-Id: <optional-trace-id>
 | `POST` | `/api/v1/auth/login` | 匿名 | `LoginRequest` | `LoginVO` |
 | `GET` | `/api/v1/auth/me` | 已登录 | 无 | `CurrentUserVO` |
 | `POST` | `/api/v1/auth/logout` | 已登录 | 无 | `LogoutVO` |
+| `PUT` | `/api/v1/auth/me/avatar` | 已登录 | `UpdateAvatarRequest` | `CurrentUserVO` |
 
 登录示例：
 
@@ -56,7 +57,18 @@ X-Trace-Id: <optional-trace-id>
 {"username":"student","password":"Student@123"}
 ```
 
-### 3.2 教师课程管理
+### 3.2 文件上传与访问
+
+| 方法 | 路径 | 角色 | 请求 | 响应 |
+|---|---|---|---|---|
+| `POST` | `/api/v1/files` | 已登录 | `multipart/form-data`：`file*`、`purpose?` | `StoredFileVO`，201 |
+| `GET` | `/api/v1/files/{fileId}` | 文件所有者、管理员或有业务资源访问权的用户 | 无 | `StoredFileVO` |
+| `GET` | `/api/v1/files/{fileId}/content` | 同上 | 无 | 文件流，不使用 `ApiResponse` 包裹 |
+| `DELETE` | `/api/v1/files/{fileId}` | 文件所有者或管理员 | 无 | `void`；被业务数据引用时返回 409 |
+
+`purpose` 可取 `AVATAR/COURSE_MATERIAL/ASSIGNMENT_ATTACHMENT/SUBMISSION/GENERAL`。默认单文件上限为 50MB，可通过 `FILE_MAX_SIZE` 配置；头像仅接受 JPEG、PNG、WebP 和 GIF。数据库只保存文件元数据和对象键，文件内容由可配置的本地目录保存。
+
+### 3.3 教师课程管理
 
 | 方法 | 路径 | 请求 | 响应 |
 |---|---|---|---|
@@ -71,7 +83,7 @@ X-Trace-Id: <optional-trace-id>
 | `POST` | `/api/v1/teacher/courses/{courseId}/teachers` | `AddCourseTeacherRequest` | `CourseTeacherVO` |
 | `DELETE` | `/api/v1/teacher/courses/{courseId}/teachers/{teacherId}` | 路径参数 | `void` |
 
-### 3.3 教师课程内容管理
+### 3.4 教师课程内容管理
 
 | 方法 | 路径 | 请求 | 响应 |
 |---|---|---|---|
@@ -93,7 +105,7 @@ X-Trace-Id: <optional-trace-id>
 | `PUT` | `/api/v1/teacher/materials/{materialId}` | `UpdateCourseMaterialRequest` | `CourseMaterialVO` |
 | `DELETE` | `/api/v1/teacher/materials/{materialId}` | 路径参数 | `void` |
 
-### 3.4 学生课程与学习
+### 3.5 学生课程与学习
 
 | 方法 | 路径 | 请求 | 响应 |
 |---|---|---|---|
@@ -109,7 +121,7 @@ X-Trace-Id: <optional-trace-id>
 | `GET` | `/api/v1/student/courses/{courseId}/progress` | 路径参数 | `CourseProgressVO` |
 | `GET` | `/api/v1/student/materials/{materialId}` | 路径参数 | `MaterialAccessVO` |
 
-### 3.5 管理员课程审核
+### 3.6 管理员课程审核
 
 | 方法 | 路径 | 请求 | 响应 |
 |---|---|---|---|
@@ -118,7 +130,7 @@ X-Trace-Id: <optional-trace-id>
 | `POST` | `/api/v1/admin/course-reviews/{courseId}/approve` | `ReviewCourseRequest` | `CourseReviewVO` |
 | `POST` | `/api/v1/admin/course-reviews/{courseId}/reject` | `RejectCourseRequest` | `CourseReviewVO` |
 
-### 3.6 已实现接口的数据格式
+### 3.7 已实现接口的数据格式
 
 除下载、SSE 等特殊接口外，请求体均为 JSON；所有成功和失败结果均使用
 `ApiResponse<T>` 包裹。`T` 是下方表格列出的响应 `data` 类型；响应中的所有
@@ -154,7 +166,7 @@ X-Trace-Id: <optional-trace-id>
 | `UpdateChapterRequest` | `title*: string(1-120)`，`description?: string(<=2000)`，`sortOrder*: number(0-100000)`，`version*: number(>=0)` |
 | `CreateLessonRequest` | `courseId?: number(>0)`，`title*: string(1-160)`，`contentType*: string`，`content?: string(<=60000)`，`videoUrl?: string(<=1024)`，`estimatedMinutes?: number(1-10000)`，`sortOrder*: number(0-100000)`，`unlockType*: string`，`unlockAt?: RFC3339` |
 | `UpdateLessonRequest` | 创建课时的全部字段，另有 `version*: number(>=0)` |
-| `CreateCourseMaterialRequest` | `chapterId?: number`，`lessonId?: number`，`name*: string(1-160)`，`materialType*: string`，`fileKey?: string(<=512)`，`fileUrl?: string(<=1024)`，`fileSize?: number(>=0)`，`mimeType?: string(<=128)`，`visibility*: string`，`status?: string`，`sortOrder*: number(0-100000)` |
+| `CreateCourseMaterialRequest` | `chapterId?: number`，`lessonId?: number`，`name*: string(1-160)`，`materialType*: string`，`fileId?: number(>0)`，`fileKey?: string(<=512)`，`fileUrl?: string(<=1024)`，`fileSize?: number(>=0)`，`mimeType?: string(<=128)`，`visibility*: string`，`status?: string`，`sortOrder*: number(0-100000)`；`fileId` 与外部 `fileKey/fileUrl` 二选一 |
 | `UpdateCourseMaterialRequest` | 创建资料的全部字段，但 `status*` 必填；另有 `version*: number(>=0)` |
 | `ReviewCourseRequest` | `remark?: string(<=500)`；审批接口允许不传请求体 |
 | `RejectCourseRequest` | `reason*: string(1-500)` |
@@ -181,7 +193,9 @@ X-Trace-Id: <optional-trace-id>
 | `data` 类型 | 字段 |
 |---|---|
 | `LoginVO` | `accessToken`，`tokenType`，`expiresIn`，`expiresAt`，`user: CurrentUserVO`，`roles: string[]`，`permissions: string[]` |
-| `CurrentUserVO` | `userId`，`username`，`displayName`，`activeRole`，`roles: string[]`，`permissions: string[]` |
+| `CurrentUserVO` | `userId`，`username`，`displayName`，`avatarFileId?`，`avatarUrl?`，`activeRole`，`roles: string[]`，`permissions: string[]`，`version` |
+| `UpdateAvatarRequest` | `fileId?: number(>0)`，`version*: number(>=0)`；`fileId=null` 表示移除头像 |
+| `StoredFileVO` | `fileId`，`originalName`，`objectKey`，`accessUrl`，`fileSize`，`mimeType`，`sha256`，`purpose`，`uploadedAt`，`version` |
 | `LogoutVO` | `mode`，`serverSideRevoked: boolean` |
 | `CourseDetailVO` | `courseId`，`courseCode`，`name`，`summary?`，`coverUrl?`，`categoryId?`，`term?`，`department?`，`credit?`，`ownerTeacherId`，`ownerTeacherName`，`status: CodeLabel`，`reviewStatus: CodeLabel`，`enrollmentOpenAt?`，`enrollmentCloseAt?`，`startAt?`，`endAt?`，`latestReviewReason?`，`version` |
 | `TeacherCourseListItemVO` | `courseId`，`courseCode`，`name`，`term?`，`ownerTeacherId`，`ownerTeacherName`，`status: CodeLabel`，`reviewStatus: CodeLabel`，`startAt?`，`endAt?`，`updatedAt` |
@@ -189,7 +203,7 @@ X-Trace-Id: <optional-trace-id>
 | `CourseTeacherVO` | `relationId`，`courseId`，`teacherId`，`teacherName`，`role: CodeLabel`，`version` |
 | `ChapterDetailVO` | `chapterId`，`courseId`，`title`，`description?`，`sortOrder`，`status: CodeLabel`，`publishedAt?`，`version` |
 | `LessonDetailVO` | `lessonId`，`courseId`，`chapterId`，`title`，`contentType: CodeLabel`，`content?`，`videoUrl?`，`estimatedMinutes?`，`sortOrder`，`status: CodeLabel`，`unlockType: CodeLabel`，`unlockAt?`，`publishedAt?`，`version` |
-| `CourseMaterialVO` | `materialId`，`courseId`，`chapterId?`，`lessonId?`，`name`，`materialType: CodeLabel`，`fileKey?`，`fileUrl?`，`fileSize?`，`mimeType?`，`visibility: CodeLabel`，`status: CodeLabel`，`sortOrder`，`version` |
+| `CourseMaterialVO` | `materialId`，`courseId`，`chapterId?`，`lessonId?`，`name`，`materialType: CodeLabel`，`fileId?`，`fileKey?`，`fileUrl?`，`fileSize?`，`mimeType?`，`visibility: CodeLabel`，`status: CodeLabel`，`sortOrder`，`version` |
 | `EnrollmentVO` | `enrollmentId`，`courseId`，`studentId`，`status: CodeLabel`，`enrolledAt?`，`withdrawnAt?`，`version` |
 | `CourseOutlineVO` | `courseId`，`courseName`，`status: CodeLabel`，`chapters: ChapterOutlineVO[]` |
 | `ChapterOutlineVO` | `chapterId`，`title`，`sortOrder`，`lessons: LessonOutlineVO[]` |
@@ -202,56 +216,56 @@ X-Trace-Id: <optional-trace-id>
 | `CourseReviewDetailVO` | `course: CourseDetailVO`，`history: CourseReviewVO[]` |
 | `CourseReviewVO` | `reviewId`，`courseId`，`reviewStatus: CodeLabel`，`reviewerId`，`reviewerName`，`reason?`，`remark?`，`reviewedAt` |
 
-### 3.7 测试接口
+### 3.8 测试接口
 
 `GET /api/v1/test/student`、`/teacher`、`/admin` 仅用于后端权限验证，前端不应接入、菜单不应展示。
 
-## 4. 未实现公开接口
+## 4. 扩展业务接口
 
-以下接口已完成路径、角色和业务规则设计，但当前没有对应 Controller。前端只能使用 Mock；后端完成后将本表状态改为“已实现”。
+本章同时记录已完成的 Backend A/B 扩展业务接口和字段尚未冻结的后续接口。前端可直接联调标为“已实现”的接口，其他接口继续使用 Mock。
 
-### 4.1 作业、提交与成绩
+### 4.1 作业、提交与成绩（已实现）
 
 | 方法 | 路径 | 角色 | 请求体或查询 | 成功响应 `data` | 状态 |
 |---|---|---|---|---|---|
-| `GET` | `/api/v1/teacher/courses/{courseId}/assignments` | 教师 | `page/size/status/sort` | `PageResponse<AssignmentDetailVO>` | 未实现 |
-| `POST` | `/api/v1/teacher/courses/{courseId}/assignments` | 教师 | `AssignmentCreateRequest` | `AssignmentDetailVO` | 未实现 |
-| `PUT` | `/api/v1/teacher/assignments/{assignmentId}` | 教师 | `AssignmentUpdateRequest` | `AssignmentDetailVO` | 未实现 |
-| `POST` | `/api/v1/teacher/assignments/{assignmentId}/publish` | 教师 | 无 | `AssignmentDetailVO` | 未实现 |
-| `POST` | `/api/v1/teacher/assignments/{assignmentId}/close` | 教师 | 无 | `AssignmentDetailVO` | 未实现 |
-| `GET` | `/api/v1/student/courses/{courseId}/assignments` | 学生 | `page/size/status/sort` | `PageResponse<StudentAssignmentListItemVO>` | 未实现 |
-| `GET` | `/api/v1/student/assignments/{assignmentId}` | 学生 | 无 | `StudentAssignmentDetailVO` | 未实现 |
-| `PUT` | `/api/v1/student/assignments/{assignmentId}/submission-draft` | 学生 | `SubmissionSaveRequest` | `SubmissionDetailVO` | 未实现 |
-| `POST` | `/api/v1/student/assignments/{assignmentId}/submissions` | 学生 | `SubmissionSubmitRequest` | `SubmissionDetailVO` | 未实现 |
-| `GET` | `/api/v1/teacher/assignments/{assignmentId}/submissions` | 教师 | `page/size/status/sort` | `PageResponse<TeacherSubmissionGradeVO>` | 未实现 |
-| `POST` | `/api/v1/teacher/submissions/{submissionId}/grade` | 教师 | `GradeSubmissionRequest` | `TeacherSubmissionGradeVO` | 未实现 |
-| `POST` | `/api/v1/teacher/grades/{gradeId}/publication` | 教师 | `PublishGradeRequest` | `TeacherSubmissionGradeVO` | 未实现 |
-| `GET` | `/api/v1/student/grades` | 学生 | `GradeListQuery` | `PageResponse<StudentGradeVO>` | 未实现 |
-| `GET` | `/api/v1/teacher/assignments/{assignmentId}/statistics` | 教师 | 无 | `AssignmentStatisticsVO` | 未实现 |
-| `GET` | `/api/v1/teacher/courses/{courseId}/grade-statistics` | 教师 | 无 | `CourseGradeStatisticsVO`（字段待定） | 未实现 |
+| `GET` | `/api/v1/teacher/courses/{courseId}/assignments` | 教师 | `page/size/status/sort` | `PageResponse<AssignmentDetailVO>` | 已实现 |
+| `POST` | `/api/v1/teacher/courses/{courseId}/assignments` | 教师 | `AssignmentCreateRequest` | `AssignmentDetailVO` | 已实现 |
+| `PUT` | `/api/v1/teacher/assignments/{assignmentId}` | 教师 | `AssignmentUpdateRequest` | `AssignmentDetailVO` | 已实现 |
+| `POST` | `/api/v1/teacher/assignments/{assignmentId}/publish` | 教师 | 无 | `AssignmentDetailVO` | 已实现 |
+| `POST` | `/api/v1/teacher/assignments/{assignmentId}/close` | 教师 | 无 | `AssignmentDetailVO` | 已实现 |
+| `GET` | `/api/v1/student/courses/{courseId}/assignments` | 学生 | `page/size/status/sort` | `PageResponse<StudentAssignmentListItemVO>` | 已实现 |
+| `GET` | `/api/v1/student/assignments/{assignmentId}` | 学生 | 无 | `StudentAssignmentDetailVO` | 已实现 |
+| `PUT` | `/api/v1/student/assignments/{assignmentId}/submission-draft` | 学生 | `SubmissionSaveRequest` | `SubmissionDetailVO` | 已实现 |
+| `POST` | `/api/v1/student/assignments/{assignmentId}/submissions` | 学生 | `SubmissionSubmitRequest` | `SubmissionDetailVO` | 已实现 |
+| `GET` | `/api/v1/teacher/assignments/{assignmentId}/submissions` | 教师 | `page/size/status/sort` | `PageResponse<TeacherSubmissionGradeVO>` | 已实现 |
+| `POST` | `/api/v1/teacher/submissions/{submissionId}/grade` | 教师 | `GradeSubmissionRequest` | `TeacherSubmissionGradeVO` | 已实现 |
+| `POST` | `/api/v1/teacher/grades/{gradeId}/publication` | 教师 | `PublishGradeRequest` | `TeacherSubmissionGradeVO` | 已实现 |
+| `GET` | `/api/v1/student/grades` | 学生 | `GradeListQuery` | `PageResponse<StudentGradeVO>` | 已实现 |
+| `GET` | `/api/v1/teacher/assignments/{assignmentId}/statistics` | 教师 | 无 | `AssignmentStatisticsVO` | 已实现 |
+| `GET` | `/api/v1/teacher/courses/{courseId}/grade-statistics` | 教师 | 无 | `CourseGradeStatisticsVO` | 已实现 |
 
 作业状态为 `DRAFT/PUBLISHED/CLOSED`；提交状态为 `DRAFT/SUBMITTED/RETURNED/GRADED`；成绩发布状态为 `DRAFT/PUBLISHED/REVOKED`。正式提交必须有文本内容或附件，逾期、重复提交和版本冲突返回 409。
 
-### 4.2 论坛与学习预警
+### 4.2 论坛与学习预警（已实现）
 
 | 方法 | 路径 | 角色 | 请求体或查询 | 成功响应 `data` | 状态 |
 |---|---|---|---|---|---|
-| `GET` | `/api/v1/student/courses/{courseId}/forum/topics` | 学生 | `page/size/status/keyword` | `PageResponse<ForumTopicListItemVO>` | 未实现 |
-| `POST` | `/api/v1/student/courses/{courseId}/forum/topics` | 学生 | `ForumTopicCreateRequest` | `ForumTopicDetailVO` | 未实现 |
-| `GET` | `/api/v1/student/forum/topics/{topicId}` | 学生 | 无 | `ForumTopicDetailVO` | 未实现 |
-| `GET` | `/api/v1/student/forum/topics/{topicId}/replies` | 学生 | `page/size/status` | `PageResponse<ForumReplyVO>` | 未实现 |
-| `POST` | `/api/v1/student/forum/topics/{topicId}/replies` | 学生 | `ForumReplyCreateRequest` | `ForumReplyVO` | 未实现 |
-| `GET` | `/api/v1/teacher/courses/{courseId}/forum/topics` | 教师 | `page/size/status/keyword` | `PageResponse<ForumTopicListItemVO>` | 未实现 |
-| `PATCH` | `/api/v1/teacher/forum/topics/{topicId}/visibility` | 教师 | `ForumVisibilityRequest` | `ForumTopicDetailVO` | 未实现 |
-| `PATCH` | `/api/v1/teacher/forum/replies/{replyId}/visibility` | 教师 | `ForumVisibilityRequest` | `ForumReplyVO` | 未实现 |
-| `PATCH` | `/api/v1/admin/forum/topics/{topicId}/visibility` | 管理员 | `ForumVisibilityRequest` | `ForumTopicDetailVO` | 未实现 |
-| `PATCH` | `/api/v1/admin/forum/replies/{replyId}/visibility` | 管理员 | `ForumVisibilityRequest` | `ForumReplyVO` | 未实现 |
-| `POST` | `/api/v1/teacher/courses/{courseId}/warnings/generation` | 教师 | `GenerateCourseWarningsRequest` | `WarningGenerationResultVO` | 未实现 |
-| `GET` | `/api/v1/student/warnings` | 学生 | `WarningListQuery` | `PageResponse<LearningWarningVO>` | 未实现 |
-| `GET` | `/api/v1/student/warnings/{warningId}` | 学生 | 无 | `LearningWarningVO` | 未实现 |
-| `GET` | `/api/v1/teacher/courses/{courseId}/warnings` | 教师 | `WarningListQuery` | `PageResponse<LearningWarningVO>` | 未实现 |
-| `GET` | `/api/v1/teacher/warnings/{warningId}` | 教师 | 无 | `LearningWarningVO` | 未实现 |
-| `POST` | `/api/v1/teacher/warnings/{warningId}/handle` | 教师 | `WarningHandleRequest` | `LearningWarningVO` | 未实现 |
+| `GET` | `/api/v1/student/courses/{courseId}/forum/topics` | 学生 | `page/size/status/keyword` | `PageResponse<ForumTopicListItemVO>` | 已实现 |
+| `POST` | `/api/v1/student/courses/{courseId}/forum/topics` | 学生 | `ForumTopicCreateRequest` | `ForumTopicDetailVO` | 已实现 |
+| `GET` | `/api/v1/student/forum/topics/{topicId}` | 学生 | 无 | `ForumTopicDetailVO` | 已实现 |
+| `GET` | `/api/v1/student/forum/topics/{topicId}/replies` | 学生 | `page/size/status` | `PageResponse<ForumReplyVO>` | 已实现 |
+| `POST` | `/api/v1/student/forum/topics/{topicId}/replies` | 学生 | `ForumReplyCreateRequest` | `ForumReplyVO` | 已实现 |
+| `GET` | `/api/v1/teacher/courses/{courseId}/forum/topics` | 教师 | `page/size/status/keyword` | `PageResponse<ForumTopicListItemVO>` | 已实现 |
+| `PATCH` | `/api/v1/teacher/forum/topics/{topicId}/visibility` | 教师 | `ForumVisibilityRequest` | `ForumTopicDetailVO` | 已实现 |
+| `PATCH` | `/api/v1/teacher/forum/replies/{replyId}/visibility` | 教师 | `ForumVisibilityRequest` | `ForumReplyVO` | 已实现 |
+| `PATCH` | `/api/v1/admin/forum/topics/{topicId}/visibility` | 管理员 | `ForumVisibilityRequest` | `ForumTopicDetailVO` | 已实现 |
+| `PATCH` | `/api/v1/admin/forum/replies/{replyId}/visibility` | 管理员 | `ForumVisibilityRequest` | `ForumReplyVO` | 已实现 |
+| `POST` | `/api/v1/teacher/courses/{courseId}/warnings/generation` | 教师 | `GenerateCourseWarningsRequest` | `WarningGenerationResultVO` | 已实现 |
+| `GET` | `/api/v1/student/warnings` | 学生 | `WarningListQuery` | `PageResponse<LearningWarningVO>` | 已实现 |
+| `GET` | `/api/v1/student/warnings/{warningId}` | 学生 | 无 | `LearningWarningVO` | 已实现 |
+| `GET` | `/api/v1/teacher/courses/{courseId}/warnings` | 教师 | `WarningListQuery` | `PageResponse<LearningWarningVO>` | 已实现 |
+| `GET` | `/api/v1/teacher/warnings/{warningId}` | 教师 | 无 | `LearningWarningVO` | 已实现 |
+| `POST` | `/api/v1/teacher/warnings/{warningId}/handle` | 教师 | `WarningHandleRequest` | `LearningWarningVO` | 已实现 |
 
 论坛可见性使用 `VISIBLE/HIDDEN`；预警状态使用 `OPEN/HANDLED/IGNORED`，预警由规则生成，AI 不得直接关闭预警。
 
@@ -323,15 +337,15 @@ SSE 事件固定为 `meta`、`delta`、`citation`、`done`、`error`。AI 只能
 
 ### 4.5 作业、成绩、论坛与预警的数据格式
 
-本节是未实现接口的**设计契约**，不是当前 Java 代码；实现接口时，后端必须创建同名 DTO/VO，并让字段与本节保持一致。`datetime` 为 RFC 3339 字符串，`decimal` 为 JSON 数字，`?` 表示可为 `null`。
+本节是 Backend A 已实现接口的字段契约。`datetime` 为 RFC 3339 字符串，`decimal` 为 JSON 数字，`?` 表示可为 `null`。
 
 | 请求体类型 | JSON 字段 |
 |---|---|
 | `AssignmentCreateRequest` | `lessonId?: string`，`title*: string(1-160)`，`description?`，`maxScore*: decimal(>0)`，`openAt?`，`dueAt*: datetime`，`attachments?: AssignmentAttachmentDTO[]` |
 | `AssignmentUpdateRequest` | 创建作业全部字段（不含 `lessonId` 可按需保留），另有 `version*: integer` |
-| `AssignmentAttachmentDTO` | `name*: string`，`fileKey?`，`fileUrl?`，`fileSize?`，`mimeType?`，`sortOrder*: integer` |
-| `SubmissionSaveRequest` | `content?`，`fileKey?`，`fileUrl?`，`version?`；保存草稿时可为空 |
-| `SubmissionSubmitRequest` | `content?`，`fileKey?`，`fileUrl?`，`version?`；`content` 或附件地址必须至少有一项 |
+| `AssignmentAttachmentDTO` | `name*: string`，`fileId?`，`fileKey?`，`fileUrl?`，`fileSize?`，`mimeType?`，`sortOrder*: integer`；托管文件使用 `fileId`，外部文件使用 `fileKey/fileUrl` |
+| `SubmissionSaveRequest` | `content?`，`fileId?`，`fileKey?`，`fileUrl?`，`version?`；保存草稿时可为空 |
+| `SubmissionSubmitRequest` | `content?`，`fileId?`，`fileKey?`，`fileUrl?`，`version?`；`content` 或附件引用必须至少有一项 |
 | `GradeSubmissionRequest` | `score*: decimal`，`maxScore*: decimal`，`teacherComment?: string(<=1000)`，`aiCommentDraftId?`，`publishNow?: boolean`，`version*: integer` |
 | `PublishGradeRequest` | `version*: integer` |
 | `ForumTopicCreateRequest` | `title*: string(1-160)`，`content*: string(1-5000)` |
@@ -344,13 +358,14 @@ SSE 事件固定为 `meta`、`delta`、`citation`、`done`、`error`。AI 只能
 
 | 响应 `data` 类型 | 字段 |
 |---|---|
-| `AssignmentDetailVO` | `assignmentId`，`courseId`，`lessonId?`，`title`，`description?`，`maxScore`，`assignmentStatus: DRAFT|PUBLISHED|CLOSED`，`availabilityStatus: NOT_OPEN|OPEN|OVERDUE|CLOSED`，`openAt?`，`dueAt`，`publishedAt?`，`attachments: AssignmentAttachmentDTO[]`，`version` |
+| `AssignmentDetailVO` | `assignmentId`，`courseId`，`lessonId?`，`title`，`description?`，`maxScore`，`assignmentStatus: CodeLabel`，`availabilityStatus: CodeLabel`，`openAt?`，`dueAt`，`publishedAt?`，`attachments: AssignmentAttachmentDTO[]`，`version` |
 | `StudentAssignmentListItemVO` | `assignmentId`，`courseId`，`title`，`maxScore`，`availabilityStatus`，`dueAt`，`submissionStatus?`，`submittedAt?`，`graded: boolean` |
 | `StudentAssignmentDetailVO` | `assignment: AssignmentDetailVO`，`submission?: SubmissionDetailVO` |
-| `SubmissionDetailVO` | `submissionId`，`assignmentId`，`courseId`，`studentId`，`attemptNo`，`content?`，`fileKey?`，`fileUrl?`，`submissionStatus`，`submittedAt?`，`score?`，`gradedAt?`，`publishedAt?`，`version` |
+| `SubmissionDetailVO` | `submissionId`，`assignmentId`，`courseId`，`studentId`，`attemptNo`，`content?`，`fileId?`，`fileKey?`，`fileUrl?`，`submissionStatus: CodeLabel`，`submittedAt?`，`score?`，`gradedAt?`，`publishedAt?`，`version` |
 | `TeacherSubmissionGradeVO` | `submissionId`，`assignmentId`，`courseId`，`studentId`，`studentName?`，`submissionStatus`，`submittedAt?`，`score?`，`maxScore`，`teacherComment?`，`gradeStatus?`，`publishedAt?`，`version` |
 | `StudentGradeVO` | `gradeId`，`courseId`，`assignmentId`，`assignmentTitle`，`score`，`maxScore`，`scoreRate`，`teacherComment?`，`publishedAt` |
 | `AssignmentStatisticsVO` | `assignmentId`，`courseId`，`totalStudentCount`，`submittedCount`，`missingCount`，`gradedCount`，`publishedGradeCount`，`averageScore?`，`lowScoreCount` |
+| `CourseGradeStatisticsVO` | `courseId`，`assignmentCount`，`publishedAssignmentCount`，`enrolledStudentCount`，`gradedRecordCount`，`publishedGradeCount`，`averageScoreRate?`，`passRate?`，`lowScoreCount`；比率为 0-100 的百分数 |
 | `ForumTopicListItemVO` | `topicId`，`courseId`，`title`，`authorId`，`authorName?`，`status: VISIBLE|HIDDEN`，`pinned: boolean`，`replyCount`，`lastRepliedAt?`，`createdAt`，`version` |
 | `ForumTopicDetailVO` | `topicId`，`courseId`，`title`，`content`，`authorId`，`authorName?`，`status`，`createdAt`，`version` |
 | `ForumReplyVO` | `replyId`，`topicId`，`courseId`，`authorId`，`authorName?`，`parentReplyId?`，`content`，`status: VISIBLE|HIDDEN`，`createdAt`，`version` |
@@ -398,6 +413,8 @@ SSE 事件固定为 `meta`、`delta`、`citation`、`done`、`error`。AI 只能
 | 403 | `FORBIDDEN` | 显示无权限，不泄露他人资源内容 |
 | 404 | `RESOURCE_NOT_FOUND` | 显示资源不存在或已不可访问 |
 | 409 | `RESOURCE_CONFLICT`、`OPERATION_NOT_ALLOWED` | 刷新数据或提示状态冲突 |
+| 409 | `FILE_IN_USE` | 文件仍被头像、课程资料或作业数据引用，解除引用后再删除 |
+| 400/403/404 | `FILE_TYPE_NOT_ALLOWED`、`FILE_ACCESS_DENIED`、`FILE_NOT_FOUND` | 更换文件类型、检查资源权限或提示文件不存在 |
 | 429 | `AI_RATE_LIMITED` | 保留用户输入，按 `Retry-After` 重试 |
 | 503 | `AI_SERVICE_UNAVAILABLE` | 保留用户输入，提示稍后重试 |
 

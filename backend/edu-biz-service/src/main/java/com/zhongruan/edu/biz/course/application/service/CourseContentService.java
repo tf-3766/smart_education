@@ -27,6 +27,9 @@ import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseMate
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseChapterMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseLessonMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseMaterialMapper;
+import com.zhongruan.edu.biz.storage.application.service.FileStorageService;
+import com.zhongruan.edu.biz.storage.domain.FilePurpose;
+import com.zhongruan.edu.biz.storage.infrastructure.persistence.entity.StoredFileEntity;
 import com.zhongruan.edu.common.api.PageResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
@@ -44,18 +47,21 @@ public class CourseContentService {
     private final CourseMaterialMapper materialMapper;
     private final CourseManagementService courseService;
     private final CourseContentAssembler assembler;
+    private final FileStorageService fileStorageService;
 
     public CourseContentService(
             CourseChapterMapper chapterMapper,
             CourseLessonMapper lessonMapper,
             CourseMaterialMapper materialMapper,
             CourseManagementService courseService,
-            CourseContentAssembler assembler) {
+            CourseContentAssembler assembler,
+            FileStorageService fileStorageService) {
         this.chapterMapper = chapterMapper;
         this.lessonMapper = lessonMapper;
         this.materialMapper = materialMapper;
         this.courseService = courseService;
         this.assembler = assembler;
+        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -245,11 +251,12 @@ public class CourseContentService {
             Long teacherId, Long courseId, CreateCourseMaterialRequest request) {
         courseService.requireEditor(teacherId, courseId);
         validateMaterialHierarchy(courseId, request.chapterId(), request.lessonId(), request.visibility());
-        validateFileReference(request.fileKey(), request.fileUrl());
+        FileReference file = fileReference(teacherId, request.fileId(), request.fileKey(), request.fileUrl(),
+                request.fileSize(), request.mimeType(), FilePurpose.COURSE_MATERIAL);
         CourseMaterialEntity material = new CourseMaterialEntity();
         material.setCourseId(courseId);
         applyMaterial(material, request.chapterId(), request.lessonId(), request.name(), request.materialType().name(),
-                request.fileKey(), request.fileUrl(), request.fileSize(), request.mimeType(), request.visibility(),
+                file, request.visibility(),
                 request.status() == null ? MaterialStatus.DRAFT : request.status(), request.sortOrder());
         materialMapper.insert(material);
         return assembler.toMaterial(material);
@@ -261,9 +268,10 @@ public class CourseContentService {
         CourseMaterialEntity material = requireMaterial(materialId);
         courseService.requireEditor(teacherId, material.getCourseId());
         validateMaterialHierarchy(material.getCourseId(), request.chapterId(), request.lessonId(), request.visibility());
-        validateFileReference(request.fileKey(), request.fileUrl());
+        FileReference file = fileReference(teacherId, request.fileId(), request.fileKey(), request.fileUrl(),
+                request.fileSize(), request.mimeType(), FilePurpose.COURSE_MATERIAL);
         applyMaterial(material, request.chapterId(), request.lessonId(), request.name(), request.materialType().name(),
-                request.fileKey(), request.fileUrl(), request.fileSize(), request.mimeType(), request.visibility(),
+                file, request.visibility(),
                 request.status(), request.sortOrder());
         material.setVersion(request.version());
         if (materialMapper.updateById(material) != 1) {
@@ -294,16 +302,17 @@ public class CourseContentService {
 
     private void applyMaterial(
             CourseMaterialEntity material, Long chapterId, Long lessonId, String name, String materialType,
-            String fileKey, String fileUrl, Long fileSize, String mimeType, MaterialVisibility visibility,
+            FileReference file, MaterialVisibility visibility,
             MaterialStatus status, Integer sortOrder) {
         material.setChapterId(chapterId);
         material.setLessonId(lessonId);
         material.setName(name.trim());
         material.setMaterialType(materialType);
-        material.setFileKey(trim(fileKey));
-        material.setFileUrl(trim(fileUrl));
-        material.setFileSize(fileSize);
-        material.setMimeType(trim(mimeType));
+        material.setFileId(file.fileId());
+        material.setFileKey(file.fileKey());
+        material.setFileUrl(file.fileUrl());
+        material.setFileSize(file.fileSize());
+        material.setMimeType(file.mimeType());
         material.setVisibility(visibility.name());
         material.setStatus(status.name());
         material.setSortOrder(sortOrder);
@@ -354,11 +363,30 @@ public class CourseContentService {
         }
     }
 
-    private void validateFileReference(String fileKey, String fileUrl) {
+    private FileReference fileReference(
+            Long ownerId,
+            Long fileId,
+            String fileKey,
+            String fileUrl,
+            Long fileSize,
+            String mimeType,
+            FilePurpose purpose) {
+        if (fileId != null) {
+            StoredFileEntity stored = fileStorageService.requireOwnedFile(ownerId, fileId, purpose);
+            return new FileReference(
+                    stored.getId(),
+                    stored.getObjectKey(),
+                    fileStorageService.accessUrl(stored.getId()),
+                    stored.getFileSize(),
+                    stored.getMimeType());
+        }
         if ((fileKey == null || fileKey.isBlank()) && (fileUrl == null || fileUrl.isBlank())) {
             throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "fileKey 与 fileUrl 至少填写一个");
         }
+        return new FileReference(null, trim(fileKey), trim(fileUrl), fileSize, trim(mimeType));
     }
+
+    private record FileReference(Long fileId, String fileKey, String fileUrl, Long fileSize, String mimeType) {}
 
     private void requirePublishedCourse(Long courseId) {
         CourseEntity course = courseService.requireCourse(courseId);

@@ -25,6 +25,9 @@ edu:
       secret: test-only-jwt-secret-with-at-least-32-bytes
       ttl: PT15M
       issuer: edu-biz-service-test
+  storage:
+    root: ${java.io.tmpdir}/smart-education-test-uploads
+    max-file-size: 2MB
 
 logging:
   level:

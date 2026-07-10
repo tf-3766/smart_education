@@ -1,6 +1,6 @@
 # smart_education
 
-在线教育辅助教学系统，面向学生、教师、管理员三类角色，采用 Vue 3 前端和 Spring Cloud Alibaba 轻量微服务后端。
+在线教育辅助教学系统，面向学生、教师、管理员三类角色，采用 Spring Cloud Alibaba 轻量微服务后端。前端实现已移交给前端成员，仓库中的 `frontend/` 当前仅为空目录占位。
 
 当前核心文档：
 

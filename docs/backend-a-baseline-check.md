@@ -92,7 +92,7 @@ backend-2
 
 | 差距 | 当前处理 |
 |---|---|
-| 学生提交多附件 | 当前 `edu_assignment_submission` 只有单组 `file_key/file_url`；MVP 可先支持单附件，若前端要求多附件再登记 `edu_submission_attachment` |
+| 学生提交多附件 | 当前 `edu_assignment_submission` 通过单个 `file_id` 关联 `sys_file`，并兼容 `file_key/file_url`；MVP 支持单附件，若前端要求多附件再登记 `edu_submission_attachment` |
 | 评分历史和撤回 | 当前 `edu_grade_record` 是当前正式记录；MVP 不做成绩版本表 |
 | 论坛删除原因 | 当前 topic/reply 只有 `status`；MVP 可先隐藏/逻辑删除，复杂治理延后 |
 | 预警处理备注 | 当前 `edu_learning_warning` 有处理人和时间，无独立 action 表；MVP 可先用状态追踪，处理备注如必须持久化再增量迁移 |

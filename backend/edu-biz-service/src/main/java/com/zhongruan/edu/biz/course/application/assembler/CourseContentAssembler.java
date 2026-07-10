@@ -43,7 +43,7 @@ public class CourseContentAssembler {
     public CourseMaterialVO toMaterial(CourseMaterialEntity material) {
         return new CourseMaterialVO(id(material.getId()), id(material.getCourseId()), id(material.getChapterId()),
                 id(material.getLessonId()), material.getName(),
-                CodeLabelVO.of(MaterialType.valueOf(material.getMaterialType())), material.getFileKey(),
+                CodeLabelVO.of(MaterialType.valueOf(material.getMaterialType())), id(material.getFileId()), material.getFileKey(),
                 material.getFileUrl(), material.getFileSize(), material.getMimeType(),
                 CodeLabelVO.of(MaterialVisibility.valueOf(material.getVisibility())),
                 CodeLabelVO.of(MaterialStatus.valueOf(material.getStatus())), material.getSortOrder(),
