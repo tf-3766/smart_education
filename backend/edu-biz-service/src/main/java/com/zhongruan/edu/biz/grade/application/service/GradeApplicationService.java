@@ -248,24 +248,24 @@ public class GradeApplicationService {
         List<GradeRecordEntity> grades = gradeMapper.selectList(Wrappers.<GradeRecordEntity>lambdaQuery()
                 .eq(GradeRecordEntity::getCourseId, courseId)
                 .eq(GradeRecordEntity::getSourceType, GradeSourceType.ASSIGNMENT.name()));
-        long publishedGrades = grades.stream()
+        List<GradeRecordEntity> publishedGrades = grades.stream()
                 .filter(grade -> GradeStatus.PUBLISHED.name().equals(grade.getGradeStatus()))
-                .count();
-        long lowScores = grades.stream().filter(this::isLowScore).count();
-        long passingScores = grades.stream().filter(grade -> !isLowScore(grade)).count();
-        BigDecimal averageRate = percentageAverage(grades);
-        BigDecimal passRate = grades.isEmpty()
+                .toList();
+        long lowScores = publishedGrades.stream().filter(this::isLowScore).count();
+        long passingScores = publishedGrades.stream().filter(grade -> !isLowScore(grade)).count();
+        BigDecimal averageRate = percentageAverage(publishedGrades);
+        BigDecimal passRate = publishedGrades.isEmpty()
                 ? null
                 : BigDecimal.valueOf(passingScores)
                         .multiply(BigDecimal.valueOf(100))
-                        .divide(BigDecimal.valueOf(grades.size()), 2, RoundingMode.HALF_UP);
+                        .divide(BigDecimal.valueOf(publishedGrades.size()), 2, RoundingMode.HALF_UP);
         return new CourseGradeStatisticsVO(
                 String.valueOf(courseId),
                 assignments.size(),
                 publishedAssignments,
                 enrolledStudents,
                 grades.size(),
-                publishedGrades,
+                publishedGrades.size(),
                 averageRate,
                 passRate,
                 lowScores);
@@ -369,7 +369,7 @@ public class GradeApplicationService {
         if (ids.isEmpty()) {
             return Map.of();
         }
-        return assignmentMapper.selectBatchIds(ids).stream()
+        return assignmentMapper.selectByIds(ids).stream()
                 .collect(Collectors.toMap(AssignmentEntity::getId, Function.identity()));
     }
 
@@ -377,7 +377,7 @@ public class GradeApplicationService {
         if (studentIds.isEmpty()) {
             return Map.of();
         }
-        return userMapper.selectBatchIds(studentIds).stream()
+        return userMapper.selectByIds(studentIds).stream()
                 .collect(Collectors.toMap(UserEntity::getId, UserEntity::getDisplayName));
     }
 

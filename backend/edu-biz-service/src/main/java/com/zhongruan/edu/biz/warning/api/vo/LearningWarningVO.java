@@ -16,6 +16,7 @@ public record LearningWarningVO(
         String aiExplanationDraftId,
         OffsetDateTime generatedAt,
         String handledBy,
+        String handleRemark,
         OffsetDateTime handledAt,
         List<WarningEvidenceVO> evidences,
         Integer version) {}

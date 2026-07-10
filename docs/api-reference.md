@@ -244,7 +244,7 @@ X-Trace-Id: <optional-trace-id>
 | `GET` | `/api/v1/teacher/assignments/{assignmentId}/statistics` | 教师 | 无 | `AssignmentStatisticsVO` | 已实现 |
 | `GET` | `/api/v1/teacher/courses/{courseId}/grade-statistics` | 教师 | 无 | `CourseGradeStatisticsVO` | 已实现 |
 
-作业状态为 `DRAFT/PUBLISHED/CLOSED`；提交状态为 `DRAFT/SUBMITTED/RETURNED/GRADED`；成绩发布状态为 `DRAFT/PUBLISHED/REVOKED`。正式提交必须有文本内容或附件，逾期、重复提交和版本冲突返回 409。
+作业状态为 `DRAFT/PUBLISHED/CLOSED`；提交状态为 `DRAFT/SUBMITTED/RETURNED/GRADED`；成绩发布状态首版为 `DRAFT/PUBLISHED`。正式提交必须有文本内容或附件，逾期、重复提交和版本冲突返回 409。
 
 ### 4.2 论坛与学习预警（已实现）
 
@@ -365,11 +365,11 @@ SSE 事件固定为 `meta`、`delta`、`citation`、`done`、`error`。AI 只能
 | `TeacherSubmissionGradeVO` | `submissionId`，`assignmentId`，`courseId`，`studentId`，`studentName?`，`submissionStatus`，`submittedAt?`，`score?`，`maxScore`，`teacherComment?`，`gradeStatus?`，`publishedAt?`，`version` |
 | `StudentGradeVO` | `gradeId`，`courseId`，`assignmentId`，`assignmentTitle`，`score`，`maxScore`，`scoreRate`，`teacherComment?`，`publishedAt` |
 | `AssignmentStatisticsVO` | `assignmentId`，`courseId`，`totalStudentCount`，`submittedCount`，`missingCount`，`gradedCount`，`publishedGradeCount`，`averageScore?`，`lowScoreCount` |
-| `CourseGradeStatisticsVO` | `courseId`，`assignmentCount`，`publishedAssignmentCount`，`enrolledStudentCount`，`gradedRecordCount`，`publishedGradeCount`，`averageScoreRate?`，`passRate?`，`lowScoreCount`；比率为 0-100 的百分数 |
+| `CourseGradeStatisticsVO` | `courseId`，`assignmentCount`，`publishedAssignmentCount`，`enrolledStudentCount`，`gradedRecordCount`，`publishedGradeCount`，`averageScoreRate?`，`passRate?`，`lowScoreCount`；聚合指标只统计已发布成绩，比率为 0-100 的百分数 |
 | `ForumTopicListItemVO` | `topicId`，`courseId`，`title`，`authorId`，`authorName?`，`status: VISIBLE|HIDDEN`，`pinned: boolean`，`replyCount`，`lastRepliedAt?`，`createdAt`，`version` |
-| `ForumTopicDetailVO` | `topicId`，`courseId`，`title`，`content`，`authorId`，`authorName?`，`status`，`createdAt`，`version` |
-| `ForumReplyVO` | `replyId`，`topicId`，`courseId`，`authorId`，`authorName?`，`parentReplyId?`，`content`，`status: VISIBLE|HIDDEN`，`createdAt`，`version` |
-| `LearningWarningVO` | `warningId`，`courseId`，`studentId`，`warningType`，`warningLevel: LOW|MEDIUM|HIGH`，`warningStatus: OPEN|HANDLED|IGNORED`，`summary`，`suggestion?`，`aiExplanationDraftId?`，`generatedAt`，`handledBy?`，`handledAt?`，`evidences: WarningEvidenceVO[]`，`version` |
+| `ForumTopicDetailVO` | `topicId`，`courseId`，`title`，`content`，`authorId`，`authorName?`，`status`，`moderationReason?`，`moderatedBy?`，`moderatedAt?`，`createdAt`，`version` |
+| `ForumReplyVO` | `replyId`，`topicId`，`courseId`，`authorId`，`authorName?`，`parentReplyId?`，`content`，`status: VISIBLE|HIDDEN`，`moderationReason?`，`moderatedBy?`，`moderatedAt?`，`createdAt`，`version` |
+| `LearningWarningVO` | `warningId`，`courseId`，`studentId`，`warningType`，`warningLevel: LOW|MEDIUM|HIGH`，`warningStatus: OPEN|HANDLED|IGNORED`，`summary`，`suggestion?`，`aiExplanationDraftId?`，`generatedAt`，`handledBy?`，`handleRemark?`，`handledAt?`，`evidences: WarningEvidenceVO[]`，`version` |
 | `WarningEvidenceVO` | `evidenceId`，`evidenceType`，`sourceId?`，`metricCode?`，`metricValue?`，`description` |
 | `WarningGenerationResultVO` | `createdCount`，`skippedCount`，`warnings: LearningWarningVO[]`（`dryRun=true` 时为预览） |
 

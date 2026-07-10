@@ -175,6 +175,7 @@ public class WarningApplicationService {
         warning.setVersion(request.version());
         warning.setWarningStatus(request.action().name());
         warning.setHandledBy(teacherId);
+        warning.setHandleRemark(trimToNull(request.remark()));
         warning.setHandledAt(now());
         updateOrConflict(warning);
         return assemble(requireWarning(warningId));
@@ -424,6 +425,10 @@ public class WarningApplicationService {
 
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+    }
+
+    private String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private record WarningCandidate(

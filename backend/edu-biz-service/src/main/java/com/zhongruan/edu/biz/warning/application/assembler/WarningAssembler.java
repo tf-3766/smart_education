@@ -33,6 +33,7 @@ public class WarningAssembler {
                 id(warning.getAiExplanationDraftId()),
                 time(warning.getGeneratedAt()),
                 id(warning.getHandledBy()),
+                warning.getHandleRemark(),
                 time(warning.getHandledAt()),
                 evidences.stream().map(this::toEvidence).toList(),
                 warning.getVersion());

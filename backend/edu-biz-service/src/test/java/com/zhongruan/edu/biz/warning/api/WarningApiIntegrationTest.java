@@ -78,6 +78,7 @@ class WarningApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.warningStatus.code").value("HANDLED"))
                 .andExpect(jsonPath("$.data.handledBy").value("1002"))
+                .andExpect(jsonPath("$.data.handleRemark").value("followed up"))
                 .andExpect(jsonPath("$.data.handledAt").exists());
     }
 

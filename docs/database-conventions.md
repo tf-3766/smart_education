@@ -135,7 +135,7 @@ PRIMARY KEY (id)
 
 #### 成绩
 
-`grade_publication_status`：`DRAFT → PUBLISHED`；如政策允许撤回则 `PUBLISHED → WITHDRAWN`，必须保留操作原因和历史版本。未发布成绩对学生接口不可见，不能返回 0。
+`grade_status` 首版为 `DRAFT → PUBLISHED`。未发布成绩对学生接口不可见，不能返回 0；后续如增加撤回，必须先补接口、操作原因和历史版本设计。
 
 #### 考试
 
@@ -145,7 +145,7 @@ PRIMARY KEY (id)
 
 #### 学习预警
 
-`warning_status`：`OPEN → ACKNOWLEDGED → IN_PROGRESS → RESOLVED → CLOSED`。AI 只能生成解释/建议，不能推进状态；教师关闭不删除证据，学生“已读”也不等于已解决。
+`warning_status` 首版为 `OPEN → HANDLED/IGNORED`。AI 只能生成解释/建议，不能推进状态；教师处理或忽略预警时不删除证据。
 
 #### AI 任务
 
@@ -212,22 +212,22 @@ CREATE INDEX idx_assignment_course_status_deadline
 | `edu_course` | 课程与学习 | 教师仅负责/协作课程；管理员治理；学生按选课/公开范围 | 逻辑删除或下线，保留历史 |
 | `edu_course_teacher` | 课程与学习 | 课程负责人或管理员授权 | 状态化解除，保留授权历史 |
 | `edu_course_review` | 课程与学习 | 提交教师、审核管理员按范围查看 | 只追加，不覆盖历史审核 |
-| `edu_chapter`、`edu_lesson` | 课程与学习 | 课程编辑者写；已选学生读已发布内容 | 逻辑删除/下线，存在进度时禁物理删 |
-| `edu_course_resource` | 课程与学习 | 课程成员按资源可见范围；AI 仅取授权版本 | 逻辑删除；异步触发向量清理 |
+| `edu_course_chapter`、`edu_course_lesson` | 课程与学习 | 课程编辑者写；已选学生读已发布内容 | 逻辑删除/下线，存在进度时禁物理删 |
+| `edu_course_material` | 课程与学习 | 课程成员按资源可见范围；AI 仅取授权版本 | 逻辑删除；异步触发向量清理 |
 | `edu_ai_conversation`、`edu_ai_message` | 课程与学习 | 仅会话本人；管理员默认不可读正文 | 软删仅影响本人视图，安全审计按保留策略保存 |
-| `edu_enrollment` | 课程与学习 | 学生本人、课程教师、授权管理员 | 退选状态化，保留选退时间 |
-| `edu_lesson_progress` | 课程与学习 | 学生本人读写自身；教师读负责课程 | 不允许业务删除，纠错留审计 |
+| `edu_course_enrollment` | 课程与学习 | 学生本人、课程教师、授权管理员 | 退选状态化，保留选退时间 |
+| `edu_lesson_learning_record` | 课程与学习 | 学生本人读写自身；教师读负责课程 | 不允许业务删除，纠错留审计 |
 | `edu_assignment` | 作业成绩预警 | 课程教师写；已选学生读已发布 | 逻辑删除/关闭，已有提交后禁物理删 |
 | `edu_assignment_submission` | 作业成绩预警 | 学生本人提交；课程教师批改 | 不删除，重交产生版本/次数 |
 | `edu_rubric`、`edu_rubric_item` | 作业成绩预警 | 课程教师管理；学生按发布策略读 | 被使用后版本化，不覆盖历史 |
-| `edu_grade` | 作业成绩预警 | 教师写负责课程；学生只读本人已发布 | 不删除，使用更正/撤回版本 |
-| `edu_warning`、`edu_warning_evidence` | 作业成绩预警 | 学生本人和负责教师按视图读取 | 不删除证据，状态化关闭 |
+| `edu_grade_record` | 作业成绩预警 | 教师写负责课程；学生只读本人已发布 | 不删除，后续更正/撤回需版本化 |
+| `edu_learning_warning`、`edu_warning_evidence` | 作业成绩预警 | 学生本人和负责教师按视图读取 | 不删除证据，状态化处理 |
 | `edu_warning_action` | 作业成绩预警 | 学生本人/负责教师写各自允许动作 | 只追加或受控更正 |
 | `edu_question` | 考试题库 | 本人私有、课程共享、学校公共三种范围 | 已入卷后不可物理删，只停用/版本化 |
 | `edu_exam`、`edu_exam_paper` | 考试题库 | 课程教师管理；学生按发布/时间范围读 | 取消/结束，不物理删 |
 | `edu_exam_session`、`edu_exam_answer` | 考试题库 | 学生本人作答；授权教师阅卷 | 不删除，异常修复留记录 |
 | `edu_announcement` | 课程与学习/互动 | 发布者管理；用户按受众读取 | 撤回/逻辑删除，保留发布历史 |
-| `edu_forum_post`、`edu_forum_comment` | 课程与学习/互动 | 课程成员参与；教师/管理员按范围治理 | 用户软删；治理处置保留证据 |
+| `edu_forum_topic`、`edu_forum_reply` | 课程与学习/互动 | 课程成员参与；教师/管理员按范围治理 | 用户软删；治理处置保留证据 |
 | `sys_outbox_event` | 公共基础 | 仅系统任务访问 | 发送成功后按保留期归档清理 |
 
 ## 10. Bootstrap SQL 维护规范

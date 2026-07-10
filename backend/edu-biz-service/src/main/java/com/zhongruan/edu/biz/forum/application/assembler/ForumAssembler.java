@@ -38,6 +38,9 @@ public class ForumAssembler {
                 id(topic.getAuthorId()),
                 authorName,
                 CodeLabelVO.of(ForumContentStatus.valueOf(topic.getStatus())),
+                topic.getModerationReason(),
+                id(topic.getModeratedBy()),
+                time(topic.getModeratedAt()),
                 time(topic.getCreatedAt()),
                 topic.getVersion());
     }
@@ -52,6 +55,9 @@ public class ForumAssembler {
                 id(reply.getParentReplyId()),
                 reply.getContent(),
                 CodeLabelVO.of(ForumContentStatus.valueOf(reply.getStatus())),
+                reply.getModerationReason(),
+                id(reply.getModeratedBy()),
+                time(reply.getModeratedAt()),
                 time(reply.getCreatedAt()),
                 reply.getVersion());
     }

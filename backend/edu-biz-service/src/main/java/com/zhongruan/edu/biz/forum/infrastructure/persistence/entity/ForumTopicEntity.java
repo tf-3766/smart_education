@@ -11,6 +11,9 @@ public class ForumTopicEntity extends BaseAuditEntity {
     private String title;
     private String content;
     private String status;
+    private String moderationReason;
+    private Long moderatedBy;
+    private LocalDateTime moderatedAt;
     private Integer pinned;
     private Integer replyCount;
     private LocalDateTime lastRepliedAt;
@@ -25,6 +28,12 @@ public class ForumTopicEntity extends BaseAuditEntity {
     public void setContent(String content) { this.content = content; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getModerationReason() { return moderationReason; }
+    public void setModerationReason(String moderationReason) { this.moderationReason = moderationReason; }
+    public Long getModeratedBy() { return moderatedBy; }
+    public void setModeratedBy(Long moderatedBy) { this.moderatedBy = moderatedBy; }
+    public LocalDateTime getModeratedAt() { return moderatedAt; }
+    public void setModeratedAt(LocalDateTime moderatedAt) { this.moderatedAt = moderatedAt; }
     public Integer getPinned() { return pinned; }
     public void setPinned(Integer pinned) { this.pinned = pinned; }
     public Integer getReplyCount() { return replyCount; }

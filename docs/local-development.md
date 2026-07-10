@@ -55,6 +55,8 @@ Copy-Item backend\edu-ai-service\src\main\resources\application-local.yml.exampl
 | `DB_URL/DB_USERNAME/DB_PASSWORD` | Biz MySQL 连接 | 是 |
 | `MYSQL_ROOT_PASSWORD` | 本地 Compose 初始化 | 本地 Compose 必填 |
 | `JWT_SECRET` | Gateway/Biz/AI 共享签名密钥，至少 32 UTF-8 字节 | 是 |
+| `FILE_STORAGE_ROOT` | Biz 托管文件保存目录，默认 `./data/uploads` | 否 |
+| `FILE_MAX_SIZE/FILE_MAX_REQUEST_SIZE` | 单文件和 multipart 请求大小上限 | 否 |
 | `JWT_TTL/JWT_ISSUER` | Token 有效期和发行者 | 有默认值 |
 | `REDIS_HOST/REDIS_PORT/REDIS_PASSWORD` | Gateway 限流与未来缓存 | 地址有默认值 |
 | `RABBITMQ_*` | RabbitMQ 本地基础设施 | 使用 Compose 时必填密码 |

@@ -78,7 +78,17 @@ class ForumApiIntegrationTest {
                         .content("{\"visible\":false,\"reason\":\"off topic\",\"version\":%d}".formatted(replyVersion)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status.code").value("HIDDEN"))
+                .andExpect(jsonPath("$.data.moderationReason").value("off topic"))
+                .andExpect(jsonPath("$.data.moderatedBy").value("1002"))
+                .andExpect(jsonPath("$.data.moderatedAt").exists())
                 .andReturn();
+
+        mockMvc.perform(post("/api/v1/student/forum/topics/{topicId}/replies", topicId)
+                        .header("Authorization", bearer(student))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"parentReplyId\":\"%s\",\"content\":\"child of hidden reply\"}".formatted(replyId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("FORUM_PARENT_REPLY_INVALID"));
 
         mockMvc.perform(get("/api/v1/student/forum/topics/{topicId}/replies", topicId)
                         .header("Authorization", bearer(student)))
@@ -91,6 +101,8 @@ class ForumApiIntegrationTest {
                         .content("{\"visible\":false,\"reason\":\"off topic\",\"version\":%d}".formatted(topicVersion)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status.code").value("HIDDEN"))
+                .andExpect(jsonPath("$.data.moderationReason").value("off topic"))
+                .andExpect(jsonPath("$.data.moderatedBy").value("1002"))
                 .andReturn();
 
         mockMvc.perform(get("/api/v1/student/forum/topics/{topicId}", topicId)
@@ -110,7 +122,9 @@ class ForumApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"visible\":true,\"reason\":\"restored\",\"version\":%d}".formatted(hiddenTopicVersion)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status.code").value("VISIBLE"));
+                .andExpect(jsonPath("$.data.status.code").value("VISIBLE"))
+                .andExpect(jsonPath("$.data.moderationReason").value("restored"))
+                .andExpect(jsonPath("$.data.moderatedBy").value("1003"));
 
         int hiddenReplyVersion = body(hiddenReply).path("data").path("version").asInt();
         mockMvc.perform(patch("/api/v1/admin/forum/replies/{replyId}/visibility", replyId)
@@ -118,7 +132,9 @@ class ForumApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"visible\":true,\"reason\":\"restored\",\"version\":%d}".formatted(hiddenReplyVersion)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status.code").value("VISIBLE"));
+                .andExpect(jsonPath("$.data.status.code").value("VISIBLE"))
+                .andExpect(jsonPath("$.data.moderationReason").value("restored"))
+                .andExpect(jsonPath("$.data.moderatedBy").value("1003"));
     }
 
     private String login(String username, String password) throws Exception {

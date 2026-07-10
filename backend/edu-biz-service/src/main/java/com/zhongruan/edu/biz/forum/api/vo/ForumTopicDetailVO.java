@@ -10,5 +10,8 @@ public record ForumTopicDetailVO(
         String authorId,
         String authorName,
         CodeLabelVO status,
+        String moderationReason,
+        String moderatedBy,
+        OffsetDateTime moderatedAt,
         OffsetDateTime createdAt,
         Integer version) {}

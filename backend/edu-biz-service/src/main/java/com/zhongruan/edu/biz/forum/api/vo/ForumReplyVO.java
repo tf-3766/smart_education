@@ -11,5 +11,8 @@ public record ForumReplyVO(
         String parentReplyId,
         String content,
         CodeLabelVO status,
+        String moderationReason,
+        String moderatedBy,
+        OffsetDateTime moderatedAt,
         OffsetDateTime createdAt,
         Integer version) {}

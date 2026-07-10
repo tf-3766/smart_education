@@ -16,6 +16,7 @@ public class LearningWarningEntity extends BaseAuditEntity {
     private Long aiExplanationDraftId;
     private LocalDateTime generatedAt;
     private Long handledBy;
+    private String handleRemark;
     private LocalDateTime handledAt;
 
     public Long getCourseId() { return courseId; }
@@ -38,6 +39,8 @@ public class LearningWarningEntity extends BaseAuditEntity {
     public void setGeneratedAt(LocalDateTime generatedAt) { this.generatedAt = generatedAt; }
     public Long getHandledBy() { return handledBy; }
     public void setHandledBy(Long handledBy) { this.handledBy = handledBy; }
+    public String getHandleRemark() { return handleRemark; }
+    public void setHandleRemark(String handleRemark) { this.handleRemark = handleRemark; }
     public LocalDateTime getHandledAt() { return handledAt; }
     public void setHandledAt(LocalDateTime handledAt) { this.handledAt = handledAt; }
 }

@@ -2,6 +2,7 @@ package com.zhongruan.edu.biz.forum.infrastructure.persistence.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zhongruan.edu.biz.shared.persistence.BaseAuditEntity;
+import java.time.LocalDateTime;
 
 @TableName("edu_forum_reply")
 public class ForumReplyEntity extends BaseAuditEntity {
@@ -11,6 +12,9 @@ public class ForumReplyEntity extends BaseAuditEntity {
     private Long parentReplyId;
     private String content;
     private String status;
+    private String moderationReason;
+    private Long moderatedBy;
+    private LocalDateTime moderatedAt;
 
     public Long getTopicId() { return topicId; }
     public void setTopicId(Long topicId) { this.topicId = topicId; }
@@ -24,4 +28,10 @@ public class ForumReplyEntity extends BaseAuditEntity {
     public void setContent(String content) { this.content = content; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getModerationReason() { return moderationReason; }
+    public void setModerationReason(String moderationReason) { this.moderationReason = moderationReason; }
+    public Long getModeratedBy() { return moderatedBy; }
+    public void setModeratedBy(Long moderatedBy) { this.moderatedBy = moderatedBy; }
+    public LocalDateTime getModeratedAt() { return moderatedAt; }
+    public void setModeratedAt(LocalDateTime moderatedAt) { this.moderatedAt = moderatedAt; }
 }

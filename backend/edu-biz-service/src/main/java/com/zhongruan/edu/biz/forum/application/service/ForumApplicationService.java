@@ -24,6 +24,8 @@ import com.zhongruan.edu.biz.forum.infrastructure.persistence.mapper.ForumTopicM
 import com.zhongruan.edu.common.api.PageResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -114,7 +116,9 @@ public class ForumApplicationService {
         }
         if (request.parentReplyId() != null) {
             ForumReplyEntity parent = replyMapper.selectById(request.parentReplyId());
-            if (parent == null || !topicId.equals(parent.getTopicId())) {
+            if (parent == null
+                    || !topicId.equals(parent.getTopicId())
+                    || !ForumContentStatus.VISIBLE.name().equals(parent.getStatus())) {
                 throw new BusinessException(ForumErrorCode.FORUM_PARENT_REPLY_INVALID);
             }
         }
@@ -147,12 +151,13 @@ public class ForumApplicationService {
             Long teacherId, Long topicId, ForumVisibilityRequest request) {
         ForumTopicEntity topic = requireTopic(topicId);
         courseManagementService.requireEditor(teacherId, topic.getCourseId());
-        return setTopicVisibility(topic, request);
+        return setTopicVisibility(topic, request, teacherId);
     }
 
     @Transactional
-    public ForumTopicDetailVO setTopicVisibilityByAdmin(Long topicId, ForumVisibilityRequest request) {
-        return setTopicVisibility(requireTopic(topicId), request);
+    public ForumTopicDetailVO setTopicVisibilityByAdmin(
+            Long adminId, Long topicId, ForumVisibilityRequest request) {
+        return setTopicVisibility(requireTopic(topicId), request, adminId);
     }
 
     @Transactional
@@ -160,29 +165,38 @@ public class ForumApplicationService {
             Long teacherId, Long replyId, ForumVisibilityRequest request) {
         ForumReplyEntity reply = requireReply(replyId);
         courseManagementService.requireEditor(teacherId, reply.getCourseId());
-        return setReplyVisibility(reply, request);
+        return setReplyVisibility(reply, request, teacherId);
     }
 
     @Transactional
-    public ForumReplyVO setReplyVisibilityByAdmin(Long replyId, ForumVisibilityRequest request) {
-        return setReplyVisibility(requireReply(replyId), request);
+    public ForumReplyVO setReplyVisibilityByAdmin(
+            Long adminId, Long replyId, ForumVisibilityRequest request) {
+        return setReplyVisibility(requireReply(replyId), request, adminId);
     }
 
-    private ForumTopicDetailVO setTopicVisibility(ForumTopicEntity topic, ForumVisibilityRequest request) {
+    private ForumTopicDetailVO setTopicVisibility(
+            ForumTopicEntity topic, ForumVisibilityRequest request, Long moderatorId) {
         topic.setVersion(request.version());
         topic.setStatus(Boolean.TRUE.equals(request.visible())
                 ? ForumContentStatus.VISIBLE.name()
                 : ForumContentStatus.HIDDEN.name());
+        topic.setModerationReason(trimToNull(request.reason()));
+        topic.setModeratedBy(moderatorId);
+        topic.setModeratedAt(now());
         updateTopicOrConflict(topic);
         ForumTopicEntity fresh = requireTopic(topic.getId());
         return assembler.toDetail(fresh, authorName(fresh.getAuthorId()));
     }
 
-    private ForumReplyVO setReplyVisibility(ForumReplyEntity reply, ForumVisibilityRequest request) {
+    private ForumReplyVO setReplyVisibility(
+            ForumReplyEntity reply, ForumVisibilityRequest request, Long moderatorId) {
         reply.setVersion(request.version());
         reply.setStatus(Boolean.TRUE.equals(request.visible())
                 ? ForumContentStatus.VISIBLE.name()
                 : ForumContentStatus.HIDDEN.name());
+        reply.setModerationReason(trimToNull(request.reason()));
+        reply.setModeratedBy(moderatorId);
+        reply.setModeratedAt(now());
         updateReplyOrConflict(reply);
         recalculateTopicReplyStats(reply.getTopicId());
         ForumReplyEntity fresh = requireReply(reply.getId());
@@ -277,7 +291,7 @@ public class ForumApplicationService {
         if (ids.isEmpty()) {
             return Map.of();
         }
-        return userMapper.selectBatchIds(ids).stream()
+        return userMapper.selectByIds(ids).stream()
                 .collect(Collectors.toMap(UserEntity::getId, UserEntity::getDisplayName, (left, right) -> left));
     }
 
@@ -296,5 +310,13 @@ public class ForumApplicationService {
         if (replyMapper.updateById(reply) != 1) {
             throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "Forum reply changed, refresh and retry");
         }
+    }
+
+    private String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(ZoneOffset.UTC);
     }
 }
