@@ -1,8 +1,9 @@
 spring:
   config:
     import: nacos:${spring.application.name}.yml?group=${NACOS_GROUP:DEFAULT_GROUP}&refreshEnabled=true
-  flyway:
-    locations: classpath:db/migration
+  sql:
+    init:
+      mode: never
   cloud:
     nacos:
       discovery:
@@ -10,4 +11,5 @@ spring:
       config:
         enabled: true
 
-# dev 环境不加载 db/localmigration，凭据全部由环境变量或密钥管理系统注入。
+# dev 服务不自动改表；新空库由 online_education_bootstrap.sql 初始化。
+# 凭据全部由环境变量或密钥管理系统注入。

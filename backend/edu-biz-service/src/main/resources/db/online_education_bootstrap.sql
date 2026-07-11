@@ -1,10 +1,10 @@
 -- Online education auxiliary teaching system bootstrap script
--- Target: an empty MySQL 8.0 database using utf8mb4.
+-- Target: an empty MySQL 8.4 database using utf8mb4.
 -- Includes the complete schema and local demo data used by this project.
 -- This is the only database initialization source for local development.
 
 -- ============================================================================
--- Source: backend\edu-biz-service\src\main\resources\db\migration\V1__init_auth_tables.sql
+-- Authentication, authorization, and managed file schema
 -- ============================================================================
 
 CREATE TABLE sys_user (
@@ -147,7 +147,7 @@ VALUES
 
 
 -- ============================================================================
--- Source: backend\edu-biz-service\src\main\resources\db\migration\V2__create_course_tables.sql
+-- Course, category, enrollment, content, and learning schema
 -- ============================================================================
 
 CREATE TABLE edu_course_category (
@@ -344,7 +344,7 @@ CREATE INDEX idx_learning_course_lesson ON edu_lesson_learning_record (course_id
 
 
 -- ============================================================================
--- Source: backend\edu-biz-service\src\main\resources\db\migration\V3__create_course_review_table.sql
+-- Course review schema
 -- ============================================================================
 
 CREATE TABLE edu_course_review (
@@ -369,7 +369,7 @@ CREATE INDEX idx_course_review_status ON edu_course_review (review_status, delet
 
 
 -- ============================================================================
--- Source: backend\edu-biz-service\src\main\resources\db\migration\V20260709110000__create_learning_collaboration_tables.sql
+-- Assignment, grade, forum, announcement, warning, exam, and AI audit schema
 -- ============================================================================
 
 CREATE TABLE edu_assignment (
@@ -777,7 +777,7 @@ CREATE INDEX idx_ai_generation_requester ON edu_ai_generation_record (requester_
 
 
 -- ============================================================================
--- Source: backend\edu-biz-service\src\main\resources\db\localmigration\R__local_test_accounts.sql
+-- Local demonstration accounts and role assignments
 -- ============================================================================
 
 -- 仅 local/test profile 加载。密码为 BCrypt 哈希，明文只记录在开发文档中。
@@ -804,7 +804,7 @@ ON DUPLICATE KEY UPDATE deleted = 0, updated_at = CURRENT_TIMESTAMP;
 
 
 -- ============================================================================
--- Source: backend\edu-biz-service\src\main\resources\db\localmigration\R__local_course_test_data.sql
+-- Local course and learning demonstration data
 -- ============================================================================
 
 -- 仅 local/test profile 加载。ID 使用固定值，便于 Postman 与自动化测试复现。
@@ -902,7 +902,7 @@ ON DUPLICATE KEY UPDATE review_status = VALUES(review_status), reviewer_id = VAL
 
 
 -- ============================================================================
--- Source: backend\edu-biz-service\src\main\resources\db\localmigration\R__local_learning_collaboration_demo.sql
+-- Local collaboration, assessment, and platform demonstration data
 -- ============================================================================
 
 INSERT INTO edu_ai_generation_record

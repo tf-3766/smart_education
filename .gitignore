@@ -34,3 +34,6 @@ backend/**/application-dev.properties
 *.log
 logs/
 data/
+
+# Microsoft Office lock files
+~$*.docx

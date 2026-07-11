@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.zhongruan.edu.common.api.ApiResponse;
+import com.zhongruan.edu.common.error.CommonErrorCode;
+import com.zhongruan.edu.common.exception.BusinessException;
 import com.zhongruan.edu.common.security.JwtTokenService;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
@@ -114,6 +116,38 @@ class AiServiceApplicationTest {
                 .jsonPath("$.data.framework").isEqualTo("Spring AI")
                 .jsonPath("$.data.frameworkVersion").isEqualTo("1.1.8")
                 .jsonPath("$.data.modelConfigured").isEqualTo(false);
+    }
+
+    @Test
+    void authorizationFailureKeepsUnifiedErrorCodeForSseAndDraftEndpoints() {
+        when(contextClient.getCourseContext(anyString(), any()))
+                .thenThrow(new BusinessException(CommonErrorCode.FORBIDDEN));
+
+        String studentToken = token(1001L, "student", "STUDENT", "student:access");
+        webTestClient.post()
+                .uri("/api/v1/ai/courses/21001/qa/stream")
+                .header(HttpHeaders.AUTHORIZATION, bearer(studentToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"question\":\"未授权问题\"}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> {
+                    org.assertj.core.api.Assertions.assertThat(body).contains("event:error");
+                    org.assertj.core.api.Assertions.assertThat(body).contains("FORBIDDEN");
+                    org.assertj.core.api.Assertions.assertThat(body).doesNotContain("AI_SERVICE_UNAVAILABLE");
+                });
+
+        String teacherToken = token(1002L, "teacher", "TEACHER", "teacher:access");
+        webTestClient.post()
+                .uri("/api/v1/ai/lessons/23001/summary-draft")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"courseId\":\"21001\"}")
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectBody()
+                .jsonPath("$.code").isEqualTo("FORBIDDEN");
     }
 
     private String token(Long userId, String username, String role, String permission) {

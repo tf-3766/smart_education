@@ -13,6 +13,7 @@ public record ExamAttemptVO(
         OffsetDateTime startedAt,
         OffsetDateTime deadlineAt,
         OffsetDateTime submittedAt,
+        OffsetDateTime gradedAt,
         BigDecimal score,
         List<StudentExamQuestionVO> questions,
         List<ExamAnswerVO> answers,

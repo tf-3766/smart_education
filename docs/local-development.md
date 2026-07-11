@@ -4,7 +4,7 @@
 
 当前已完成学生/教师注册与教师审核、JWT 与角色权限、文件与头像、课程学习、作业成绩、论坛预警、题库试卷与基础答题批阅、公告、课程分类、管理统计和统一 Gateway。AI 服务已接入 Spring AI 1.1.8，提供授权课程问答 SSE、课时摘要草稿和运行状态；默认不调用外部模型。尚未实现找回密码、刷新令牌、Token 黑名单、向量索引/RAG、AI 评语、风险解释和智能组卷建议。
 
-版本基线：JDK 21、Spring Boot 3.5.0、Spring Cloud 2025.0.0、Spring Cloud Alibaba 2025.0.0.0、Spring AI 1.1.8、MyBatis-Plus 3.5.12、MySQL 8.0/8.4。
+版本基线：JDK 21、Spring Boot 3.5.0、Spring Cloud 2025.0.0、Spring Cloud Alibaba 2025.0.0.0、Spring AI 1.1.8、MyBatis-Plus 3.5.12、MySQL 8.4。
 
 版本依据：[Spring Cloud Alibaba 2025.x 版本说明](https://sca.aliyun.com/docs/2025.x/overview/version-explain/)、[Spring Cloud Gateway WebFlux Starter](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-webflux/starter.html)。
 

@@ -59,16 +59,27 @@ public class ForumApplicationService {
     @Transactional
     public ForumTopicDetailVO createTopic(Long studentId, Long courseId, ForumTopicCreateRequest request) {
         requireStudentCourseAccess(studentId, courseId);
+        return createTopicForMember(studentId, courseId, request);
+    }
+
+    @Transactional
+    public ForumTopicDetailVO createTeacherTopic(Long teacherId, Long courseId, ForumTopicCreateRequest request) {
+        courseManagementService.requireEditor(teacherId, courseId);
+        return createTopicForMember(teacherId, courseId, request);
+    }
+
+    private ForumTopicDetailVO createTopicForMember(
+            Long authorId, Long courseId, ForumTopicCreateRequest request) {
         ForumTopicEntity topic = new ForumTopicEntity();
         topic.setCourseId(courseId);
-        topic.setAuthorId(studentId);
+        topic.setAuthorId(authorId);
         topic.setTitle(request.title().trim());
         topic.setContent(request.content().trim());
         topic.setStatus(ForumContentStatus.VISIBLE.name());
         topic.setPinned(0);
         topic.setReplyCount(0);
         topicMapper.insert(topic);
-        return assembler.toDetail(topic, authorName(studentId));
+        return assembler.toDetail(topic, authorName(authorId));
     }
 
     @Transactional(readOnly = true)
@@ -93,6 +104,13 @@ public class ForumApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public ForumTopicDetailVO teacherTopic(Long teacherId, Long topicId) {
+        ForumTopicEntity topic = requireTopic(topicId);
+        courseManagementService.requireEditor(teacherId, topic.getCourseId());
+        return assembler.toDetail(topic, authorName(topic.getAuthorId()));
+    }
+
+    @Transactional(readOnly = true)
     public PageResponse<ForumReplyVO> studentReplies(Long studentId, Long topicId, ForumListQuery query) {
         ForumTopicEntity topic = requireTopic(topicId);
         requireStudentCourseAccess(studentId, topic.getCourseId());
@@ -107,31 +125,57 @@ public class ForumApplicationService {
         return replyPage(query, wrapper);
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<ForumReplyVO> teacherReplies(Long teacherId, Long topicId, ForumListQuery query) {
+        ForumTopicEntity topic = requireTopic(topicId);
+        courseManagementService.requireEditor(teacherId, topic.getCourseId());
+        var wrapper = Wrappers.<ForumReplyEntity>lambdaQuery()
+                .eq(ForumReplyEntity::getTopicId, topicId);
+        if (query.getStatus() != null) {
+            wrapper.eq(ForumReplyEntity::getStatus, query.getStatus().name());
+        }
+        wrapper.orderByAsc(ForumReplyEntity::getCreatedAt)
+                .orderByAsc(ForumReplyEntity::getId);
+        return replyPage(query, wrapper);
+    }
+
     @Transactional
     public ForumReplyVO createReply(Long studentId, Long topicId, ForumReplyCreateRequest request) {
         ForumTopicEntity topic = requireTopic(topicId);
         requireStudentCourseAccess(studentId, topic.getCourseId());
+        return createReplyForMember(studentId, topic, request);
+    }
+
+    @Transactional
+    public ForumReplyVO createTeacherReply(Long teacherId, Long topicId, ForumReplyCreateRequest request) {
+        ForumTopicEntity topic = requireTopic(topicId);
+        courseManagementService.requireEditor(teacherId, topic.getCourseId());
+        return createReplyForMember(teacherId, topic, request);
+    }
+
+    private ForumReplyVO createReplyForMember(
+            Long authorId, ForumTopicEntity topic, ForumReplyCreateRequest request) {
         if (!ForumContentStatus.VISIBLE.name().equals(topic.getStatus())) {
             throw new BusinessException(ForumErrorCode.FORUM_TOPIC_HIDDEN);
         }
         if (request.parentReplyId() != null) {
             ForumReplyEntity parent = replyMapper.selectById(request.parentReplyId());
             if (parent == null
-                    || !topicId.equals(parent.getTopicId())
+                    || !topic.getId().equals(parent.getTopicId())
                     || !ForumContentStatus.VISIBLE.name().equals(parent.getStatus())) {
                 throw new BusinessException(ForumErrorCode.FORUM_PARENT_REPLY_INVALID);
             }
         }
         ForumReplyEntity reply = new ForumReplyEntity();
-        reply.setTopicId(topicId);
+        reply.setTopicId(topic.getId());
         reply.setCourseId(topic.getCourseId());
-        reply.setAuthorId(studentId);
+        reply.setAuthorId(authorId);
         reply.setParentReplyId(request.parentReplyId());
         reply.setContent(request.content().trim());
         reply.setStatus(ForumContentStatus.VISIBLE.name());
         replyMapper.insert(reply);
         recalculateTopicReplyStats(topic.getId());
-        return assembler.toReply(reply, authorName(studentId));
+        return assembler.toReply(reply, authorName(authorId));
     }
 
     @Transactional(readOnly = true)

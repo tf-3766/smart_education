@@ -82,8 +82,6 @@ edu_rubric_item
 edu_submission_rubric_score
 edu_grade_version
 edu_warning_action
-edu_course_notice
-edu_system_notice
 ```
 
 ### 3.4 业务边界
@@ -103,6 +101,7 @@ edu_system_notice
 backend/edu-ai-service/src/main/java/com/zhongruan/edu/ai/**
 backend/edu-gateway/src/main/java/com/zhongruan/edu/gateway/**
 backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/exam/**
+backend/edu-biz-service/src/main/java/com/zhongruan/edu/biz/platform/**
 backend/edu-feign-api/src/main/java/com/zhongruan/edu/feign/**
 backend/scripts/**
 .gitlab-ci.yml
@@ -119,6 +118,8 @@ edu_exam_paper
 edu_exam_paper_question
 edu_exam_attempt
 edu_exam_answer
+edu_course_category
+edu_announcement
 ```
 
 首版已具备题库、试卷、答题记录的基础表。后续如需要复杂在线考试会话、断线恢复、监考和自动判分，可扩展 `edu_exam_session`、`edu_question_version`、`edu_exam_proctor_log`、`edu_exam_auto_grade_rule` 等表，必须先更新 MVP 范围和 ADR。

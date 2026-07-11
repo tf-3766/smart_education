@@ -1,6 +1,6 @@
 # 数据库设计与初始化规范
 
-> 适用范围：`edu-biz-service` 所有 MySQL 8.0 表。AI 向量集合由 `edu-ai-service` 独立管理，不得与业务 MySQL 共享账号或连接。
+> 适用范围：`edu-biz-service` 所有 MySQL 8.4 表。AI 向量集合由 `edu-ai-service` 独立管理，不得与业务 MySQL 共享账号或连接。
 
 ## 1. 统一决策
 
@@ -147,9 +147,9 @@ PRIMARY KEY (id)
 
 #### 考试
 
-`exam_status`：`DRAFT → PUBLISHED → ENDED → RESULTS_PUBLISHED`；任何允许状态可按规则转 `CANCELLED`。页面“待开始/进行中”由 `PUBLISHED + start_at/end_at` 推导。交卷是学生考试会话状态，不直接改考试状态。
+`exam_status` 首版为 `DRAFT → PUBLISHED → CLOSED`。页面“待开始/进行中/已结束”由 `PUBLISHED + start_at/end_at` 推导；交卷只推进学生答卷，不直接修改考试状态。
 
-考试会话 `exam_session_status`：`CREATED → IN_PROGRESS → SUBMITTED`；超时服务端转 `AUTO_SUBMITTED`，异常中止使用 `INTERRUPTED` 并留恢复依据。
+考试答卷 `exam_attempt_status`：开始后为 `IN_PROGRESS`；纯客观题提交后直接进入 `GRADED`，包含简答题时进入 `SUBMITTED`，教师完成批阅后进入 `GRADED`。自动交卷、断线恢复和监考状态属于后续扩展。
 
 #### 学习预警
 
@@ -231,9 +231,9 @@ CREATE INDEX idx_assignment_course_status_deadline
 | `edu_grade_record` | 作业成绩预警 | 教师写负责课程；学生只读本人已发布 | 不删除，后续更正/撤回需版本化 |
 | `edu_learning_warning`、`edu_warning_evidence` | 作业成绩预警 | 学生本人和负责教师按视图读取 | 不删除证据，状态化处理 |
 | `edu_warning_action` | 作业成绩预警 | 学生本人/负责教师写各自允许动作 | 只追加或受控更正 |
-| `edu_question` | 考试题库 | 本人私有、课程共享、学校公共三种范围 | 已入卷后不可物理删，只停用/版本化 |
+| `edu_question` | 考试题库 | 仅课程教师团队管理所属课程题库 | 已入卷后不可物理删，只停用；已发布试卷引用时不可修改 |
 | `edu_exam`、`edu_exam_paper` | 考试题库 | 课程教师管理；学生按发布/时间范围读 | 取消/结束，不物理删 |
-| `edu_exam_session`、`edu_exam_answer` | 考试题库 | 学生本人作答；授权教师阅卷 | 不删除，异常修复留记录 |
+| `edu_exam_attempt`、`edu_exam_answer` | 考试题库 | 学生本人作答；授权课程教师阅卷 | 不删除，异常修复留记录 |
 | `edu_announcement` | 课程与学习/互动 | 发布者管理；用户按受众读取 | 撤回/逻辑删除，保留发布历史 |
 | `edu_forum_topic`、`edu_forum_reply` | 课程与学习/互动 | 课程成员参与；教师/管理员按范围治理 | 用户软删；治理处置保留证据 |
 | `sys_outbox_event` | 公共基础 | 仅系统任务访问 | 发送成功后按保留期归档清理 |

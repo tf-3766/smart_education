@@ -390,7 +390,10 @@ public class ExamParticipationService {
                         .orderByAsc(ExamAnswerEntity::getId))
                 .stream()
                 .map(answer -> new ExamAnswerVO(
-                        String.valueOf(answer.getQuestionId()), answer.getAnswerContent(), answer.getScore()))
+                        String.valueOf(answer.getQuestionId()),
+                        answer.getAnswerContent(),
+                        answer.getScore(),
+                        answer.getTeacherComment()))
                 .toList();
         return new ExamAttemptVO(
                 String.valueOf(attempt.getId()),
@@ -401,6 +404,7 @@ public class ExamParticipationService {
                 offset(attempt.getStartedAt()),
                 offset(deadline(attempt, exam)),
                 offset(attempt.getSubmittedAt()),
+                offset(attempt.getGradedAt()),
                 attempt.getScore(),
                 questions,
                 answers,

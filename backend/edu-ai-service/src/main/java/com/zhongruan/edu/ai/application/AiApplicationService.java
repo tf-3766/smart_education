@@ -6,6 +6,7 @@ import com.zhongruan.edu.ai.api.vo.AiServiceStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
 import com.zhongruan.edu.ai.context.AuthorizedAiContextService;
 import com.zhongruan.edu.ai.generation.AiTextGenerator;
+import com.zhongruan.edu.common.exception.BusinessException;
 import com.zhongruan.edu.feign.ai.AiContextPurpose;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -65,10 +67,7 @@ public class AiApplicationService {
                         Flux.fromIterable(prepared.citations())
                                 .map(citation -> event("citation", requestId, citation)),
                         Flux.just(event("done", requestId, new Done("COMPLETED")))))
-                .onErrorResume(error -> Flux.just(event(
-                        "error",
-                        requestId,
-                        new ErrorData("AI_SERVICE_UNAVAILABLE", "AI 请求暂时无法完成"))));
+                .onErrorResume(error -> Flux.just(event("error", requestId, errorData(error))));
     }
 
     public Mono<AiDraftVO> lessonSummary(
@@ -163,6 +162,14 @@ public class AiApplicationService {
 
     private OffsetDateTime now() {
         return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+    }
+
+    private ErrorData errorData(Throwable error) {
+        Throwable unwrapped = Exceptions.unwrap(error);
+        if (unwrapped instanceof BusinessException businessException) {
+            return new ErrorData(businessException.errorCode().code(), businessException.getMessage());
+        }
+        return new ErrorData("AI_SERVICE_UNAVAILABLE", "AI 请求暂时无法完成");
     }
 
     private record PreparedRequest(

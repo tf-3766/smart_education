@@ -5,7 +5,6 @@ import com.zhongruan.edu.biz.assignment.api.vo.AssignmentDetailVO;
 import com.zhongruan.edu.biz.assignment.api.vo.CodeLabelVO;
 import com.zhongruan.edu.biz.assignment.api.vo.StudentAssignmentListItemVO;
 import com.zhongruan.edu.biz.assignment.api.vo.SubmissionDetailVO;
-import com.zhongruan.edu.biz.assignment.api.vo.TeacherAssignmentListItemVO;
 import com.zhongruan.edu.biz.assignment.domain.enums.AssignmentAvailabilityStatus;
 import com.zhongruan.edu.biz.assignment.domain.enums.AssignmentStatus;
 import com.zhongruan.edu.biz.assignment.domain.enums.SubmissionStatus;
@@ -37,22 +36,6 @@ public class AssignmentAssembler {
                 time(assignment.getDueAt()),
                 time(assignment.getPublishedAt()),
                 attachments.stream().map(this::toAttachment).toList(),
-                assignment.getVersion());
-    }
-
-    public TeacherAssignmentListItemVO toTeacherListItem(
-            AssignmentEntity assignment, AssignmentAvailabilityStatus availabilityStatus) {
-        return new TeacherAssignmentListItemVO(
-                id(assignment.getId()),
-                id(assignment.getCourseId()),
-                id(assignment.getLessonId()),
-                assignment.getTitle(),
-                assignment.getMaxScore(),
-                CodeLabelVO.of(AssignmentStatus.valueOf(assignment.getStatus())),
-                CodeLabelVO.of(availabilityStatus),
-                time(assignment.getDueAt()),
-                time(assignment.getPublishedAt()),
-                time(assignment.getUpdatedAt()),
                 assignment.getVersion());
     }
 

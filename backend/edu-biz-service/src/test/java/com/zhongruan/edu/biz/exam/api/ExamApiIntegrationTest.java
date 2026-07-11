@@ -410,7 +410,9 @@ class ExamApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("GRADED"))
                 .andExpect(jsonPath("$.data.score").value(8))
-                .andExpect(jsonPath("$.data.answers[0].score").value(8));
+                .andExpect(jsonPath("$.data.gradedAt").exists())
+                .andExpect(jsonPath("$.data.answers[0].score").value(8))
+                .andExpect(jsonPath("$.data.answers[0].teacherComment").value("边界说明正确。"));
     }
 
     private String login(String username, String password) throws Exception {

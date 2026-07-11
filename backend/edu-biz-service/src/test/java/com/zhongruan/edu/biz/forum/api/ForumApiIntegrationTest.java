@@ -35,7 +35,21 @@ class ForumApiIntegrationTest {
     void courseMemberPostsRepliesAndTeacherAdminModerateContent() throws Exception {
         String student = login("student", "123456");
         String teacher = login("teacher", "t123456");
+        String otherTeacher = login("teacher2", "t123456");
         String admin = login("admin", "admin123");
+
+        mockMvc.perform(post("/api/v1/teacher/courses/21001/forum/topics")
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"教师主题\",\"content\":\"课程补充说明。\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.authorId").value("1002"));
+
+        mockMvc.perform(post("/api/v1/teacher/courses/21001/forum/topics")
+                        .header("Authorization", bearer(otherTeacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"越权教师主题\",\"content\":\"不应创建。\"}"))
+                .andExpect(status().isForbidden());
 
         MvcResult topicResult = mockMvc.perform(post("/api/v1/student/courses/21001/forum/topics")
                         .header("Authorization", bearer(student))
@@ -62,6 +76,27 @@ class ForumApiIntegrationTest {
                 .andReturn();
         String replyId = body(replyResult).path("data").path("replyId").asText();
         int replyVersion = body(replyResult).path("data").path("version").asInt();
+
+        MvcResult teacherReplyResult = mockMvc.perform(post("/api/v1/teacher/forum/topics/{topicId}/replies", topicId)
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"教师补充回答。\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.authorId").value("1002"))
+                .andReturn();
+        String teacherReplyId = body(teacherReplyResult).path("data").path("replyId").asText();
+
+        mockMvc.perform(get("/api/v1/teacher/forum/topics/{topicId}", topicId)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.topicId").value(topicId));
+        mockMvc.perform(get("/api/v1/teacher/forum/topics/{topicId}/replies", topicId)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].replyId", hasItem(teacherReplyId)));
+        mockMvc.perform(get("/api/v1/teacher/forum/topics/{topicId}", topicId)
+                        .header("Authorization", bearer(otherTeacher)))
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/v1/student/courses/21001/forum/topics")
                         .header("Authorization", bearer(student)))
