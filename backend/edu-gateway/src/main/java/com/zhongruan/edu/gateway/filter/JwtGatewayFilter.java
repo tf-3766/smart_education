@@ -25,7 +25,8 @@ import reactor.core.publisher.Mono;
 @Component
 public class JwtGatewayFilter implements GlobalFilter, Ordered {
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final Set<String> PUBLIC_PATHS = Set.of("/api/v1/auth/login", "/actuator/health");
+    private static final Set<String> PUBLIC_PATHS =
+            Set.of("/api/v1/auth/login", "/api/v1/auth/register", "/actuator/health");
     private static final Set<String> INTERNAL_HEADERS =
             Set.of("X-User-Id", "X-User-Role", "X-Request-Source", "X-Internal-Token");
 

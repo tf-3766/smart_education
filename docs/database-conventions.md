@@ -102,6 +102,14 @@ PRIMARY KEY (id)
 
 ### 5.2 MVP 状态基线
 
+#### 账号与角色
+
+- 公开注册只允许创建 `STUDENT` 或 `TEACHER` 用户，用户名统一以小写保存，密码只保存 BCrypt 哈希。
+- Bootstrap SQL 只初始化一个 `SUPER_ADMIN` 账号；该账号同时拥有 `ADMIN`，保证兼容现有管理员接口。
+- `SUPER_ADMIN` 具有 `admin:manage`，可给已启用的学生或教师授予或撤销 `ADMIN`；普通管理员没有角色授权能力。
+- 应用接口不能授予或撤销 `SUPER_ADMIN`。普通管理员关系撤销使用 `sys_user_role.deleted=1` 保留审计信息，再次授予时恢复原关系。
+- 角色变化后必须重新签发 JWT；前端应要求被操作用户重新登录。
+
 #### 课程
 
 课程生命周期 `course_status`：
@@ -203,9 +211,9 @@ CREATE INDEX idx_assignment_course_status_deadline
 
 | 核心表 | 模块所有者 | 数据范围/权限 | 删除策略 |
 |---|---|---|---|
-| `sys_user` | 基础与权限 | 本人看脱敏资料；管理员按权限管理 | 停用 + 逻辑删除，不物理删历史账号 |
-| `sys_role`、`sys_permission` | 基础与权限 | 指定管理员维护；普通用户只读自己的授权结果 | 内置项禁删；自定义项先做引用检查 |
-| `sys_user_role`、`sys_role_permission` | 基础与权限 | 指定管理员授权，全部写审计 | 撤销关系保留操作记录 |
+| `sys_user` | 基础与权限 | 本人看脱敏资料；超级管理员按权限查询 | 停用 + 逻辑删除，不物理删历史账号 |
+| `sys_role`、`sys_permission` | 基础与权限 | 内置角色由 Bootstrap 维护；普通用户只读自己的授权结果 | 内置项禁删；应用接口不得授予 `SUPER_ADMIN` |
+| `sys_user_role`、`sys_role_permission` | 基础与权限 | 只有超级管理员可增删普通 `ADMIN` 关系，全部写审计 | 撤销关系逻辑删除，再次授予时恢复 |
 | `sys_audit_log` | 基础与权限 | 审计权限可查；业务用户不可修改 | 只追加，按保留策略归档 |
 | `sys_file` | 基础与权限 | 上传者、管理员及业务对象授权用户访问；下载再次鉴权 | 未被引用的文件可由所有者删除；头像、课程资料和作业引用存在时禁止删除 |
 | `edu_course_category` | 课程与学习 | 管理员维护，教师/学生只读启用项 | 有引用时禁删，只停用 |

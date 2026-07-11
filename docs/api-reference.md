@@ -6,7 +6,7 @@
 
 ## 1. 使用规则
 
-所有公开接口通过 Gateway 的 `/api/v1` 访问。除登录外，携带：
+所有公开接口通过 Gateway 的 `/api/v1` 访问。除登录和注册外，携带：
 
 ```http
 Authorization: Bearer <accessToken>
@@ -38,7 +38,7 @@ X-Trace-Id: <optional-trace-id>
 | `内部接口` | 仅供服务间 Feign 调用 | 前端不得调用 |
 | `测试接口` | 用于权限自动化测试 | 前端不得作为业务功能使用 |
 
-当前公开可联调的是认证、文件与头像、课程、课程内容、选课、学习进度、课程审核、作业、成绩、论坛、预警，以及考试题库的首版接口。AI 和未冻结字段的扩展接口仍不可联调。
+当前公开可联调的是登录注册、超级管理员授权、文件与头像、课程、课程内容、选课、学习进度、课程审核、作业、成绩、论坛、预警，以及考试题库的首版接口。AI 和未冻结字段的扩展接口仍不可联调。
 
 ## 3. 已实现公开接口
 
@@ -47,6 +47,7 @@ X-Trace-Id: <optional-trace-id>
 | 方法 | 路径 | 角色 | 请求 | 响应 |
 |---|---|---|---|---|
 | `POST` | `/api/v1/auth/login` | 匿名 | `LoginRequest` | `LoginVO` |
+| `POST` | `/api/v1/auth/register` | 匿名 | `RegisterRequest` | `LoginVO`，201 |
 | `GET` | `/api/v1/auth/me` | 已登录 | 无 | `CurrentUserVO` |
 | `POST` | `/api/v1/auth/logout` | 已登录 | 无 | `LogoutVO` |
 | `PUT` | `/api/v1/auth/me/avatar` | 已登录 | `UpdateAvatarRequest` | `CurrentUserVO` |
@@ -56,6 +57,19 @@ X-Trace-Id: <optional-trace-id>
 ```json
 {"username":"student","password":"Student@123"}
 ```
+
+注册示例：
+
+```json
+{
+  "username": "new.student",
+  "password": "Student2026",
+  "displayName": "新学生",
+  "role": "STUDENT"
+}
+```
+
+公开注册的 `role` 只接受 `STUDENT` 或 `TEACHER`。用户名保存前会去除首尾空白并转为小写；注册成功后直接返回登录令牌。密码必须为 8～128 个字符并同时包含字母和数字。
 
 ### 3.2 文件上传与访问
 
@@ -130,7 +144,19 @@ X-Trace-Id: <optional-trace-id>
 | `POST` | `/api/v1/admin/course-reviews/{courseId}/approve` | `ReviewCourseRequest` | `CourseReviewVO` |
 | `POST` | `/api/v1/admin/course-reviews/{courseId}/reject` | `RejectCourseRequest` | `CourseReviewVO` |
 
-### 3.7 已实现接口的数据格式
+### 3.7 超级管理员用户授权
+
+| 方法 | 路径 | 角色 | 请求 | 响应 |
+|---|---|---|---|---|
+| `GET` | `/api/v1/admin/users` | 超级管理员 | `AdminUserQuery` | `PageResponse<AdminUserVO>` |
+| `PUT` | `/api/v1/admin/users/{userId}/administrator` | 超级管理员 | 无 | `AdminUserVO` |
+| `DELETE` | `/api/v1/admin/users/{userId}/administrator` | 超级管理员 | 无 | `AdminUserVO` |
+
+Bootstrap SQL 默认创建一个超级管理员账号 `admin`。该账号同时拥有 `ADMIN` 和 `SUPER_ADMIN`，其中 `SUPER_ADMIN` 仅由初始化脚本授予，没有公开授予接口。超级管理员只能把已启用的学生或教师设为普通管理员；普通管理员保留原有角色，但不能继续授予管理员。超级管理员自身的 `ADMIN` 身份不可撤销。
+
+JWT 是无状态令牌。授予或撤销管理员后，被操作用户需要重新登录，新的角色和权限才会进入新 Token；旧 Token 最迟在当前 JWT 到期后失效。
+
+### 3.8 已实现接口的数据格式
 
 除下载、SSE 等特殊接口外，请求体均为 JSON；所有成功和失败结果均使用
 `ApiResponse<T>` 包裹。`T` 是下方表格列出的响应 `data` 类型；响应中的所有
@@ -159,6 +185,7 @@ X-Trace-Id: <optional-trace-id>
 | 请求体类型 | JSON 字段 |
 |---|---|
 | `LoginRequest` | `username*: string(1-64)`，`password*: string(1-128)` |
+| `RegisterRequest` | `username*: string(3-64, A-Z/a-z/0-9/._-)`，`password*: string(8-128，必须同时包含字母和数字)`，`displayName*: string(1-128)`，`role*: STUDENT | TEACHER` |
 | `CreateCourseRequest` | `courseCode*: string(1-64, A-Z/a-z/0-9/._-)`，`name*: string(1-160)`，`summary?: string(<=4000)`，`coverUrl?: string(<=1024)`，`categoryId?: number`，`term?: string(<=32)`，`department?: string(<=128)`，`credit?: number(0-99.99)`，`enrollmentOpenAt?`，`enrollmentCloseAt?`，`startAt?`，`endAt?` |
 | `UpdateCourseRequest` | 与创建课程相同，但没有 `courseCode`；另有 `version*: number(>=0)` |
 | `AddCourseTeacherRequest` | `teacherId*: number(>0)` |
@@ -178,6 +205,7 @@ X-Trace-Id: <optional-trace-id>
 
 | 查询类型 | 可用参数 |
 |---|---|
+| `AdminUserQuery` | `page=1`，`size=20`（1-100），`keyword?`（<=100，匹配用户名或显示名称），`status?: ENABLED|DISABLED` |
 | `CourseListQuery` | `page=1`，`size=20`（1-100），`keyword?`（<=100），`status?`，`reviewStatus?`，`enrollmentStatus?`，`term?`（<=32），`categoryId?`，`sort=createdAt,desc`（<=32） |
 | `CourseMaterialListQuery` | `page=1`，`size=20`（1-100），`keyword?`，`status?`，`visibility?` |
 
@@ -194,6 +222,7 @@ X-Trace-Id: <optional-trace-id>
 |---|---|
 | `LoginVO` | `accessToken`，`tokenType`，`expiresIn`，`expiresAt`，`user: CurrentUserVO`，`roles: string[]`，`permissions: string[]` |
 | `CurrentUserVO` | `userId`，`username`，`displayName`，`avatarFileId?`，`avatarUrl?`，`activeRole`，`roles: string[]`，`permissions: string[]`，`version` |
+| `AdminUserVO` | `userId`，`username`，`displayName`，`userStatus`，`roles: string[]`，`superAdministrator: boolean`，`createdAt`，`version` |
 | `UpdateAvatarRequest` | `fileId?: number(>0)`，`version*: number(>=0)`；`fileId=null` 表示移除头像 |
 | `StoredFileVO` | `fileId`，`originalName`，`objectKey`，`accessUrl`，`fileSize`，`mimeType`，`sha256`，`purpose`，`uploadedAt`，`version` |
 | `LogoutVO` | `mode`，`serverSideRevoked: boolean` |
@@ -216,7 +245,7 @@ X-Trace-Id: <optional-trace-id>
 | `CourseReviewDetailVO` | `course: CourseDetailVO`，`history: CourseReviewVO[]` |
 | `CourseReviewVO` | `reviewId`，`courseId`，`reviewStatus: CodeLabel`，`reviewerId`，`reviewerName`，`reason?`，`remark?`，`reviewedAt` |
 
-### 3.8 测试接口
+### 3.9 测试接口
 
 `GET /api/v1/test/student`、`/teacher`、`/admin` 仅用于后端权限验证，前端不应接入、菜单不应展示。
 
@@ -287,7 +316,6 @@ X-Trace-Id: <optional-trace-id>
 | `POST` | `/api/v1/student/exam-attempts/{attemptId}/submit` | 学生 | 提交答卷 / 字段待设计 | 未实现，字段待设计 |
 | `POST` | `/api/v1/teacher/courses/{courseId}/announcements` | 教师 | 发布课程公告 / 字段待设计 | 未实现，字段待设计 |
 | `POST` | `/api/v1/admin/announcements` | 管理员 | 发布系统公告 / 字段待设计 | 未实现，字段待设计 |
-| `GET/POST` | `/api/v1/admin/users` | 管理员 | 用户查询和管理 / 字段待设计 | 未实现，字段待设计 |
 | `GET/POST` | `/api/v1/admin/course-categories` | 管理员 | 课程分类查询和管理 / 字段待设计 | 未实现，字段待设计 |
 | `GET` | `/api/v1/admin/statistics` | 管理员 | 统计看板数据 / 字段待设计 | 未实现，字段待设计 |
 | `GET` | `/api/v1/admin/ai-management/status` | 管理员 | AI 运行状态 / 字段待设计 | 未实现，字段待设计 |
@@ -413,6 +441,8 @@ SSE 事件固定为 `meta`、`delta`、`citation`、`done`、`error`。AI 只能
 | 403 | `FORBIDDEN` | 显示无权限，不泄露他人资源内容 |
 | 404 | `RESOURCE_NOT_FOUND` | 显示资源不存在或已不可访问 |
 | 409 | `RESOURCE_CONFLICT`、`OPERATION_NOT_ALLOWED` | 刷新数据或提示状态冲突 |
+| 409 | `USERNAME_ALREADY_EXISTS` | 提示用户更换注册用户名 |
+| 409 | `SUPER_ADMIN_PROTECTED` | 不允许撤销系统超级管理员的管理员身份 |
 | 409 | `FILE_IN_USE` | 文件仍被头像、课程资料或作业数据引用，解除引用后再删除 |
 | 400/403/404 | `FILE_TYPE_NOT_ALLOWED`、`FILE_ACCESS_DENIED`、`FILE_NOT_FOUND` | 更换文件类型、检查资源权限或提示文件不存在 |
 | 429 | `AI_RATE_LIMITED` | 保留用户输入，按 `Retry-After` 重试 |

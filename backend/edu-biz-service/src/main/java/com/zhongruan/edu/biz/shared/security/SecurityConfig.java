@@ -36,7 +36,8 @@ public class SecurityConfig {
         return http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/v1/auth/login", "/actuator/health", "/actuator/info")
+                        .requestMatchers(
+                                "/api/v1/auth/login", "/api/v1/auth/register", "/actuator/health", "/actuator/info")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
@@ -47,4 +48,3 @@ public class SecurityConfig {
                 .build();
     }
 }
-

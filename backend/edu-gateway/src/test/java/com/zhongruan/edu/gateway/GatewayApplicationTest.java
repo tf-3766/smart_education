@@ -2,10 +2,13 @@ package com.zhongruan.edu.gateway;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zhongruan.edu.gateway.filter.JwtGatewayFilter;
 import com.zhongruan.edu.gateway.filter.TraceIdGlobalFilter;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +31,9 @@ class GatewayApplicationTest {
 
     @Autowired
     private TraceIdGlobalFilter traceIdGlobalFilter;
+
+    @Autowired
+    private JwtGatewayFilter jwtGatewayFilter;
 
     @Test
     void exposesOnlyExplicitBizAndAiRoutes() {
@@ -71,5 +77,21 @@ class GatewayApplicationTest {
                 .block(Duration.ofSeconds(2));
 
         assertNotNull(exchange.getResponse().getHeaders().getFirst("X-Trace-Id"));
+    }
+
+    @Test
+    void gatewayAllowsAnonymousRegistrationRequest() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/v1/auth/register").build());
+        AtomicBoolean forwarded = new AtomicBoolean(false);
+
+        jwtGatewayFilter
+                .filter(exchange, forwardedExchange -> {
+                    forwarded.set(true);
+                    return Mono.empty();
+                })
+                .block(Duration.ofSeconds(2));
+
+        assertTrue(forwarded.get());
     }
 }

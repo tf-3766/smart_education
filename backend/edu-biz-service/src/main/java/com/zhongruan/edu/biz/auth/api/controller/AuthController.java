@@ -1,6 +1,7 @@
 package com.zhongruan.edu.biz.auth.api.controller;
 
 import com.zhongruan.edu.biz.auth.api.dto.request.LoginRequest;
+import com.zhongruan.edu.biz.auth.api.dto.request.RegisterRequest;
 import com.zhongruan.edu.biz.auth.api.dto.request.UpdateAvatarRequest;
 import com.zhongruan.edu.biz.auth.api.vo.CurrentUserVO;
 import com.zhongruan.edu.biz.auth.api.vo.LoginVO;
@@ -12,6 +13,8 @@ import com.zhongruan.edu.common.api.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -35,6 +38,15 @@ public class AuthController {
     public ApiResponse<LoginVO> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success(
                 authApplicationService.login(request), requestContextFactory.current(servletRequest).traceId());
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<LoginVO>> register(
+            @Valid @RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(
+                        authApplicationService.register(request),
+                        requestContextFactory.current(servletRequest).traceId()));
     }
 
     @GetMapping("/me")

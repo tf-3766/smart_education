@@ -1,8 +1,6 @@
 package com.zhongruan.edu.biz.auth.domain.enums;
 
-public enum RoleCode {
+public enum RegistrationRole {
     STUDENT,
-    TEACHER,
-    ADMIN,
-    SUPER_ADMIN
+    TEACHER
 }

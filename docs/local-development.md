@@ -101,13 +101,14 @@ java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.
 |---|---|---|
 | STUDENT | `student` | `Student@123` |
 | TEACHER | `teacher` | `Teacher@123` |
-| ADMIN | `admin` | `Admin@123` |
+| SUPER_ADMIN + ADMIN | `admin` | `Admin@123` |
 | TEACHER（越权测试） | `teacher2` | `Teacher@123` |
 
 ## 7. 当前 API
 
 ```text
 POST /api/v1/auth/login
+POST /api/v1/auth/register
 GET  /api/v1/auth/me
 POST /api/v1/auth/logout
 GET/POST /api/v1/teacher/courses
@@ -121,6 +122,8 @@ GET/POST /api/v1/teacher/courses/{courseId}/materials
 GET  /api/v1/admin/course-reviews
 POST /api/v1/admin/course-reviews/{courseId}/approve
 POST /api/v1/admin/course-reviews/{courseId}/reject
+GET  /api/v1/admin/users
+PUT/DELETE /api/v1/admin/users/{userId}/administrator
 GET  /api/v1/student/courses/catalog
 GET  /api/v1/student/courses
 POST /api/v1/student/courses/{courseId}/enroll
@@ -134,7 +137,7 @@ GET  /api/v1/test/admin
 GET  /actuator/health              # 各服务内网健康检查
 ```
 
-请求追踪头统一为 `X-Trace-Id`。除 login 和 Actuator health 外，接口需要 `Authorization: Bearer <accessToken>`。
+请求追踪头统一为 `X-Trace-Id`。除 login、register 和 Actuator health 外，接口需要 `Authorization: Bearer <accessToken>`。授予或撤销管理员角色后，被操作用户需要重新登录以获取包含最新角色的新 JWT。
 
 ### 登录成功
 

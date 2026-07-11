@@ -120,7 +120,8 @@ INSERT INTO sys_role
 VALUES
     (2001, 'STUDENT', '学生', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (2002, 'TEACHER', '教师', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
-    (2003, 'ADMIN', '管理员', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
+    (2003, 'ADMIN', '管理员', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (2004, 'SUPER_ADMIN', '超级管理员', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
 
 INSERT INTO sys_permission
     (id, permission_code, permission_name, enabled, created_at, created_by, updated_at, updated_by, deleted, version)
@@ -128,7 +129,8 @@ VALUES
     (3001, 'auth:profile:read', '查看本人资料', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (3002, 'student:access', '访问学生入口', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (3003, 'teacher:access', '访问教师入口', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
-    (3004, 'admin:access', '访问管理员入口', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
+    (3004, 'admin:access', '访问管理员入口', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (3005, 'admin:manage', '授予或撤销管理员角色', 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
 
 INSERT INTO sys_role_permission
     (id, role_id, permission_id, created_at, created_by, updated_at, updated_by, deleted, version)
@@ -138,7 +140,10 @@ VALUES
     (5003, 2002, 3001, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (5004, 2002, 3003, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (5005, 2003, 3001, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
-    (5006, 2003, 3004, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
+    (5006, 2003, 3004, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (5007, 2004, 3001, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (5008, 2004, 3004, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (5009, 2004, 3005, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
 
 
 -- ============================================================================
@@ -749,7 +754,8 @@ INSERT INTO sys_user_role
 VALUES
     (4001, 1001, 2001, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (4002, 1002, 2002, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
-    (4003, 1003, 2003, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
+    (4003, 1003, 2003, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (4005, 1003, 2004, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
 ON DUPLICATE KEY UPDATE deleted = 0, updated_at = CURRENT_TIMESTAMP;
 
 

@@ -42,12 +42,18 @@ class BootstrapInitializationTest {
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM sys_user WHERE username IN ('student','teacher','teacher2','admin')",
                         Integer.class));
-        assertEquals(3, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_role", Integer.class));
-        assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_permission", Integer.class));
+        assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_role", Integer.class));
+        assertEquals(5, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_permission", Integer.class));
         assertEquals(
                 1,
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM sys_permission WHERE permission_code = 'auth:profile:read'",
+                        Integer.class));
+        assertEquals(
+                1,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM sys_user_role ur JOIN sys_role r ON r.id = ur.role_id "
+                                + "WHERE ur.user_id = 1003 AND r.role_code = 'SUPER_ADMIN' AND ur.deleted = 0",
                         Integer.class));
         assertEquals(
                 0,
