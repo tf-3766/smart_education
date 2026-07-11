@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -63,11 +64,13 @@ class AssignmentApiIntegrationTest {
                 .andReturn();
         String assignmentId = body(createResult).path("data").path("assignmentId").asText();
 
-        mockMvc.perform(post("/api/v1/teacher/assignments/{assignmentId}/publish", assignmentId)
+        MvcResult publishResult = mockMvc.perform(post("/api/v1/teacher/assignments/{assignmentId}/publish", assignmentId)
                         .header("Authorization", bearer(teacher)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.assignmentStatus.code").value("PUBLISHED"))
-                .andExpect(jsonPath("$.data.availabilityStatus.code").value("OPEN"));
+                .andExpect(jsonPath("$.data.availabilityStatus.code").value("OPEN"))
+                .andReturn();
+        int publishedVersion = body(publishResult).path("data").path("version").asInt();
 
         mockMvc.perform(get("/api/v1/teacher/courses/21001/assignments")
                         .header("Authorization", bearer(teacher)))
@@ -115,6 +118,23 @@ class AssignmentApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.assignment.assignmentId").value(assignmentId))
                 .andExpect(jsonPath("$.data.submission.submissionStatus.code").value("SUBMITTED"));
+
+        mockMvc.perform(put("/api/v1/teacher/assignments/{assignmentId}", assignmentId)
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "lessonId":"23001",
+                                  "title":"A1 updated title",
+                                  "description":"Must not change grading basis after a submission",
+                                  "maxScore":120,
+                                  "openAt":"2020-01-01T00:00:00+08:00",
+                                  "dueAt":"2099-12-31T23:59:59+08:00",
+                                  "version":%d
+                                }
+                                """.formatted(publishedVersion)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPERATION_NOT_ALLOWED"));
 
         mockMvc.perform(post("/api/v1/student/assignments/{assignmentId}/submissions", assignmentId)
                         .header("Authorization", bearer(student))
@@ -164,6 +184,20 @@ class AssignmentApiIntegrationTest {
         mockMvc.perform(get("/api/v1/student/courses/21003/assignments")
                         .header("Authorization", bearer(student)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void validationDoesNotEchoSubmissionContent() throws Exception {
+        String student = login("student", "123456");
+
+        mockMvc.perform(post("/api/v1/student/assignments/31001/submissions")
+                        .header("Authorization", bearer(student))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("content", "x".repeat(20001)))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PARAM_VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'content')].rejectedValue")
+                        .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue())));
     }
 
     private String login(String username, String password) throws Exception {

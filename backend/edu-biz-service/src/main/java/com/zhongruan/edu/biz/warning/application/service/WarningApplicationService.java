@@ -13,12 +13,16 @@ import com.zhongruan.edu.biz.assignment.infrastructure.persistence.mapper.Assign
 import com.zhongruan.edu.biz.auth.infrastructure.persistence.entity.UserEntity;
 import com.zhongruan.edu.biz.auth.infrastructure.persistence.mapper.UserMapper;
 import com.zhongruan.edu.biz.course.application.service.CourseManagementService;
+import com.zhongruan.edu.biz.course.application.service.CoursePermissionService;
+import com.zhongruan.edu.biz.course.domain.enums.ChapterStatus;
 import com.zhongruan.edu.biz.course.domain.enums.EnrollmentStatus;
 import com.zhongruan.edu.biz.course.domain.enums.LearningStatus;
 import com.zhongruan.edu.biz.course.domain.enums.LessonStatus;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseChapterEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEnrollmentEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseLessonEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.LessonLearningRecordEntity;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseChapterMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseEnrollmentMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseLessonMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.LessonLearningRecordMapper;
@@ -65,6 +69,7 @@ public class WarningApplicationService {
     private final LearningWarningMapper warningMapper;
     private final WarningEvidenceMapper evidenceMapper;
     private final CourseEnrollmentMapper enrollmentMapper;
+    private final CourseChapterMapper chapterMapper;
     private final CourseLessonMapper lessonMapper;
     private final LessonLearningRecordMapper learningRecordMapper;
     private final AssignmentMapper assignmentMapper;
@@ -72,6 +77,7 @@ public class WarningApplicationService {
     private final GradeRecordMapper gradeMapper;
     private final UserMapper userMapper;
     private final CourseManagementService courseManagementService;
+    private final CoursePermissionService coursePermissionService;
     private final WarningAssembler assembler;
     private final Clock clock = Clock.systemUTC();
 
@@ -79,6 +85,7 @@ public class WarningApplicationService {
             LearningWarningMapper warningMapper,
             WarningEvidenceMapper evidenceMapper,
             CourseEnrollmentMapper enrollmentMapper,
+            CourseChapterMapper chapterMapper,
             CourseLessonMapper lessonMapper,
             LessonLearningRecordMapper learningRecordMapper,
             AssignmentMapper assignmentMapper,
@@ -86,10 +93,12 @@ public class WarningApplicationService {
             GradeRecordMapper gradeMapper,
             UserMapper userMapper,
             CourseManagementService courseManagementService,
+            CoursePermissionService coursePermissionService,
             WarningAssembler assembler) {
         this.warningMapper = warningMapper;
         this.evidenceMapper = evidenceMapper;
         this.enrollmentMapper = enrollmentMapper;
+        this.chapterMapper = chapterMapper;
         this.lessonMapper = lessonMapper;
         this.learningRecordMapper = learningRecordMapper;
         this.assignmentMapper = assignmentMapper;
@@ -97,6 +106,7 @@ public class WarningApplicationService {
         this.gradeMapper = gradeMapper;
         this.userMapper = userMapper;
         this.courseManagementService = courseManagementService;
+        this.coursePermissionService = coursePermissionService;
         this.assembler = assembler;
     }
 
@@ -129,7 +139,7 @@ public class WarningApplicationService {
         if (query.getCourseId() != null) {
             wrapper.eq(LearningWarningEntity::getCourseId, query.getCourseId());
         }
-        applyFilters(wrapper, query, false);
+        applyFilters(wrapper, query, true);
         wrapper.orderByDesc(LearningWarningEntity::getGeneratedAt).orderByDesc(LearningWarningEntity::getId);
         return warningPage(query, wrapper);
     }
@@ -217,9 +227,22 @@ public class WarningApplicationService {
     }
 
     private List<WarningCandidate> progressCandidate(Long courseId, Long studentId) {
+        List<Long> publishedChapterIds = chapterMapper.selectList(Wrappers.<CourseChapterEntity>lambdaQuery()
+                        .eq(CourseChapterEntity::getCourseId, courseId)
+                        .eq(CourseChapterEntity::getStatus, ChapterStatus.PUBLISHED.name()))
+                .stream()
+                .map(CourseChapterEntity::getId)
+                .toList();
+        if (publishedChapterIds.isEmpty()) {
+            return List.of();
+        }
         List<CourseLessonEntity> lessons = lessonMapper.selectList(Wrappers.<CourseLessonEntity>lambdaQuery()
                 .eq(CourseLessonEntity::getCourseId, courseId)
-                .eq(CourseLessonEntity::getStatus, LessonStatus.PUBLISHED.name()));
+                .in(CourseLessonEntity::getChapterId, publishedChapterIds)
+                .eq(CourseLessonEntity::getStatus, LessonStatus.PUBLISHED.name()))
+                .stream()
+                .filter(coursePermissionService::isUnlocked)
+                .toList();
         if (lessons.isEmpty()) {
             return List.of();
         }

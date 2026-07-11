@@ -130,6 +130,13 @@ class ForumApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.records[*].replyId", not(hasItem(replyId))));
 
+        mockMvc.perform(get("/api/v1/student/forum/topics/{topicId}/replies", topicId)
+                        .header("Authorization", bearer(student))
+                        .param("status", "HIDDEN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.records").isEmpty());
+
         MvcResult hiddenTopic = mockMvc.perform(patch("/api/v1/teacher/forum/topics/{topicId}/visibility", topicId)
                         .header("Authorization", bearer(teacher))
                         .contentType(MediaType.APPLICATION_JSON)

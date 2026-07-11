@@ -235,7 +235,7 @@ Set-Location backend
 - `CommonErrorCode`、`BusinessException`；
 - `JwtTokenService`、`JwtClaims`；
 - `RequestContext`、`RequestSource`、`TraceIds`；
-- Biz 内的 `BaseAuditEntity`、`ResourceScopeAuthorizer` 和统一安全/异常设施。
+- Biz 内的 `BaseAuditEntity` 和统一安全/异常设施；资源范围授权复用各领域现有权限 Service。
 
 不要随意修改：父 POM 版本矩阵、`edu-common` 公共契约、`edu-feign-api` 服务间契约、Security filter chain、`BaseAuditEntity`、Bootstrap SQL、Gateway 路由和三个服务的基础配置。公共改动必须单独 PR 并说明兼容性。
 

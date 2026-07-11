@@ -39,6 +39,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -119,6 +120,7 @@ public class AssignmentApplicationService {
         }
         validateTimes(request.openAt(), request.dueAt());
         validateLesson(assignment.getCourseId(), request.lessonId());
+        ensurePublishedUpdateSafe(assignment, request);
         assignment.setLessonId(request.lessonId());
         assignment.setTitle(request.title().trim());
         assignment.setDescription(trim(request.description()));
@@ -317,6 +319,26 @@ public class AssignmentApplicationService {
         }
     }
 
+    private void ensurePublishedUpdateSafe(AssignmentEntity assignment, AssignmentUpdateRequest request) {
+        if (!AssignmentStatus.PUBLISHED.name().equals(assignment.getStatus())) {
+            return;
+        }
+        boolean gradingBasisChanged = !Objects.equals(assignment.getLessonId(), request.lessonId())
+                || assignment.getMaxScore().compareTo(request.maxScore()) != 0
+                || !Objects.equals(assignment.getOpenAt(), utc(request.openAt()))
+                || !Objects.equals(assignment.getDueAt(), utc(request.dueAt()));
+        if (!gradingBasisChanged) {
+            return;
+        }
+        Long submissionCount = submissionMapper.selectCount(Wrappers.<AssignmentSubmissionEntity>lambdaQuery()
+                .eq(AssignmentSubmissionEntity::getAssignmentId, assignment.getId()));
+        if (submissionCount != null && submissionCount > 0) {
+            throw new BusinessException(
+                    CommonErrorCode.OPERATION_NOT_ALLOWED,
+                    "作业已有提交，不能修改关联课时、分值或开放截止时间");
+        }
+    }
+
     private void ensureAcceptingWork(AssignmentEntity assignment, boolean formalSubmit) {
         AssignmentAvailabilityStatus availability = availability(assignment);
         if (availability == AssignmentAvailabilityStatus.CLOSED) {
@@ -376,6 +398,7 @@ public class AssignmentApplicationService {
 
     private FileReference attachmentFile(Long teacherId, AssignmentAttachmentRequest request) {
         if (request.fileId() != null) {
+            rejectMixedFileReference(request.fileKey(), request.fileUrl());
             StoredFileEntity file = fileStorageService.requireOwnedFile(
                     teacherId, request.fileId(), FilePurpose.ASSIGNMENT_ATTACHMENT);
             return managedFile(file);
@@ -389,9 +412,17 @@ public class AssignmentApplicationService {
 
     private FileReference submissionFile(Long studentId, Long fileId, String fileKey, String fileUrl) {
         if (fileId != null) {
+            rejectMixedFileReference(fileKey, fileUrl);
             return managedFile(fileStorageService.requireOwnedFile(studentId, fileId, FilePurpose.SUBMISSION));
         }
         return new FileReference(null, trim(fileKey), trim(fileUrl), null, null);
+    }
+
+    private void rejectMixedFileReference(String fileKey, String fileUrl) {
+        if (!isBlank(fileKey) || !isBlank(fileUrl)) {
+            throw new BusinessException(
+                    CommonErrorCode.PARAM_VALIDATION_ERROR, "fileId 不能与 fileKey 或 fileUrl 同时提交");
+        }
     }
 
     private FileReference managedFile(StoredFileEntity file) {

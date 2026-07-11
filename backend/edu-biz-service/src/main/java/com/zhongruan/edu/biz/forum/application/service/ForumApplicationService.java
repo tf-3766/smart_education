@@ -88,6 +88,9 @@ public class ForumApplicationService {
         var wrapper = Wrappers.<ForumTopicEntity>lambdaQuery()
                 .eq(ForumTopicEntity::getCourseId, courseId)
                 .eq(ForumTopicEntity::getStatus, ForumContentStatus.VISIBLE.name());
+        if (query.getStatus() != null) {
+            wrapper.eq(ForumTopicEntity::getStatus, query.getStatus().name());
+        }
         applyTopicKeyword(wrapper, query.getKeyword());
         applyTopicOrder(wrapper);
         return topicPage(query, wrapper);
@@ -119,8 +122,11 @@ public class ForumApplicationService {
         }
         var wrapper = Wrappers.<ForumReplyEntity>lambdaQuery()
                 .eq(ForumReplyEntity::getTopicId, topicId)
-                .eq(ForumReplyEntity::getStatus, ForumContentStatus.VISIBLE.name())
-                .orderByAsc(ForumReplyEntity::getCreatedAt)
+                .eq(ForumReplyEntity::getStatus, ForumContentStatus.VISIBLE.name());
+        if (query.getStatus() != null) {
+            wrapper.eq(ForumReplyEntity::getStatus, query.getStatus().name());
+        }
+        wrapper.orderByAsc(ForumReplyEntity::getCreatedAt)
                 .orderByAsc(ForumReplyEntity::getId);
         return replyPage(query, wrapper);
     }

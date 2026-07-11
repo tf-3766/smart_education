@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhongruan.edu.biz.course.domain.enums.CourseStatus;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEntity;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -28,6 +31,9 @@ class AiContextApiIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private CourseMapper courseMapper;
 
     @Test
     void studentContextContainsOnlyActuallyAccessibleLessonsAndMaterials() throws Exception {
@@ -76,6 +82,22 @@ class AiContextApiIntegrationTest {
                 .andExpect(jsonPath("$.data.teacherMember").value(true))
                 .andExpect(jsonPath("$.data.lessons[*].title", hasItem("草稿章节中的课时")))
                 .andExpect(jsonPath("$.data.materials[*].name", hasItem("草稿章节资料")));
+    }
+
+    @Test
+    void studentContextUsesTheSameOngoingCoursePermissionAsLearningApis() throws Exception {
+        String token = login("student", "123456");
+        CourseEntity course = courseMapper.selectById(21001L);
+        course.setStatus(CourseStatus.ONGOING.name());
+        courseMapper.updateById(course);
+
+        mockMvc.perform(post("/_internal/v1/ai-context/course")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(contextRequest(1001, "STUDENT", null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.courseStatus").value("ONGOING"))
+                .andExpect(jsonPath("$.data.enrolled").value(true));
     }
 
     private String contextRequest(long userId, String roleCode, Integer lessonId) throws Exception {

@@ -76,6 +76,23 @@ class FileStorageApiIntegrationTest {
                 .path("fileId")
                 .asText();
 
+        mockMvc.perform(post("/api/v1/teacher/courses/21001/materials")
+                        .header("Authorization", bearer(teacher.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"Mixed file reference",
+                                  "materialType":"DOCUMENT",
+                                  "fileId":"%s",
+                                  "fileUrl":"https://example.invalid/lesson.pdf",
+                                  "visibility":"COURSE",
+                                  "status":"PUBLISHED",
+                                  "sortOrder":98
+                                }
+                                """.formatted(fileId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PARAM_VALIDATION_ERROR"));
+
         MvcResult createResult = mockMvc.perform(post("/api/v1/teacher/courses/21001/materials")
                         .header("Authorization", bearer(teacher.token()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -130,6 +147,38 @@ class FileStorageApiIntegrationTest {
 
         mockMvc.perform(multipart("/api/v1/files").file(text).param("purpose", "GENERAL"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void assignmentAttachmentRejectsMixedManagedAndExternalReference() throws Exception {
+        Session teacher = login("teacher", "t123456");
+        String fileId = upload(
+                        teacher.token(),
+                        "assignment.pdf",
+                        "application/pdf",
+                        "assignment-attachment".getBytes(StandardCharsets.UTF_8),
+                        "ASSIGNMENT_ATTACHMENT")
+                .path("fileId")
+                .asText();
+
+        mockMvc.perform(post("/api/v1/teacher/courses/21001/assignments")
+                        .header("Authorization", bearer(teacher.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "lessonId":"23001",
+                                  "title":"Mixed attachment reference",
+                                  "maxScore":100,
+                                  "dueAt":"2099-12-31T23:59:59+08:00",
+                                  "attachments":[{
+                                    "name":"assignment.pdf",
+                                    "fileId":"%s",
+                                    "fileUrl":"https://example.invalid/assignment.pdf"
+                                  }]
+                                }
+                                """.formatted(fileId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PARAM_VALIDATION_ERROR"));
     }
 
     private JsonNode upload(String token, String name, String mimeType, byte[] bytes, String purpose) throws Exception {

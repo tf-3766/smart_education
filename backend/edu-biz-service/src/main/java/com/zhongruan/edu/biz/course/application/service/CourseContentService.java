@@ -372,6 +372,10 @@ public class CourseContentService {
             String mimeType,
             FilePurpose purpose) {
         if (fileId != null) {
+            if (!isBlank(fileKey) || !isBlank(fileUrl)) {
+                throw new BusinessException(
+                        CommonErrorCode.PARAM_VALIDATION_ERROR, "fileId 不能与 fileKey 或 fileUrl 同时提交");
+            }
             StoredFileEntity stored = fileStorageService.requireOwnedFile(ownerId, fileId, purpose);
             return new FileReference(
                     stored.getId(),
@@ -384,6 +388,10 @@ public class CourseContentService {
             throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "fileKey 与 fileUrl 至少填写一个");
         }
         return new FileReference(null, trim(fileKey), trim(fileUrl), fileSize, trim(mimeType));
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private record FileReference(Long fileId, String fileKey, String fileUrl, Long fileSize, String mimeType) {}

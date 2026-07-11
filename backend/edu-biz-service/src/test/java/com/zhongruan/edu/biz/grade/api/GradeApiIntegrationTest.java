@@ -84,6 +84,21 @@ class GradeApiIntegrationTest {
                 .andExpect(jsonPath("$.data.records[?(@.gradeId == '" + gradeId + "')].teacherComment",
                         hasItem("Clear structure and correct main points.")));
 
+        mockMvc.perform(get("/api/v1/student/grades")
+                        .header("Authorization", bearer(student))
+                        .param("assignmentId", assignmentId)
+                        .param("status", "PUBLISHED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].gradeId", hasItem(gradeId)));
+
+        mockMvc.perform(get("/api/v1/student/grades")
+                        .header("Authorization", bearer(student))
+                        .param("assignmentId", assignmentId)
+                        .param("status", "DRAFT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.records").isEmpty());
+
         mockMvc.perform(get("/api/v1/teacher/assignments/{assignmentId}/statistics", assignmentId)
                         .header("Authorization", bearer(teacher)))
                 .andExpect(status().isOk())

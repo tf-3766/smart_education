@@ -130,7 +130,7 @@ PRIMARY KEY (id)
 
 #### 作业与提交
 
-作业 `assignment_status`：`DRAFT → PUBLISHED → CLOSED`；已发布作业修改截止时间、满分、提交类型必须记录影响范围。
+作业 `assignment_status`：`DRAFT → PUBLISHED → CLOSED`。当前 MVP 尚未实现作业变更影响历史，因此作业一旦存在提交，就禁止修改关联课时、开放/截止时间和满分；标题、描述和附件仍可使用乐观锁更新。后续引入影响历史后再放开相应字段。
 
 提交 `submission_status`：
 
@@ -207,7 +207,7 @@ CREATE INDEX idx_assignment_course_status_deadline
 
 ## 9. 核心表数据归属、权限与删除矩阵
 
-> 表名是 MVP 建议，正式 migration 前由模块负责人提交表设计。未列出的新核心表也必须补充同等信息。
+> 表名是 MVP 建议，正式 migration 前由模块负责人提交表设计。未列出的新核心表也必须补充同等信息。当前唯一 Bootstrap 已实现 33 张表；矩阵中的 `sys_audit_log`、`edu_rubric`、`edu_rubric_item`、`edu_warning_action` 是后续规划表，尚未创建，不能据此宣称接口已实现。
 
 | 核心表 | 模块所有者 | 数据范围/权限 | 删除策略 |
 |---|---|---|---|

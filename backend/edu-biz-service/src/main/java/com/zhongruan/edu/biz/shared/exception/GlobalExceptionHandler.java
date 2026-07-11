@@ -78,7 +78,11 @@ public class GlobalExceptionHandler {
 
     private boolean isSensitive(String field) {
         String value = field.toLowerCase();
-        return value.contains("password") || value.contains("token") || value.contains("secret");
+        return value.contains("password")
+                || value.contains("token")
+                || value.contains("secret")
+                || value.contains("content")
+                || value.contains("answer");
     }
 
     private Object safeValue(Object value) {

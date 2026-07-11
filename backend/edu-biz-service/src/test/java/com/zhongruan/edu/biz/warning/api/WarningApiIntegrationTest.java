@@ -71,6 +71,20 @@ class WarningApiIntegrationTest {
                         .header("Authorization", bearer(otherTeacher)))
                 .andExpect(status().isForbidden());
 
+        mockMvc.perform(get("/api/v1/student/warnings/{warningId}", warningId)
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.warningId").value(warningId));
+
+        mockMvc.perform(get("/api/v1/teacher/warnings/{warningId}", warningId)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.warningId").value(warningId));
+
+        mockMvc.perform(get("/api/v1/teacher/warnings/{warningId}", warningId)
+                        .header("Authorization", bearer(otherTeacher)))
+                .andExpect(status().isForbidden());
+
         mockMvc.perform(post("/api/v1/teacher/warnings/{warningId}/handle", warningId)
                         .header("Authorization", bearer(teacher))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -80,6 +94,31 @@ class WarningApiIntegrationTest {
                 .andExpect(jsonPath("$.data.handledBy").value("1002"))
                 .andExpect(jsonPath("$.data.handleRemark").value("followed up"))
                 .andExpect(jsonPath("$.data.handledAt").exists());
+    }
+
+    @Test
+    void progressWarningIgnoresDraftAndLockedLessons() throws Exception {
+        String teacher = login("teacher", "t123456");
+        String student = login("student", "123456");
+
+        mockMvc.perform(post("/api/v1/student/lessons/23001/complete")
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status.code").value("COMPLETED"));
+
+        mockMvc.perform(post("/api/v1/teacher/courses/21001/warnings/generation")
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "warningTypes":["PROGRESS_LAG"],
+                                  "studentId":"1001",
+                                  "dryRun":true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.createdCount").value(0))
+                .andExpect(jsonPath("$.data.warnings").isEmpty());
     }
 
     private void createOverdueMissingAssignment(String teacherToken) throws Exception {

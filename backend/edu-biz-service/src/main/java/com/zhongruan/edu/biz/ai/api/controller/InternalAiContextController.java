@@ -40,7 +40,6 @@ public class InternalAiContextController implements BizAiContextFeignClient {
     private static final Set<String> ADMIN_ROLES = Set.of("ADMIN", "SUPER_ADMIN");
     private static final String STUDENT_ROLE = "STUDENT";
     private static final String TEACHER_ROLE = "TEACHER";
-    private static final String ENROLLED = "ENROLLED";
     private static final String PUBLISHED = "PUBLISHED";
 
     private final CourseMapper courseMapper;
@@ -88,7 +87,8 @@ public class InternalAiContextController implements BizAiContextFeignClient {
         if (!admin && !teacherMember && !enrolled) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
-        if (STUDENT_ROLE.equals(user.activeRole()) && !PUBLISHED.equals(course.getStatus())) {
+        if (STUDENT_ROLE.equals(user.activeRole())
+                && !coursePermissionService.canViewCourseAsStudent(user.userId(), request.courseId())) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
         if (TEACHER_ROLE.equals(user.activeRole()) && !teacherMember) {
@@ -151,7 +151,7 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                 .eq(CourseEnrollmentEntity::getStudentId, userId)
                 .eq(CourseEnrollmentEntity::getCourseId, courseId)
                 .in(CourseEnrollmentEntity::getStatus,
-                        ENROLLED, EnrollmentStatus.COMPLETED.name()));
+                        EnrollmentStatus.ENROLLED.name(), EnrollmentStatus.COMPLETED.name()));
         return count != null && count > 0;
     }
 

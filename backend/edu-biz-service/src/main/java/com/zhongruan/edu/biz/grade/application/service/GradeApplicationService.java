@@ -185,6 +185,9 @@ public class GradeApplicationService {
         if (query.getAssignmentId() != null) {
             wrapper.eq(GradeRecordEntity::getSourceId, query.getAssignmentId());
         }
+        if (query.getStatus() != null) {
+            wrapper.eq(GradeRecordEntity::getGradeStatus, query.getStatus().name());
+        }
         wrapper.orderByDesc(GradeRecordEntity::getPublishedAt).orderByDesc(GradeRecordEntity::getId);
         IPage<GradeRecordEntity> page = gradeMapper.selectPage(new Page<>(query.getPage(), query.getSize()), wrapper);
         Map<Long, AssignmentEntity> assignments = assignments(page.getRecords().stream()
