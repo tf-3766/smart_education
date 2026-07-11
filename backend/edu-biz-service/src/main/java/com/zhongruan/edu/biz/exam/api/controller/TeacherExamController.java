@@ -3,12 +3,15 @@ package com.zhongruan.edu.biz.exam.api.controller;
 import com.zhongruan.edu.biz.auth.domain.enums.RoleCode;
 import com.zhongruan.edu.biz.auth.domain.enums.SystemPermission;
 import com.zhongruan.edu.biz.exam.api.dto.query.ExamListQuery;
+import com.zhongruan.edu.biz.exam.api.dto.query.ExamAttemptListQuery;
 import com.zhongruan.edu.biz.exam.api.dto.query.QuestionBankListQuery;
 import com.zhongruan.edu.biz.exam.api.dto.query.QuestionListQuery;
 import com.zhongruan.edu.biz.exam.api.dto.request.CreateExamPaperRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.CreateExamRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.CreateQuestionBankRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.CreateQuestionRequest;
+import com.zhongruan.edu.biz.exam.api.dto.request.GradeExamAttemptRequest;
+import com.zhongruan.edu.biz.exam.api.vo.ExamAttemptVO;
 import com.zhongruan.edu.biz.exam.api.dto.request.UpdateExamPaperRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.UpdateExamRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.UpdateQuestionBankRequest;
@@ -18,6 +21,7 @@ import com.zhongruan.edu.biz.exam.api.vo.ExamVO;
 import com.zhongruan.edu.biz.exam.api.vo.QuestionBankVO;
 import com.zhongruan.edu.biz.exam.api.vo.QuestionVO;
 import com.zhongruan.edu.biz.exam.application.service.ExamManagementService;
+import com.zhongruan.edu.biz.exam.application.service.ExamParticipationService;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestContextFactory;
 import com.zhongruan.edu.common.api.ApiResponse;
@@ -43,10 +47,15 @@ import org.springframework.web.bind.annotation.RestController;
         + " and hasAuthority(T(com.zhongruan.edu.biz.auth.domain.enums.SystemPermission).TEACHER_ACCESS.code())")
 public class TeacherExamController {
     private final ExamManagementService service;
+    private final ExamParticipationService participationService;
     private final RequestContextFactory contextFactory;
 
-    public TeacherExamController(ExamManagementService service, RequestContextFactory contextFactory) {
+    public TeacherExamController(
+            ExamManagementService service,
+            ExamParticipationService participationService,
+            RequestContextFactory contextFactory) {
         this.service = service;
+        this.participationService = participationService;
         this.contextFactory = contextFactory;
     }
 
@@ -209,6 +218,26 @@ public class TeacherExamController {
             @AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long paperId, HttpServletRequest request) {
         service.deletePaper(user.userId(), paperId);
         return ApiResponse.success(trace(request));
+    }
+
+    @GetMapping("/exams/{examId}/attempts")
+    public ApiResponse<PageResponse<ExamAttemptVO>> listAttempts(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long examId,
+            @Valid ExamAttemptListQuery query,
+            HttpServletRequest request) {
+        return ApiResponse.success(
+                participationService.listForTeacher(user.userId(), examId, query), trace(request));
+    }
+
+    @PostMapping("/exam-attempts/{attemptId}/grade")
+    public ApiResponse<ExamAttemptVO> gradeAttempt(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long attemptId,
+            @Valid @RequestBody GradeExamAttemptRequest body,
+            HttpServletRequest request) {
+        return ApiResponse.success(
+                participationService.grade(user.userId(), attemptId, body), trace(request));
     }
 
     private String trace(HttpServletRequest request) {

@@ -34,7 +34,7 @@ class RegistrationAdminApiIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Test
-    void studentsAndTeachersCanRegisterAndReceiveLoginToken() throws Exception {
+    void studentsRegisterImmediatelyAndTeachersRequireSuperAdministratorApproval() throws Exception {
         MvcResult studentRegistration = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -44,16 +44,18 @@ class RegistrationAdminApiIntegrationTest {
                                   "displayName":"新学生",
                                   "role":"STUDENT"
                                 }
-                                """))
+                """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.user.username").value("new.student"))
-                .andExpect(jsonPath("$.data.user.activeRole").value("STUDENT"))
-                .andExpect(jsonPath("$.data.roles", hasItem("STUDENT")))
-                .andExpect(jsonPath("$.data.permissions", hasItem("student:access")))
+                .andExpect(jsonPath("$.data.userStatus").value("ENABLED"))
+                .andExpect(jsonPath("$.data.approvalRequired").value(false))
+                .andExpect(jsonPath("$.data.login.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.login.user.username").value("new.student"))
+                .andExpect(jsonPath("$.data.login.user.activeRole").value("STUDENT"))
+                .andExpect(jsonPath("$.data.login.roles", hasItem("STUDENT")))
+                .andExpect(jsonPath("$.data.login.permissions", hasItem("student:access")))
                 .andReturn();
 
-        String studentToken = body(studentRegistration).path("data").path("accessToken").asText();
+        String studentToken = body(studentRegistration).path("data").path("login").path("accessToken").asText();
         mockMvc.perform(get("/api/v1/auth/me").header("Authorization", bearer(studentToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.displayName").value("新学生"));
@@ -64,7 +66,7 @@ class RegistrationAdminApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.user.username").value("new.student"));
 
-        mockMvc.perform(post("/api/v1/auth/register")
+        MvcResult teacherRegistration = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -74,10 +76,37 @@ class RegistrationAdminApiIntegrationTest {
                                   "role":"TEACHER"
                                 }
                                 """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.user.activeRole").value("TEACHER"))
-                .andExpect(jsonPath("$.data.roles", hasItem("TEACHER")))
-                .andExpect(jsonPath("$.data.permissions", hasItem("teacher:access")));
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.role").value("TEACHER"))
+                .andExpect(jsonPath("$.data.userStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data.approvalRequired").value(true))
+                .andExpect(jsonPath("$.data.login").value(nullValue()))
+                .andReturn();
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"new.teacher\",\"password\":\"Teacher2026\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+
+        String superAdminToken = token(login("admin", "admin123"));
+        String teacherId = body(teacherRegistration).path("data").path("userId").asText();
+        mockMvc.perform(get("/api/v1/admin/users")
+                        .header("Authorization", bearer(superAdminToken))
+                        .param("status", "PENDING")
+                        .param("keyword", "new.teacher"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].userId").value(teacherId));
+        mockMvc.perform(put("/api/v1/admin/users/{userId}/teacher-approval", teacherId)
+                        .header("Authorization", bearer(superAdminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userStatus").value("ENABLED"))
+                .andExpect(jsonPath("$.data.roles", hasItem("TEACHER")));
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"new.teacher\",\"password\":\"Teacher2026\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.activeRole").value("TEACHER"));
     }
 
     @Test
@@ -125,8 +154,48 @@ class RegistrationAdminApiIntegrationTest {
     }
 
     @Test
+    void rejectedTeacherCannotLoginOrBeReviewedAgainAndOrdinaryTeacherCannotReview() throws Exception {
+        MvcResult registration = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username":"rejected.teacher",
+                                  "password":"Teacher2026",
+                                  "displayName":"待拒绝教师",
+                                  "role":"TEACHER"
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andReturn();
+        String teacherId = body(registration).path("data").path("userId").asText();
+        String ordinaryTeacherToken = token(login("teacher", "t123456"));
+        String superAdminToken = token(login("admin", "admin123"));
+
+        mockMvc.perform(put("/api/v1/admin/users/{userId}/teacher-approval", teacherId)
+                        .header("Authorization", bearer(ordinaryTeacherToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        mockMvc.perform(delete("/api/v1/admin/users/{userId}/teacher-approval", teacherId)
+                        .header("Authorization", bearer(superAdminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userStatus").value("REJECTED"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"rejected.teacher\",\"password\":\"Teacher2026\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+
+        mockMvc.perform(put("/api/v1/admin/users/{userId}/teacher-approval", teacherId)
+                        .header("Authorization", bearer(superAdminToken)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TEACHER_REGISTRATION_NOT_PENDING"));
+    }
+
+    @Test
     void onlySuperAdministratorCanGrantAndRevokeAdministratorRole() throws Exception {
-        MvcResult superAdminLogin = login("admin", "Admin@123");
+        MvcResult superAdminLogin = login("admin", "admin123");
         String superAdminToken = token(superAdminLogin);
         mockMvc.perform(get("/api/v1/auth/me").header("Authorization", bearer(superAdminToken)))
                 .andExpect(status().isOk())
@@ -148,7 +217,7 @@ class RegistrationAdminApiIntegrationTest {
                 .andExpect(jsonPath("$.data.roles", hasItem("ADMIN")))
                 .andExpect(jsonPath("$.data.superAdministrator").value(false));
 
-        MvcResult ordinaryAdminLogin = login("teacher2", "Teacher@123");
+        MvcResult ordinaryAdminLogin = login("teacher2", "t123456");
         String ordinaryAdminToken = token(ordinaryAdminLogin);
         mockMvc.perform(put("/api/v1/admin/users/1001/administrator")
                         .header("Authorization", bearer(ordinaryAdminToken)))

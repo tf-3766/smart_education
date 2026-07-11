@@ -33,8 +33,8 @@ class ExamApiIntegrationTest {
 
     @Test
     void teacherCanPublishAnExamPaperAndEnrolledStudentCanSeeTheExam() throws Exception {
-        String teacherToken = login("teacher", "Teacher@123");
-        String studentToken = login("student", "Student@123");
+        String teacherToken = login("teacher", "t123456");
+        String studentToken = login("student", "123456");
 
         String bankId = body(mockMvc.perform(post("/api/v1/teacher/courses/21001/question-banks")
                         .header("Authorization", bearer(teacherToken))
@@ -127,9 +127,9 @@ class ExamApiIntegrationTest {
 
     @Test
     void teacherCannotOperateAnotherTeachersCourseAndStudentCannotManageQuestionBanks() throws Exception {
-        String teacherToken = login("teacher", "Teacher@123");
-        String otherTeacherToken = login("teacher2", "Teacher@123");
-        String studentToken = login("student", "Student@123");
+        String teacherToken = login("teacher", "t123456");
+        String otherTeacherToken = login("teacher2", "t123456");
+        String studentToken = login("student", "123456");
 
         mockMvc.perform(post("/api/v1/teacher/courses/21003/question-banks")
                         .header("Authorization", bearer(teacherToken))
@@ -151,7 +151,7 @@ class ExamApiIntegrationTest {
 
     @Test
     void teacherCanUpdateQuestionWithoutChangingItsStatus() throws Exception {
-        String teacherToken = login("teacher", "Teacher@123");
+        String teacherToken = login("teacher", "t123456");
 
         String bankId = body(mockMvc.perform(post("/api/v1/teacher/courses/21001/question-banks")
                         .header("Authorization", bearer(teacherToken))
@@ -201,7 +201,7 @@ class ExamApiIntegrationTest {
 
     @Test
     void teacherCannotDeleteQuestionReferencedByDraftPaper() throws Exception {
-        String teacherToken = login("teacher", "Teacher@123");
+        String teacherToken = login("teacher", "t123456");
 
         String bankId = body(mockMvc.perform(post("/api/v1/teacher/courses/21001/question-banks")
                         .header("Authorization", bearer(teacherToken))
@@ -258,6 +258,159 @@ class ExamApiIntegrationTest {
                         .header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("OPERATION_NOT_ALLOWED"));
+    }
+
+    @Test
+    void enrolledStudentCanStartResumeAndSubmitAnObjectiveExam() throws Exception {
+        String teacherToken = login("teacher", "t123456");
+        String studentToken = login("student", "123456");
+
+        String examId = body(mockMvc.perform(post("/api/v1/teacher/courses/21001/exams")
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"学生答题闭环测试",
+                                  "startAt":"2020-01-01T00:00:00Z",
+                                  "endAt":"2099-12-31T23:59:59Z",
+                                  "durationMinutes":60,
+                                  "totalScore":10
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn()).path("data").path("examId").asText();
+        String paperId = body(mockMvc.perform(post("/api/v1/teacher/exams/{examId}/papers", examId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"学生答题闭环试卷",
+                                  "questions":[{"questionId":"37101","questionOrder":1,"score":10}]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn()).path("data").path("paperId").asText();
+        mockMvc.perform(post("/api/v1/teacher/exam-papers/{paperId}/publish", paperId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk());
+
+        MvcResult startResult = mockMvc.perform(post("/api/v1/student/exams/{examId}/attempts", examId)
+                        .header("Authorization", bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.questions[0].questionId").value("37101"))
+                .andExpect(jsonPath("$.data.questions[0].options[1].label").value("B"))
+                .andExpect(jsonPath("$.data.questions[0].options[1].correct").doesNotExist())
+                .andReturn();
+        String attemptId = body(startResult).path("data").path("attemptId").asText();
+
+        mockMvc.perform(get("/api/v1/student/exam-attempts/{attemptId}", attemptId)
+                        .header("Authorization", bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attemptId").value(attemptId))
+                .andExpect(jsonPath("$.data.version").value(0));
+
+        mockMvc.perform(post("/api/v1/student/exam-attempts/{attemptId}/submit", attemptId)
+                        .header("Authorization", bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "answers":[{"questionId":"37101","answerContent":"B"}],
+                                  "version":0
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("GRADED"))
+                .andExpect(jsonPath("$.data.score").value(10))
+                .andExpect(jsonPath("$.data.answers[0].score").value(10));
+
+        mockMvc.perform(post("/api/v1/student/exam-attempts/{attemptId}/submit", attemptId)
+                        .header("Authorization", bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"answers":[{"questionId":"37101","answerContent":"B"}],"version":1}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPERATION_NOT_ALLOWED"));
+    }
+
+    @Test
+    void teacherCanGradeSubmittedShortAnswerExam() throws Exception {
+        String teacherToken = login("teacher", "t123456");
+        String studentToken = login("student", "123456");
+        String bankId = body(mockMvc.perform(post("/api/v1/teacher/courses/21001/question-banks")
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"简答题批阅测试题库\"}"))
+                .andExpect(status().isCreated())
+                .andReturn()).path("data").path("bankId").asText();
+        String questionId = body(mockMvc.perform(post("/api/v1/teacher/question-banks/{bankId}/questions", bankId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "questionType":"SHORT_ANSWER",
+                                  "stem":"请说明课程边界。",
+                                  "difficulty":"MEDIUM",
+                                  "score":10,
+                                  "options":[]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn()).path("data").path("questionId").asText();
+        String examId = body(mockMvc.perform(post("/api/v1/teacher/courses/21001/exams")
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"简答题批阅测试",
+                                  "startAt":"2020-01-01T00:00:00Z",
+                                  "endAt":"2099-12-31T23:59:59Z",
+                                  "durationMinutes":60,
+                                  "totalScore":10
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn()).path("data").path("examId").asText();
+        String paperId = body(mockMvc.perform(post("/api/v1/teacher/exams/{examId}/papers", examId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"简答题试卷","questions":[{"questionId":"%s","questionOrder":1,"score":10}]}
+                                """.formatted(questionId)))
+                .andExpect(status().isCreated())
+                .andReturn()).path("data").path("paperId").asText();
+        mockMvc.perform(post("/api/v1/teacher/exam-papers/{paperId}/publish", paperId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk());
+        String attemptId = body(mockMvc.perform(post("/api/v1/student/exams/{examId}/attempts", examId)
+                        .header("Authorization", bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andReturn()).path("data").path("attemptId").asText();
+        mockMvc.perform(post("/api/v1/student/exam-attempts/{attemptId}/submit", attemptId)
+                        .header("Authorization", bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"answers":[{"questionId":"%s","answerContent":"正式业务事实由 Biz 维护。"}],"version":0}
+                                """.formatted(questionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
+
+        mockMvc.perform(get("/api/v1/teacher/exams/{examId}/attempts", examId)
+                        .header("Authorization", bearer(teacherToken))
+                        .param("status", "SUBMITTED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].attemptId", hasItem(attemptId)));
+        mockMvc.perform(post("/api/v1/teacher/exam-attempts/{attemptId}/grade", attemptId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"answers":[{"questionId":"%s","score":8,"teacherComment":"边界说明正确。"}],"version":1}
+                                """.formatted(questionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("GRADED"))
+                .andExpect(jsonPath("$.data.score").value(8))
+                .andExpect(jsonPath("$.data.answers[0].score").value(8));
     }
 
     private String login(String username, String password) throws Exception {

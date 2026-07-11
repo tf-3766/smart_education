@@ -32,8 +32,8 @@ class GradeApiIntegrationTest {
 
     @Test
     void teacherGradesPublishesAndStudentSeesPublishedGrade() throws Exception {
-        String teacher = login("teacher", "Teacher@123");
-        String student = login("student", "Student@123");
+        String teacher = login("teacher", "t123456");
+        String student = login("student", "123456");
 
         String assignmentId = createPublishedAssignment(teacher, "A2 grading assignment");
         JsonNode submission = submitAssignment(student, assignmentId, "A2 submitted answer");
@@ -105,9 +105,9 @@ class GradeApiIntegrationTest {
 
     @Test
     void gradingRejectsUnrelatedTeacherAndOutOfRangeScore() throws Exception {
-        String teacher = login("teacher", "Teacher@123");
-        String otherTeacher = login("teacher2", "Teacher@123");
-        String student = login("student", "Student@123");
+        String teacher = login("teacher", "t123456");
+        String otherTeacher = login("teacher2", "t123456");
+        String student = login("student", "123456");
 
         String assignmentId = createPublishedAssignment(teacher, "A2 grading guard assignment");
         JsonNode submission = submitAssignment(student, assignmentId, "A2 guard answer");

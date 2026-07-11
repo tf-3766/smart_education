@@ -99,6 +99,37 @@ public class AdminUserApplicationService {
         return toVO(user);
     }
 
+    @Transactional
+    public AdminUserVO approveTeacherRegistration(Long operatorId, Long userId) {
+        requireSuperAdministrator(operatorId);
+        UserEntity user = requirePendingTeacher(userId);
+        user.setUserStatus(UserStatus.ENABLED.name());
+        if (userMapper.updateById(user) != 1) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT);
+        }
+        return toVO(user);
+    }
+
+    @Transactional
+    public AdminUserVO rejectTeacherRegistration(Long operatorId, Long userId) {
+        requireSuperAdministrator(operatorId);
+        UserEntity user = requirePendingTeacher(userId);
+        user.setUserStatus(UserStatus.REJECTED.name());
+        if (userMapper.updateById(user) != 1) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT);
+        }
+        return toVO(user);
+    }
+
+    private UserEntity requirePendingTeacher(Long userId) {
+        UserEntity user = requireUser(userId);
+        Set<String> roles = roleMapper.findRoleCodesByUserId(userId);
+        if (!UserStatus.PENDING.name().equals(user.getUserStatus()) || !roles.contains(RoleCode.TEACHER.name())) {
+            throw new BusinessException(AuthErrorCode.TEACHER_REGISTRATION_NOT_PENDING);
+        }
+        return user;
+    }
+
     private void requireSuperAdministrator(Long userId) {
         Set<String> roles = roleMapper.findRoleCodesByUserId(userId);
         if (!roles.contains(RoleCode.SUPER_ADMIN.name())) {

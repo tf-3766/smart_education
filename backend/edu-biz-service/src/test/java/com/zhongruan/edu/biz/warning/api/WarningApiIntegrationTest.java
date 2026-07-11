@@ -32,9 +32,9 @@ class WarningApiIntegrationTest {
 
     @Test
     void teacherGeneratesWarningsAndHandlesCourseStudentWarning() throws Exception {
-        String teacher = login("teacher", "Teacher@123");
-        String otherTeacher = login("teacher2", "Teacher@123");
-        String student = login("student", "Student@123");
+        String teacher = login("teacher", "t123456");
+        String otherTeacher = login("teacher2", "t123456");
+        String student = login("student", "123456");
 
         createOverdueMissingAssignment(teacher);
         createLowScorePublishedGrade(teacher, student);

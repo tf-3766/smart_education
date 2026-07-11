@@ -6,6 +6,7 @@ import com.zhongruan.edu.biz.auth.api.dto.request.UpdateAvatarRequest;
 import com.zhongruan.edu.biz.auth.api.vo.CurrentUserVO;
 import com.zhongruan.edu.biz.auth.api.vo.LoginVO;
 import com.zhongruan.edu.biz.auth.api.vo.LogoutVO;
+import com.zhongruan.edu.biz.auth.api.vo.RegistrationVO;
 import com.zhongruan.edu.biz.auth.application.service.AuthApplicationService;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestContextFactory;
@@ -41,11 +42,13 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<LoginVO>> register(
+    public ResponseEntity<ApiResponse<RegistrationVO>> register(
             @Valid @RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
-        return ResponseEntity.status(HttpStatus.CREATED)
+        RegistrationVO registration = authApplicationService.register(request);
+        HttpStatus status = registration.approvalRequired() ? HttpStatus.ACCEPTED : HttpStatus.CREATED;
+        return ResponseEntity.status(status)
                 .body(ApiResponse.success(
-                        authApplicationService.register(request),
+                        registration,
                         requestContextFactory.current(servletRequest).traceId()));
     }
 

@@ -6,8 +6,10 @@ import com.zhongruan.edu.biz.auth.api.dto.request.RegisterRequest;
 import com.zhongruan.edu.biz.auth.api.dto.request.UpdateAvatarRequest;
 import com.zhongruan.edu.biz.auth.api.vo.CurrentUserVO;
 import com.zhongruan.edu.biz.auth.api.vo.LoginVO;
+import com.zhongruan.edu.biz.auth.api.vo.RegistrationVO;
 import com.zhongruan.edu.biz.auth.domain.AuthErrorCode;
 import com.zhongruan.edu.biz.auth.domain.enums.RoleCode;
+import com.zhongruan.edu.biz.auth.domain.enums.RegistrationRole;
 import com.zhongruan.edu.biz.auth.domain.enums.UserStatus;
 import com.zhongruan.edu.biz.auth.infrastructure.persistence.entity.RoleEntity;
 import com.zhongruan.edu.biz.auth.infrastructure.persistence.entity.UserEntity;
@@ -74,7 +76,7 @@ public class AuthApplicationService {
     }
 
     @Transactional
-    public LoginVO register(RegisterRequest request) {
+    public RegistrationVO register(RegisterRequest request) {
         String username = normalizeUsername(request.username());
         if (userMapper.selectCount(Wrappers.<UserEntity>lambdaQuery().eq(UserEntity::getUsername, username)) > 0) {
             throw new BusinessException(AuthErrorCode.USERNAME_ALREADY_EXISTS);
@@ -84,7 +86,8 @@ public class AuthApplicationService {
         user.setUsername(username);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setDisplayName(request.displayName().trim());
-        user.setUserStatus(UserStatus.ENABLED.name());
+        boolean approvalRequired = request.role() == RegistrationRole.TEACHER;
+        user.setUserStatus((approvalRequired ? UserStatus.PENDING : UserStatus.ENABLED).name());
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException exception) {
@@ -101,7 +104,15 @@ public class AuthApplicationService {
         relation.setUserId(user.getId());
         relation.setRoleId(role.getId());
         userRoleMapper.insert(relation);
-        return issueLogin(user, request.role().name());
+        LoginVO login = approvalRequired ? null : issueLogin(user, request.role().name());
+        return new RegistrationVO(
+                String.valueOf(user.getId()),
+                user.getUsername(),
+                user.getDisplayName(),
+                request.role().name(),
+                user.getUserStatus(),
+                approvalRequired,
+                login);
     }
 
     private LoginVO issueLogin(UserEntity user, String preferredRole) {

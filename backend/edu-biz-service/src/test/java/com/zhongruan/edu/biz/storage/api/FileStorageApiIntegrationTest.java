@@ -36,8 +36,8 @@ class FileStorageApiIntegrationTest {
 
     @Test
     void userUploadsBindsAndReadsAvatar() throws Exception {
-        Session student = login("student", "Student@123");
-        Session teacher = login("teacher", "Teacher@123");
+        Session student = login("student", "123456");
+        Session teacher = login("teacher", "t123456");
         byte[] image = new byte[] {
             (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01, 0x02, 0x03, 0x04
         };
@@ -69,8 +69,8 @@ class FileStorageApiIntegrationTest {
 
     @Test
     void managedCourseMaterialCanBeDownloadedByEnrolledStudent() throws Exception {
-        Session teacher = login("teacher", "Teacher@123");
-        Session student = login("student", "Student@123");
+        Session teacher = login("teacher", "t123456");
+        Session student = login("student", "123456");
         byte[] document = "course-material".getBytes(StandardCharsets.UTF_8);
         String fileId = upload(teacher.token(), "lesson.pdf", "application/pdf", document, "COURSE_MATERIAL")
                 .path("fileId")
@@ -108,7 +108,7 @@ class FileStorageApiIntegrationTest {
 
     @Test
     void avatarRejectsUnsafeTypeAndAnonymousUpload() throws Exception {
-        Session student = login("student", "Student@123");
+        Session student = login("student", "123456");
         MockMultipartFile text = new MockMultipartFile(
                 "file", "avatar.txt", "text/plain", "not-an-image".getBytes(StandardCharsets.UTF_8));
 

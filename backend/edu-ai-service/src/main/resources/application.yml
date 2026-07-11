@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: edu-ai-service
+  ai:
+    model:
+      chat: ${AI_CHAT_PROVIDER:none}
+    openai:
+      api-key: ${OPENAI_API_KEY:disabled}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
+          temperature: ${AI_TEMPERATURE:0.2}
   cloud:
     nacos:
       config:

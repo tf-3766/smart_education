@@ -46,7 +46,7 @@ class AuthApiIntegrationTest {
                         .header("X-Trace-Id", TRACE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"username":"student","password":"Student@123"}
+                                {"username":"student","password":"123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Trace-Id", TRACE_ID))
@@ -106,10 +106,10 @@ class AuthApiIntegrationTest {
     }
 
     @Test
-    void studentCannotAccessTeacherTestEndpoint() throws Exception {
-        String accessToken = loginAndGetToken("student", "Student@123");
+    void studentCannotAccessTeacherCourseEndpoint() throws Exception {
+        String accessToken = loginAndGetToken("student", "123456");
 
-        mockMvc.perform(get("/api/v1/test/teacher")
+        mockMvc.perform(get("/api/v1/teacher/courses")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"))
@@ -117,10 +117,10 @@ class AuthApiIntegrationTest {
     }
 
     @Test
-    void teacherCannotAccessAdminTestEndpoint() throws Exception {
-        String accessToken = loginAndGetToken("teacher", "Teacher@123");
+    void teacherCannotAccessAdminCourseReviewEndpoint() throws Exception {
+        String accessToken = loginAndGetToken("teacher", "t123456");
 
-        mockMvc.perform(get("/api/v1/test/admin")
+        mockMvc.perform(get("/api/v1/admin/course-reviews")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"))
@@ -128,18 +128,18 @@ class AuthApiIntegrationTest {
     }
 
     @Test
-    void eachRoleCanAccessItsOwnTestEndpoint() throws Exception {
-        for (Credentials credentials : List.of(
-                new Credentials("student", "Student@123"),
-                new Credentials("teacher", "Teacher@123"),
-                new Credentials("admin", "Admin@123"))) {
-            String accessToken = loginAndGetToken(credentials.username(), credentials.password());
+    void eachRoleCanAccessItsOwnBusinessEndpoint() throws Exception {
+        for (RoleEndpoint endpoint : List.of(
+                new RoleEndpoint("student", "123456", "/api/v1/student/courses"),
+                new RoleEndpoint("teacher", "t123456", "/api/v1/teacher/courses"),
+                new RoleEndpoint("admin", "admin123", "/api/v1/admin/course-reviews"))) {
+            String accessToken = loginAndGetToken(endpoint.username(), endpoint.password());
 
-            mockMvc.perform(get("/api/v1/test/" + credentials.username())
+            mockMvc.perform(get(endpoint.path())
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.scope").value(credentials.username().toUpperCase()))
-                    .andExpect(jsonPath("$.data.result").value("ALLOWED"))
+                    .andExpect(jsonPath("$.code").value("SUCCESS"))
+                    .andExpect(jsonPath("$.data").exists())
                     .andExpect(jsonPath("$.traceId").isNotEmpty());
         }
     }
@@ -161,7 +161,7 @@ class AuthApiIntegrationTest {
 
     @Test
     void authenticatedUserCanReadCurrentIdentity() throws Exception {
-        String accessToken = loginAndGetToken("teacher", "Teacher@123");
+        String accessToken = loginAndGetToken("teacher", "t123456");
 
         mockMvc.perform(get("/api/v1/auth/me")
                         .header("Authorization", "Bearer " + accessToken))
@@ -174,7 +174,7 @@ class AuthApiIntegrationTest {
 
     @Test
     void logoutAcknowledgesClientSideTokenDiscard() throws Exception {
-        String accessToken = loginAndGetToken("student", "Student@123");
+        String accessToken = loginAndGetToken("student", "123456");
 
         mockMvc.perform(post("/api/v1/auth/logout")
                         .header("Authorization", "Bearer " + accessToken))
@@ -209,4 +209,6 @@ class AuthApiIntegrationTest {
     }
 
     private record Credentials(String username, String password) {}
+
+    private record RoleEndpoint(String username, String password, String path) {}
 }

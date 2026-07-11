@@ -32,8 +32,8 @@ class AssignmentApiIntegrationTest {
 
     @Test
     void teacherPublishesAssignmentAndEnrolledStudentSubmitsIt() throws Exception {
-        String teacher = login("teacher", "Teacher@123");
-        String student = login("student", "Student@123");
+        String teacher = login("teacher", "t123456");
+        String student = login("student", "123456");
 
         MvcResult createResult = mockMvc.perform(post("/api/v1/teacher/courses/21001/assignments")
                         .header("Authorization", bearer(teacher))
@@ -126,9 +126,9 @@ class AssignmentApiIntegrationTest {
 
     @Test
     void assignmentSubmissionChecksResourceScopeAndDeadline() throws Exception {
-        String teacher = login("teacher", "Teacher@123");
-        String otherTeacher = login("teacher2", "Teacher@123");
-        String student = login("student", "Student@123");
+        String teacher = login("teacher", "t123456");
+        String otherTeacher = login("teacher2", "t123456");
+        String student = login("student", "123456");
 
         MvcResult createResult = mockMvc.perform(post("/api/v1/teacher/courses/21001/assignments")
                         .header("Authorization", bearer(teacher))

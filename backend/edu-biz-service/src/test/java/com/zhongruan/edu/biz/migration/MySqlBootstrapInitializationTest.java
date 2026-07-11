@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
@@ -22,7 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 class MySqlBootstrapInitializationTest {
     @Container
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
+    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("smart_education_test")
             .withUsername("edu_test")
             .withPassword("edu_test_password")
@@ -39,13 +40,24 @@ class MySqlBootstrapInitializationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
     @Test
     void bootstrapScriptRunsAgainstMySqlEight() {
         String version = jdbcTemplate.queryForObject("SELECT VERSION()", String.class);
         assertTrue(version.startsWith("8."));
+        assertEquals(
+                33,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()",
+                        Integer.class));
         assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
         assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_role", Integer.class));
         assertEquals(5, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_permission", Integer.class));
+        assertPasswordMatches("student", "123456");
+        assertPasswordMatches("teacher", "t123456");
+        assertPasswordMatches("teacher2", "t123456");
+        assertPasswordMatches("admin", "admin123");
         assertEquals(
                 1,
                 jdbcTemplate.queryForObject(
@@ -54,5 +66,14 @@ class MySqlBootstrapInitializationTest {
                         Integer.class));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_assignment", Integer.class));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_exam_attempt", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_course_category", Integer.class));
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_announcement", Integer.class));
+    }
+
+    private void assertPasswordMatches(String username, String rawPassword) {
+        String passwordHash = jdbcTemplate.queryForObject(
+                "SELECT password_hash FROM sys_user WHERE username = ?", String.class, username);
+        assertTrue(passwordHash != null && passwordHash.startsWith("$2"));
+        assertTrue(passwordEncoder.matches(rawPassword, passwordHash));
     }
 }

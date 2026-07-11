@@ -150,6 +150,28 @@ VALUES
 -- Source: backend\edu-biz-service\src\main\resources\db\migration\V2__create_course_tables.sql
 -- ============================================================================
 
+CREATE TABLE edu_course_category (
+    id BIGINT NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    sort_order INT NOT NULL,
+    enabled TINYINT NOT NULL DEFAULT 1,
+    created_at DATETIME(3) NOT NULL,
+    created_by BIGINT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    updated_by BIGINT NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_course_category_name UNIQUE (name)
+);
+
+CREATE INDEX idx_course_category_enabled ON edu_course_category (enabled, deleted, sort_order, id);
+
+INSERT INTO edu_course_category
+    (id, name, sort_order, enabled, created_at, created_by, updated_at, updated_by, deleted, version)
+VALUES
+    (1, '计算机与软件', 10, 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
+
 CREATE TABLE edu_course (
     id BIGINT NOT NULL,
     course_code VARCHAR(64) NOT NULL,
@@ -500,6 +522,28 @@ CREATE TABLE edu_forum_reply (
 CREATE INDEX idx_forum_reply_topic ON edu_forum_reply (topic_id, status, deleted, created_at, id);
 CREATE INDEX idx_forum_reply_author ON edu_forum_reply (author_id, deleted, created_at, id);
 
+CREATE TABLE edu_announcement (
+    id BIGINT NOT NULL,
+    scope_type VARCHAR(32) NOT NULL,
+    course_id BIGINT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    audience VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    published_at DATETIME(3) NOT NULL,
+    withdrawn_at DATETIME(3) NULL,
+    created_at DATETIME(3) NOT NULL,
+    created_by BIGINT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    updated_by BIGINT NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE INDEX idx_announcement_scope ON edu_announcement (scope_type, course_id, status, deleted, published_at, id);
+CREATE INDEX idx_announcement_audience ON edu_announcement (audience, status, deleted, published_at, id);
+
 CREATE TABLE edu_learning_warning (
     id BIGINT NOT NULL,
     course_id BIGINT NOT NULL,
@@ -740,9 +784,9 @@ CREATE INDEX idx_ai_generation_requester ON edu_ai_generation_record (requester_
 INSERT INTO sys_user
     (id, username, password_hash, display_name, user_status, created_at, created_by, updated_at, updated_by, deleted, version)
 VALUES
-    (1001, 'student', '$2b$10$pM7Fds4bn4SUFowh9hH.uuev0Cjyk8nbXkb1uNEEBzC04RXhWg3Z.', '测试学生', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
-    (1002, 'teacher', '$2b$10$.64FnHJo8pzAoAV1QYz/WeuHQOG47AjComkIXA6OFuc6/Gk8zQRgO', '测试教师', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
-    (1003, 'admin', '$2b$10$LVDnPxq8oKMtaI3L17F4yuItOcHH7oLg6Zy8du1uqiA/sBuW25uB2', '测试管理员', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
+    (1001, 'student', '$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u', '测试学生', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (1002, 'teacher', '$2b$10$4/jxzR1iDdnQVYlELBd2zuN3wCdDNlcAfjX4bX.4e08ggPOiLcieS', '测试教师', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (1003, 'admin', '$2b$10$qklC5Vnw0Ov6Q3AVg1onj.DUeTJwQ0Zxh.o0fD0qkexIAF6y05yRG', '测试管理员', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
 ON DUPLICATE KEY UPDATE
     display_name = VALUES(display_name),
     user_status = VALUES(user_status),
@@ -767,7 +811,7 @@ ON DUPLICATE KEY UPDATE deleted = 0, updated_at = CURRENT_TIMESTAMP;
 INSERT INTO sys_user
     (id, username, password_hash, display_name, user_status, created_at, created_by, updated_at, updated_by, deleted, version)
 VALUES
-    (1004, 'teacher2', '$2b$10$.64FnHJo8pzAoAV1QYz/WeuHQOG47AjComkIXA6OFuc6/Gk8zQRgO', '测试教师二', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
+    (1004, 'teacher2', '$2b$10$4/jxzR1iDdnQVYlELBd2zuN3wCdDNlcAfjX4bX.4e08ggPOiLcieS', '测试教师二', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), user_status = VALUES(user_status), deleted = 0, updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO sys_user_role
@@ -924,6 +968,16 @@ VALUES
     (35001, 34001, 21001, 1002, NULL, '可以先回看公开课时中的案例，再补充你的理解。', 'VISIBLE',
      CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0)
 ON DUPLICATE KEY UPDATE content = VALUES(content), deleted = 0, updated_at = CURRENT_TIMESTAMP;
+
+INSERT INTO edu_announcement
+    (id, scope_type, course_id, title, content, audience, status, published_at,
+     created_at, created_by, updated_at, updated_by, deleted, version)
+VALUES
+    (35001, 'COURSE', 21001, '第一章学习提醒', '请在本周内完成第一章学习与课后作业。', 'STUDENT', 'PUBLISHED', CURRENT_TIMESTAMP,
+     CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0),
+    (35002, 'SYSTEM', NULL, '系统联调公告', '当前环境用于项目联调和演示。', 'ALL', 'PUBLISHED', CURRENT_TIMESTAMP,
+     CURRENT_TIMESTAMP, 1003, CURRENT_TIMESTAMP, 1003, 0, 0)
+ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), status = VALUES(status), deleted = 0, updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO edu_learning_warning
     (id, course_id, student_id, warning_type, warning_level, warning_status, summary, suggestion,

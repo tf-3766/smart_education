@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @FeignClient(
         name = ServiceNames.EDU_BIZ_SERVICE,
@@ -15,5 +16,7 @@ public interface BizAiContextFeignClient {
     String BASE_PATH = "/_internal/v1/ai-context";
 
     @PostMapping("/course")
-    ApiResponse<AiCourseContextResponse> getCourseContext(@Valid @RequestBody AiCourseContextRequest request);
+    ApiResponse<AiCourseContextResponse> getCourseContext(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiCourseContextRequest request);
 }

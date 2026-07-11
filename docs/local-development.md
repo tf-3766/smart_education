@@ -1,10 +1,10 @@
-# 后端第一阶段开发与启动说明
+# 后端本地开发与启动说明
 
 ## 1. 当前交付范围
 
-当前已完成基础工程、统一响应、JWT 登录、角色/权限校验、课程学习基础接口、课程审核、Bootstrap SQL 认证/课程/协作学习表、Gateway 路由、`edu-feign-api` 契约模块、AI 服务健康检查和 Biz 课程上下文内部接口。尚未实现注册、找回密码、刷新令牌、Redis Token 黑名单、作业/成绩/考试/论坛/预警的公开业务闭环、真实模型、向量库、RAG 或公开 SSE 业务。
+当前已完成学生/教师注册与教师审核、JWT 与角色权限、文件与头像、课程学习、作业成绩、论坛预警、题库试卷与基础答题批阅、公告、课程分类、管理统计和统一 Gateway。AI 服务已接入 Spring AI 1.1.8，提供授权课程问答 SSE、课时摘要草稿和运行状态；默认不调用外部模型。尚未实现找回密码、刷新令牌、Token 黑名单、向量索引/RAG、AI 评语、风险解释和智能组卷建议。
 
-版本基线：JDK 21、Spring Boot 3.5.0、Spring Cloud 2025.0.0、Spring Cloud Alibaba 2025.0.0.0、MyBatis-Plus 3.5.12、MySQL 8.0。
+版本基线：JDK 21、Spring Boot 3.5.0、Spring Cloud 2025.0.0、Spring Cloud Alibaba 2025.0.0.0、Spring AI 1.1.8、MyBatis-Plus 3.5.12、MySQL 8.0/8.4。
 
 版本依据：[Spring Cloud Alibaba 2025.x 版本说明](https://sca.aliyun.com/docs/2025.x/overview/version-explain/)、[Spring Cloud Gateway WebFlux Starter](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-webflux/starter.html)。
 
@@ -23,16 +23,17 @@ backend/
 │  └─ src/main/
 │     ├─ java/.../auth/            # 登录、当前用户、角色权限
 │     ├─ java/.../course/          # 课程、章节、课时、资料、选课、学习进度
-│     ├─ java/.../assignment/      # 作业、附件、提交 Entity/Mapper 骨架
-│     ├─ java/.../grade/           # 成绩 Entity/Mapper 骨架
-│     ├─ java/.../forum/           # 论坛 Entity/Mapper 骨架
-│     ├─ java/.../warning/         # 学习预警 Entity/Mapper 骨架
-│     ├─ java/.../exam/            # 考试、题库、试卷 Entity/Mapper 骨架
+│     ├─ java/.../assignment/      # 作业、附件与提交闭环
+│     ├─ java/.../grade/           # 评分、发布与统计
+│     ├─ java/.../forum/           # 论坛与内容治理
+│     ├─ java/.../warning/         # 学习预警生成与处理
+│     ├─ java/.../exam/            # 题库、试卷、答题与批阅
+│     ├─ java/.../platform/        # 公告、课程分类与管理统计
 │     ├─ java/.../ai/              # Biz 提供给 AI 的内部上下文接口
 │     ├─ java/.../shared/          # Security、异常、审计、MyBatis-Plus
 │     └─ resources/db/
 │        └─ online_education_bootstrap.sql  # 完整建表和本地演示数据
-└─ edu-ai-service/                 # 可启动骨架、Actuator 健康检查和 Feign 客户端接入
+└─ edu-ai-service/                 # Spring AI 适配、授权上下文、SSE 问答与草稿
 
 deploy/docker-compose.yml          # MySQL、Redis、RabbitMQ、Nacos、Qdrant
 docs/                              # 架构、编码、数据库、API 与协作规范
@@ -63,6 +64,8 @@ Copy-Item backend\edu-ai-service\src\main\resources\application-local.yml.exampl
 | `NACOS_*` | 服务注册与配置中心 | local/dev 使用 |
 | `CORS_ALLOWED_ORIGINS` | 前端允许来源 | 有本地默认值 |
 | `GATEWAY_SERVER_PORT/BIZ_SERVER_PORT/AI_SERVER_PORT` | 服务端口 | 有默认值 |
+| `AI_CHAT_PROVIDER` | `none`或`openai`；默认 `none` | 否 |
+| `OPENAI_API_KEY/OPENAI_BASE_URL/OPENAI_CHAT_MODEL` | Spring AI 模型适配；启用 `openai` 时配置 | 按提供商 |
 
 `.env`、`application-local.yml`、`application-dev.yml`、日志、IDE 文件与 `target/` 已被 `.gitignore` 排除。
 
@@ -99,10 +102,12 @@ java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.
 
 | 角色 | 用户名 | 密码 |
 |---|---|---|
-| STUDENT | `student` | `Student@123` |
-| TEACHER | `teacher` | `Teacher@123` |
-| SUPER_ADMIN + ADMIN | `admin` | `Admin@123` |
-| TEACHER（越权测试） | `teacher2` | `Teacher@123` |
+| STUDENT | `student` | `123456` |
+| TEACHER | `teacher` | `t123456` |
+| SUPER_ADMIN + ADMIN | `admin` | `admin123` |
+| TEACHER（越权测试） | `teacher2` | `t123456` |
+
+以上账号和弱口令只用于本地联调与演示，密码在数据库中保存为 BCrypt 哈希；生产环境不得沿用。
 
 ## 7. 当前 API
 
@@ -111,31 +116,35 @@ POST /api/v1/auth/login
 POST /api/v1/auth/register
 GET  /api/v1/auth/me
 POST /api/v1/auth/logout
-GET/POST /api/v1/teacher/courses
-GET/PUT  /api/v1/teacher/courses/{courseId}
-POST /api/v1/teacher/courses/{courseId}/submit-review
-POST /api/v1/teacher/courses/{courseId}/publish
-POST /api/v1/teacher/courses/{courseId}/offline
-GET/POST /api/v1/teacher/courses/{courseId}/chapters
-GET/POST /api/v1/teacher/chapters/{chapterId}/lessons
-GET/POST /api/v1/teacher/courses/{courseId}/materials
-GET  /api/v1/admin/course-reviews
-POST /api/v1/admin/course-reviews/{courseId}/approve
-POST /api/v1/admin/course-reviews/{courseId}/reject
 GET  /api/v1/admin/users
 PUT/DELETE /api/v1/admin/users/{userId}/administrator
-GET  /api/v1/student/courses/catalog
-GET  /api/v1/student/courses
-POST /api/v1/student/courses/{courseId}/enroll
-GET  /api/v1/student/courses/{courseId}/outline
-POST /api/v1/student/lessons/{lessonId}/start
-POST /api/v1/student/lessons/{lessonId}/complete
+PUT/DELETE /api/v1/admin/users/{userId}/teacher-approval
+GET  /api/v1/course-categories
+GET/POST/PUT/DELETE /api/v1/admin/course-categories[/{categoryId}]
+GET/POST /api/v1/teacher/courses
+GET/PUT  /api/v1/teacher/courses/{courseId}
+GET/POST /api/v1/student/courses[/{courseId}]
+GET/POST /api/v1/teacher/courses/{courseId}/assignments
+GET/PUT/POST /api/v1/student/assignments/{assignmentId}/...
+GET/POST/PUT/DELETE /api/v1/teacher/.../question-banks|questions|exams|exam-papers
+POST /api/v1/student/exams/{examId}/attempts
+GET  /api/v1/student/exam-attempts/{attemptId}
+POST /api/v1/student/exam-attempts/{attemptId}/submit
+GET  /api/v1/teacher/exams/{examId}/attempts
+POST /api/v1/teacher/exam-attempts/{attemptId}/grade
+GET/POST /api/v1/teacher/courses/{courseId}/announcements
+GET /api/v1/teacher/announcements
+GET /api/v1/student/announcements
+GET/POST /api/v1/admin/announcements
+GET /api/v1/admin/statistics
+POST /api/v1/ai/courses/{courseId}/qa/stream
+POST /api/v1/ai/lessons/{lessonId}/summary-draft
+GET /api/v1/ai/admin/status
 POST /_internal/v1/ai-context/course # 内部 Feign，不经 Gateway 对外暴露
-GET  /api/v1/test/student
-GET  /api/v1/test/teacher
-GET  /api/v1/test/admin
 GET  /actuator/health              # 各服务内网健康检查
 ```
+
+上述仅列出主要接口组；请求字段、响应字段、完整路径与实现状态以 [API 参考](./api-reference.md) 为准。
 
 请求追踪头统一为 `X-Trace-Id`。除 login、register 和 Actuator health 外，接口需要 `Authorization: Bearer <accessToken>`。授予或撤销管理员角色后，被操作用户需要重新登录以获取包含最新角色的新 JWT。
 
@@ -232,8 +241,8 @@ Set-Location backend
 
 后续新增规则：
 
-- 数据表：先从 `develop` 更新，登记并使用下一个连续迁移号，例如 `V2__init_course_tables.sql`；禁止改 `V1`、禁止物理外键、必须有审计字段和必要索引。
+- 数据表：只修改 `online_education_bootstrap.sql`，禁止新建重复 Flyway/碎片 SQL；禁止物理外键，必须有审计字段、必要索引并在空 MySQL 8.4 验证。
 - 接口：统一 `/api/v1`、Request DTO 使用校验注解、Controller 只做协议适配、返回 VO 而非 Entity。
 - 枚举：状态、角色、权限集中定义稳定 code，禁止 ordinal、裸字符串和散落 magic number。
 - 权限：角色/功能权限之后仍必须调用资源归属校验；管理员不自动获得评分修改或私人 AI 会话查看权限。
-- AI：下一阶段立项后再接入模型、向量库、RAG 与 SSE；本阶段不要向 AI 服务添加传统业务 CRUD。
+- AI：保持 Spring AI `AiTextGenerator` 适配边界，不向 AI 服务添加传统业务 CRUD；新增能力必须先冻结请求/响应、Biz 授权上下文和降级行为。

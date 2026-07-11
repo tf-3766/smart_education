@@ -20,7 +20,7 @@
 
 | File | Owner | Scope | Status |
 |---|---|---|---|
-| `online_education_bootstrap.sql` | A+B | auth, course, learning, assignment, grade, forum, warning, exam, question, and AI acceptance audit tables with demo data | Active |
+| `online_education_bootstrap.sql` | A+B | auth, course, learning, assignment, grade, forum, warning, exam, question, category, announcement, and AI acceptance audit tables with demo data | Active |
 
 ## Review Checklist
 

@@ -5,7 +5,7 @@
 ## 1. 基线决策
 
 - 成员 A 负责 Biz 主链和正式业务事实。
-- 成员 B 负责 AI、考试题库、网关、Docker、CI 和联调。
+- 成员 B 负责 AI、考试题库、平台公告/分类/统计、网关、Docker、CI 和联调。
 - 成员 C 负责 Vue 前端页面、API client、路由守卫、加载/错误/空状态和演示流程联调。
 - `dev` 是唯一后端集成分支。
 - `backend-1`、`backend-2` 只作为个人备份或临时分支，不作为长期集成分支。
@@ -17,11 +17,11 @@
 
 | 范围 | 成员 A | 成员 B |
 |---|---|---|
-| 主责 | Biz 主链、正式业务事实、数据库迁移规则、权限和资源范围评审 | AI 服务、考试题库、Gateway、Docker、CI、公共 PR 排队 |
+| 主责 | Biz 主链、正式业务事实、数据库初始化规则、权限和资源范围评审 | AI 服务、考试题库、平台治理、Gateway、Docker、CI、公共 PR 排队 |
 | 主要服务 | `edu-biz-service` | `edu-ai-service`、`edu-gateway`，以及 `edu-biz-service` 中的 `exam/**` |
 | 独占包 | `auth/**` 主维护，`storage/**`，`course/**` 基线维护，`forum/**`，`assignment/**`，`grade/**`，`warning/**` | `com.zhongruan.edu.ai/**`，`exam/**`，`edu-gateway/**`，`backend/scripts/**`，CI 配置 |
 | 共同契约模块 | `edu-common` 技术协议主审 | `edu-feign-api` Feign 契约主审，A 必须 review Biz 上下文和数据字段 |
-| 独占数据 | auth 表、课程表、课程论坛表、作业/提交/成绩/预警表 | 考试安排、题库、试卷草稿表；AI 自有 Redis namespace、Qdrant collection |
+| 独占数据 | auth 表、课程表、课程论坛表、作业/提交/成绩/预警表 | 考试安排、题库、答卷、公告、课程分类表；AI 自有 Redis namespace、Qdrant collection |
 | 依赖对方 | AI 评语草稿、风险解释、组卷建议、Gateway 路由 | 课程、选课、课时、提交、成绩、预警的授权后 context |
 | 禁止越界 | 不直接改 AI provider、SSE 协议、Gateway 限流、Qdrant 配置 | 不直接改作业、成绩、预警、课程正式表或 Biz Mapper |
 
@@ -198,6 +198,6 @@ taskStatus
 - [ ] `docs/migration-register.md` 已合并。
 - [ ] `docs/module-ownership.md` 已更新为双人 owner。
 - [ ] 当前第 0 阶段文档 PR 从 `dev` 创建，并准备合回 `dev`。
-- [x] 作业、考试、AI 采用审计、论坛、预警基础表已通过 `V20260709110000__create_learning_collaboration_tables.sql` 新增。
+- [x] 作业、考试、AI 采用审计、论坛、预警、公告和课程分类基础表已合入唯一的 `online_education_bootstrap.sql`。
 - [x] 作业、成绩、论坛、预警和文件能力已完成 Controller/Service 与集成测试。
 - [ ] 成员 A 和成员 B 明确明天的第一个分支。

@@ -55,6 +55,22 @@ public class AdminUserController {
         return ApiResponse.success(service.revokeAdministrator(user.userId(), userId), trace(request));
     }
 
+    @PutMapping("/{userId}/teacher-approval")
+    public ApiResponse<AdminUserVO> approveTeacherRegistration(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long userId,
+            HttpServletRequest request) {
+        return ApiResponse.success(service.approveTeacherRegistration(user.userId(), userId), trace(request));
+    }
+
+    @DeleteMapping("/{userId}/teacher-approval")
+    public ApiResponse<AdminUserVO> rejectTeacherRegistration(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long userId,
+            HttpServletRequest request) {
+        return ApiResponse.success(service.rejectTeacherRegistration(user.userId(), userId), trace(request));
+    }
+
     private String trace(HttpServletRequest request) {
         return contextFactory.current(request).traceId();
     }

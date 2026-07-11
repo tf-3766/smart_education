@@ -25,6 +25,7 @@ import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseTeac
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseReviewMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseTeacherMapper;
+import com.zhongruan.edu.biz.platform.application.service.CourseCategoryService;
 import com.zhongruan.edu.common.api.PageResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
@@ -46,6 +47,7 @@ public class CourseManagementService {
     private final RoleMapper roleMapper;
     private final CoursePermissionService permissionService;
     private final CourseAssembler assembler;
+    private final CourseCategoryService categoryService;
 
     public CourseManagementService(
             CourseMapper courseMapper,
@@ -54,7 +56,8 @@ public class CourseManagementService {
             UserMapper userMapper,
             RoleMapper roleMapper,
             CoursePermissionService permissionService,
-            CourseAssembler assembler) {
+            CourseAssembler assembler,
+            CourseCategoryService categoryService) {
         this.courseMapper = courseMapper;
         this.courseTeacherMapper = courseTeacherMapper;
         this.courseReviewMapper = courseReviewMapper;
@@ -62,11 +65,13 @@ public class CourseManagementService {
         this.roleMapper = roleMapper;
         this.permissionService = permissionService;
         this.assembler = assembler;
+        this.categoryService = categoryService;
     }
 
     @Transactional
     public CourseDetailVO create(Long teacherId, CreateCourseRequest request) {
         validateTimes(request.enrollmentOpenAt(), request.enrollmentCloseAt(), request.startAt(), request.endAt());
+        requireCategory(request.categoryId());
         CourseEntity course = new CourseEntity();
         course.setCourseCode(request.courseCode().trim());
         course.setName(request.name().trim());
@@ -134,6 +139,7 @@ public class CourseManagementService {
             throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "当前课程状态不允许修改关键字段");
         }
         validateTimes(request.enrollmentOpenAt(), request.enrollmentCloseAt(), request.startAt(), request.endAt());
+        requireCategory(request.categoryId());
         course.setName(request.name().trim());
         course.setSummary(trim(request.summary()));
         course.setCoverUrl(trim(request.coverUrl()));
@@ -355,5 +361,11 @@ public class CourseManagementService {
 
     private String trim(String value) {
         return value == null ? null : value.trim();
+    }
+
+    private void requireCategory(Long categoryId) {
+        if (categoryId != null) {
+            categoryService.requireEnabled(categoryId);
+        }
     }
 }

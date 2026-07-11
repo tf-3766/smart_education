@@ -33,9 +33,9 @@ class ForumApiIntegrationTest {
 
     @Test
     void courseMemberPostsRepliesAndTeacherAdminModerateContent() throws Exception {
-        String student = login("student", "Student@123");
-        String teacher = login("teacher", "Teacher@123");
-        String admin = login("admin", "Admin@123");
+        String student = login("student", "123456");
+        String teacher = login("teacher", "t123456");
+        String admin = login("admin", "admin123");
 
         MvcResult topicResult = mockMvc.perform(post("/api/v1/student/courses/21001/forum/topics")
                         .header("Authorization", bearer(student))

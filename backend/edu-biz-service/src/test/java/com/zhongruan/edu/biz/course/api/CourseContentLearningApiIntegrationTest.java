@@ -40,8 +40,8 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void teacherCannotEditAnotherTeachersChapterAndAdminCannotEditLesson() throws Exception {
-        String teacher2 = login("teacher2", "Teacher@123");
-        String admin = login("admin", "Admin@123");
+        String teacher2 = login("teacher2", "t123456");
+        String admin = login("admin", "admin123");
 
         mockMvc.perform(put("/api/v1/teacher/chapters/22001")
                         .header("Authorization", bearer(teacher2))
@@ -58,7 +58,7 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void lessonCourseMustMatchItsChapterCourse() throws Exception {
-        String teacher = login("teacher", "Teacher@123");
+        String teacher = login("teacher", "t123456");
 
         mockMvc.perform(post("/api/v1/teacher/chapters/22001/lessons")
                         .header("Authorization", bearer(teacher))
@@ -70,7 +70,7 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void materialCourseChapterAndLessonMustBelongToOneHierarchy() throws Exception {
-        String teacher = login("teacher", "Teacher@123");
+        String teacher = login("teacher", "t123456");
 
         mockMvc.perform(post("/api/v1/teacher/courses/21001/materials")
                         .header("Authorization", bearer(teacher))
@@ -95,7 +95,7 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void studentCannotAccessUnselectedUnpublishedLockedOrForeignContent() throws Exception {
-        String student = login("student", "Student@123");
+        String student = login("student", "123456");
 
         mockMvc.perform(get("/api/v1/student/lessons/23004")
                         .header("Authorization", bearer(student)))
@@ -117,7 +117,7 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void outlineContainsOnlyPublishedAndUnlockedContent() throws Exception {
-        String student = login("student", "Student@123");
+        String student = login("student", "123456");
 
         mockMvc.perform(get("/api/v1/student/courses/21001/outline")
                         .header("Authorization", bearer(student)))
@@ -129,7 +129,7 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void completingLessonIsIdempotentAndProgressIsAggregated() throws Exception {
-        String student = login("student", "Student@123");
+        String student = login("student", "123456");
 
         mockMvc.perform(get("/api/v1/student/courses/21001/progress")
                         .header("Authorization", bearer(student)))
@@ -162,7 +162,7 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void materialAccessReturnsAuthorizedMetadataWithoutStoragePath() throws Exception {
-        String student = login("student", "Student@123");
+        String student = login("student", "123456");
 
         mockMvc.perform(get("/api/v1/student/materials/24001")
                         .header("Authorization", bearer(student)))
@@ -175,8 +175,8 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void deletingChapterDoesNotDeleteHistoricalLearningRecord() throws Exception {
-        String student = login("student", "Student@123");
-        String teacher = login("teacher", "Teacher@123");
+        String student = login("student", "123456");
+        String teacher = login("teacher", "t123456");
         mockMvc.perform(post("/api/v1/student/lessons/23001/complete")
                         .header("Authorization", bearer(student)))
                 .andExpect(status().isOk());
@@ -192,8 +192,8 @@ class CourseContentLearningApiIntegrationTest {
 
     @Test
     void teacherContentCrudAndStudentStartFormAWorkingVerticalSlice() throws Exception {
-        String teacher = login("teacher", "Teacher@123");
-        String student = login("student", "Student@123");
+        String teacher = login("teacher", "t123456");
+        String student = login("student", "123456");
 
         MvcResult chapterResult = mockMvc.perform(post("/api/v1/teacher/courses/21001/chapters")
                         .header("Authorization", bearer(teacher))

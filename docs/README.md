@@ -14,7 +14,7 @@
 
 ## 契约与设计参考
 
-- `api-reference.md`：项目全部公开、内部和测试接口的唯一文档。
+- `api-reference.md`：项目全部公开和内部接口的唯一文档。
 - `migration-register.md`：Bootstrap SQL 变更记录。
 
 ## 历史与辅助文档

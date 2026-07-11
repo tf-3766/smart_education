@@ -45,8 +45,8 @@ class CourseLifecycleApiIntegrationTest {
 
     @Test
     void studentCannotCreateCourseAndTeacherCannotReviewCourse() throws Exception {
-        String studentToken = login("student", "Student@123");
-        String teacherToken = login("teacher", "Teacher@123");
+        String studentToken = login("student", "123456");
+        String teacherToken = login("teacher", "t123456");
 
         mockMvc.perform(post("/api/v1/teacher/courses")
                         .header("Authorization", bearer(studentToken))
@@ -74,7 +74,7 @@ class CourseLifecycleApiIntegrationTest {
 
     @Test
     void teacherCannotReadOrEditAnotherTeachersCourse() throws Exception {
-        String teacherToken = login("teacher", "Teacher@123");
+        String teacherToken = login("teacher", "t123456");
 
         mockMvc.perform(get("/api/v1/teacher/courses/21003")
                         .header("Authorization", bearer(teacherToken)))
@@ -89,7 +89,7 @@ class CourseLifecycleApiIntegrationTest {
 
     @Test
     void ownerCanCreateCourseAndIsTheOnlyOwnerRelationship() throws Exception {
-        String token = login("teacher", "Teacher@123");
+        String token = login("teacher", "t123456");
         String courseId = createCourse(token, "CREATE-OWNER-001");
 
         mockMvc.perform(get("/api/v1/teacher/courses/{courseId}/teachers", courseId)
@@ -102,7 +102,7 @@ class CourseLifecycleApiIntegrationTest {
 
     @Test
     void ownerCanAddCollaboratorButDuplicateRelationshipIsRejected() throws Exception {
-        String token = login("teacher", "Teacher@123");
+        String token = login("teacher", "t123456");
         String courseId = createCourse(token, "ADD-COLLAB-001");
 
         mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/teachers", courseId)
@@ -122,8 +122,8 @@ class CourseLifecycleApiIntegrationTest {
 
     @Test
     void reviewApprovalAndPublicationFormAnExplicitLifecycle() throws Exception {
-        String teacherToken = login("teacher", "Teacher@123");
-        String adminToken = login("admin", "Admin@123");
+        String teacherToken = login("teacher", "t123456");
+        String adminToken = login("admin", "admin123");
         String courseId = createCourse(teacherToken, "LIFECYCLE-001");
 
         mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/publish", courseId)
@@ -152,8 +152,8 @@ class CourseLifecycleApiIntegrationTest {
 
     @Test
     void rejectRequiresReasonAndReturnsCourseToEditableDraft() throws Exception {
-        String teacherToken = login("teacher", "Teacher@123");
-        String adminToken = login("admin", "Admin@123");
+        String teacherToken = login("teacher", "t123456");
+        String adminToken = login("admin", "admin123");
         String courseId = createCourse(teacherToken, "REJECT-001");
         mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/submit-review", courseId)
                         .header("Authorization", bearer(teacherToken)))
@@ -183,7 +183,7 @@ class CourseLifecycleApiIntegrationTest {
 
     @Test
     void studentEnrollmentIsStateCheckedAndIdempotent() throws Exception {
-        String token = login("student", "Student@123");
+        String token = login("student", "123456");
 
         mockMvc.perform(post("/api/v1/student/courses/21002/enroll")
                         .header("Authorization", bearer(token)))

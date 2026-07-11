@@ -8,5 +8,5 @@ spring:
       config:
         enabled: true
 
-# 本阶段只提供可启动服务与 Actuator 健康检查，不接入模型、向量库或 RAG。
-# 后续模型 API Key 只能通过环境变量或密钥管理系统注入。
+# 默认 AI_CHAT_PROVIDER=none，问答/摘要接口返回明确的框架模式。
+# 启用模型时由环境变量注入 AI_CHAT_PROVIDER=openai 和 OPENAI_API_KEY，不得在本文件写密钥。
