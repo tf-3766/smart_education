@@ -1,6 +1,10 @@
 package com.zhongruan.edu.biz.ai.api.controller;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.zhongruan.edu.biz.assignment.infrastructure.persistence.entity.AssignmentEntity;
+import com.zhongruan.edu.biz.assignment.infrastructure.persistence.entity.AssignmentSubmissionEntity;
+import com.zhongruan.edu.biz.assignment.infrastructure.persistence.mapper.AssignmentMapper;
+import com.zhongruan.edu.biz.assignment.infrastructure.persistence.mapper.AssignmentSubmissionMapper;
 import com.zhongruan.edu.biz.course.application.service.CoursePermissionService;
 import com.zhongruan.edu.biz.course.domain.enums.EnrollmentStatus;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEnrollmentEntity;
@@ -13,8 +17,14 @@ import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseLess
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseMaterialMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseTeacherMapper;
+import com.zhongruan.edu.biz.exam.infrastructure.persistence.entity.QuestionEntity;
+import com.zhongruan.edu.biz.exam.infrastructure.persistence.mapper.QuestionMapper;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestTrace;
+import com.zhongruan.edu.biz.warning.infrastructure.persistence.entity.LearningWarningEntity;
+import com.zhongruan.edu.biz.warning.infrastructure.persistence.entity.WarningEvidenceEntity;
+import com.zhongruan.edu.biz.warning.infrastructure.persistence.mapper.LearningWarningMapper;
+import com.zhongruan.edu.biz.warning.infrastructure.persistence.mapper.WarningEvidenceMapper;
 import com.zhongruan.edu.common.api.ApiResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
@@ -22,6 +32,13 @@ import com.zhongruan.edu.feign.ai.AiCourseContextRequest;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
 import com.zhongruan.edu.feign.ai.AiMaterialRef;
+import com.zhongruan.edu.feign.ai.AiPaperContextRequest;
+import com.zhongruan.edu.feign.ai.AiPaperContextResponse;
+import com.zhongruan.edu.feign.ai.AiQuestionRef;
+import com.zhongruan.edu.feign.ai.AiResourceContextRequest;
+import com.zhongruan.edu.feign.ai.AiSubmissionContextResponse;
+import com.zhongruan.edu.feign.ai.AiWarningContextResponse;
+import com.zhongruan.edu.feign.ai.AiWarningEvidenceRef;
 import com.zhongruan.edu.feign.ai.BizAiContextFeignClient;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -48,6 +65,11 @@ public class InternalAiContextController implements BizAiContextFeignClient {
     private final CourseLessonMapper courseLessonMapper;
     private final CourseMaterialMapper courseMaterialMapper;
     private final CoursePermissionService coursePermissionService;
+    private final AssignmentMapper assignmentMapper;
+    private final AssignmentSubmissionMapper assignmentSubmissionMapper;
+    private final LearningWarningMapper learningWarningMapper;
+    private final WarningEvidenceMapper warningEvidenceMapper;
+    private final QuestionMapper questionMapper;
     private final HttpServletRequest servletRequest;
 
     public InternalAiContextController(
@@ -57,6 +79,11 @@ public class InternalAiContextController implements BizAiContextFeignClient {
             CourseLessonMapper courseLessonMapper,
             CourseMaterialMapper courseMaterialMapper,
             CoursePermissionService coursePermissionService,
+            AssignmentMapper assignmentMapper,
+            AssignmentSubmissionMapper assignmentSubmissionMapper,
+            LearningWarningMapper learningWarningMapper,
+            WarningEvidenceMapper warningEvidenceMapper,
+            QuestionMapper questionMapper,
             HttpServletRequest servletRequest) {
         this.courseMapper = courseMapper;
         this.courseTeacherMapper = courseTeacherMapper;
@@ -64,6 +91,11 @@ public class InternalAiContextController implements BizAiContextFeignClient {
         this.courseLessonMapper = courseLessonMapper;
         this.courseMaterialMapper = courseMaterialMapper;
         this.coursePermissionService = coursePermissionService;
+        this.assignmentMapper = assignmentMapper;
+        this.assignmentSubmissionMapper = assignmentSubmissionMapper;
+        this.learningWarningMapper = learningWarningMapper;
+        this.warningEvidenceMapper = warningEvidenceMapper;
+        this.questionMapper = questionMapper;
         this.servletRequest = servletRequest;
     }
 
@@ -133,6 +165,100 @@ public class InternalAiContextController implements BizAiContextFeignClient {
         return ApiResponse.success(response, RequestTrace.from(servletRequest));
     }
 
+    @Override
+    public ApiResponse<AiSubmissionContextResponse> getSubmissionContext(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiResourceContextRequest request) {
+        AuthenticatedUser user = requireIdentity(request.userId(), request.roleCode());
+        requirePurpose(request.purpose(), com.zhongruan.edu.feign.ai.AiContextPurpose.GRADING_COMMENT_DRAFT);
+        AssignmentSubmissionEntity submission = assignmentSubmissionMapper.selectById(request.resourceId());
+        if (submission == null) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
+        }
+        requireCourseTeacher(user, submission.getCourseId());
+        AssignmentEntity assignment = assignmentMapper.selectById(submission.getAssignmentId());
+        if (assignment == null || !submission.getCourseId().equals(assignment.getCourseId())) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
+        }
+        return ApiResponse.success(
+                new AiSubmissionContextResponse(
+                        submission.getCourseId(),
+                        assignment.getId(),
+                        assignment.getTitle(),
+                        assignment.getDescription(),
+                        assignment.getMaxScore(),
+                        submission.getId(),
+                        submission.getContent(),
+                        submission.getScore()),
+                RequestTrace.from(servletRequest));
+    }
+
+    @Override
+    public ApiResponse<AiWarningContextResponse> getWarningContext(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiResourceContextRequest request) {
+        AuthenticatedUser user = requireIdentity(request.userId(), request.roleCode());
+        requirePurpose(request.purpose(), com.zhongruan.edu.feign.ai.AiContextPurpose.RISK_EXPLANATION);
+        LearningWarningEntity warning = learningWarningMapper.selectById(request.resourceId());
+        if (warning == null) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
+        }
+        requireCourseTeacher(user, warning.getCourseId());
+        List<AiWarningEvidenceRef> evidences = warningEvidenceMapper
+                .selectList(Wrappers.<WarningEvidenceEntity>lambdaQuery()
+                        .eq(WarningEvidenceEntity::getWarningId, warning.getId())
+                        .orderByAsc(WarningEvidenceEntity::getId))
+                .stream()
+                .map(evidence -> new AiWarningEvidenceRef(
+                        evidence.getId(),
+                        evidence.getEvidenceType(),
+                        evidence.getSourceId(),
+                        evidence.getMetricCode(),
+                        evidence.getMetricValue(),
+                        evidence.getDescription()))
+                .toList();
+        return ApiResponse.success(
+                new AiWarningContextResponse(
+                        warning.getCourseId(),
+                        warning.getId(),
+                        warning.getWarningType(),
+                        warning.getWarningLevel(),
+                        warning.getSummary(),
+                        warning.getSuggestion(),
+                        evidences),
+                RequestTrace.from(servletRequest));
+    }
+
+    @Override
+    public ApiResponse<AiPaperContextResponse> getPaperContext(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiPaperContextRequest request) {
+        AuthenticatedUser user = requireIdentity(request.userId(), request.roleCode());
+        requirePurpose(request.purpose(), com.zhongruan.edu.feign.ai.AiContextPurpose.PAPER_SUGGESTION);
+        CourseEntity course = courseMapper.selectById(request.courseId());
+        if (course == null) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
+        }
+        requireCourseTeacher(user, course.getId());
+        List<AiQuestionRef> questions = questionMapper
+                .selectList(Wrappers.<QuestionEntity>lambdaQuery()
+                        .eq(QuestionEntity::getCourseId, course.getId())
+                        .eq(QuestionEntity::getStatus, "ACTIVE")
+                        .orderByAsc(QuestionEntity::getId))
+                .stream()
+                .map(question -> new AiQuestionRef(
+                        question.getId(),
+                        question.getBankId(),
+                        question.getQuestionType(),
+                        question.getStem(),
+                        question.getDifficulty(),
+                        question.getScore()))
+                .toList();
+        return ApiResponse.success(
+                new AiPaperContextResponse(course.getId(), course.getCourseCode(), course.getName(), questions),
+                RequestTrace.from(servletRequest));
+    }
+
     private boolean isTeacherMember(Long userId, Long courseId) {
         if (userId == null || courseId == null) {
             return false;
@@ -172,6 +298,7 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                         lesson.getTitle(),
                         lesson.getStatus(),
                         lesson.getContentType(),
+                        lesson.getContent(),
                         lesson.getEstimatedMinutes()))
                 .toList();
     }
@@ -205,5 +332,27 @@ public class InternalAiContextController implements BizAiContextFeignClient {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
         }
         return user;
+    }
+
+    private AuthenticatedUser requireIdentity(Long userId, String roleCode) {
+        AuthenticatedUser user = authenticatedUser();
+        if (!user.userId().equals(userId) || !user.activeRole().equals(roleCode)) {
+            throw new BusinessException(CommonErrorCode.FORBIDDEN, "AI 上下文身份与访问令牌不一致");
+        }
+        return user;
+    }
+
+    private void requireCourseTeacher(AuthenticatedUser user, Long courseId) {
+        if (!TEACHER_ROLE.equals(user.activeRole()) || !isTeacherMember(user.userId(), courseId)) {
+            throw new BusinessException(CommonErrorCode.FORBIDDEN);
+        }
+    }
+
+    private void requirePurpose(
+            com.zhongruan.edu.feign.ai.AiContextPurpose actual,
+            com.zhongruan.edu.feign.ai.AiContextPurpose expected) {
+        if (actual != expected) {
+            throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "AI 上下文用途不匹配");
+        }
     }
 }

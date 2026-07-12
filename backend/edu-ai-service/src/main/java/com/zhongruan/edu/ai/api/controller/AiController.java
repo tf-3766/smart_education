@@ -1,7 +1,9 @@
 package com.zhongruan.edu.ai.api.controller;
 
 import com.zhongruan.edu.ai.api.dto.CourseQaRequest;
+import com.zhongruan.edu.ai.api.dto.AiDraftInstructionRequest;
 import com.zhongruan.edu.ai.api.dto.LessonSummaryRequest;
+import com.zhongruan.edu.ai.api.dto.PaperSuggestionRequest;
 import com.zhongruan.edu.ai.api.vo.AiDraftVO;
 import com.zhongruan.edu.ai.api.vo.AiServiceStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
@@ -63,6 +65,54 @@ public class AiController {
             @Valid @RequestBody LessonSummaryRequest body) {
         requireRole(role, Set.of("TEACHER"));
         return service.lessonSummary(authorization, userId, role, body.courseId(), lessonId, traceId)
+                .map(draft -> ApiResponse.success(draft, traceId));
+    }
+
+    @PostMapping("/submissions/{submissionId}/comment-draft")
+    public Mono<ApiResponse<AiDraftVO>> submissionComment(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @PathVariable Long submissionId,
+            @Valid @RequestBody AiDraftInstructionRequest body) {
+        requireRole(role, Set.of("TEACHER"));
+        return service.submissionComment(
+                        authorization, userId, role, submissionId, body.instruction(), traceId)
+                .map(draft -> ApiResponse.success(draft, traceId));
+    }
+
+    @PostMapping("/warnings/{warningId}/explanation")
+    public Mono<ApiResponse<AiDraftVO>> warningExplanation(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @PathVariable Long warningId,
+            @Valid @RequestBody AiDraftInstructionRequest body) {
+        requireRole(role, Set.of("TEACHER"));
+        return service.warningExplanation(
+                        authorization, userId, role, warningId, body.instruction(), traceId)
+                .map(draft -> ApiResponse.success(draft, traceId));
+    }
+
+    @PostMapping("/exams/paper-suggestions")
+    public Mono<ApiResponse<AiDraftVO>> paperSuggestion(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @Valid @RequestBody PaperSuggestionRequest body) {
+        requireRole(role, Set.of("TEACHER"));
+        return service.paperSuggestion(
+                        authorization,
+                        userId,
+                        role,
+                        body.courseId(),
+                        body.questionCount(),
+                        body.totalScore(),
+                        body.requirements(),
+                        traceId)
                 .map(draft -> ApiResponse.success(draft, traceId));
     }
 

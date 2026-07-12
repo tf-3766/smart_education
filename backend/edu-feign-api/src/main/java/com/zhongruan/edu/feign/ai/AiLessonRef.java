@@ -6,4 +6,5 @@ public record AiLessonRef(
         String title,
         String status,
         String contentType,
+        String content,
         Integer estimatedMinutes) {}

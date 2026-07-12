@@ -8,12 +8,14 @@ spring:
     model:
       chat: ${AI_CHAT_PROVIDER:none}
     openai:
-      api-key: ${OPENAI_API_KEY:disabled}
-      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      # Alibaba Cloud Bailian exposes an OpenAI-compatible endpoint used by Spring AI.
+      api-key: ${DASHSCOPE_API_KEY:disabled}
+      base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
       chat:
         options:
-          model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
+          model: ${DASHSCOPE_CHAT_MODEL:qwen-plus}
           temperature: ${AI_TEMPERATURE:0.2}
+          max-tokens: ${AI_MAX_TOKENS:2048}
   cloud:
     nacos:
       config:
@@ -36,6 +38,7 @@ spring:
             read-timeout: ${BIZ_FEIGN_READ_TIMEOUT_MS:5000}
 edu:
   ai:
+    provider-name: ${AI_PROVIDER_NAME:aliyun-bailian}
     jwt:
       secret: ${JWT_SECRET}
       ttl: ${JWT_TTL:PT2H}

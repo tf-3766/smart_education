@@ -1,8 +1,9 @@
 package com.zhongruan.edu.ai.generation;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,11 +12,16 @@ import reactor.core.publisher.Flux;
 @Configuration
 public class AiGenerationConfig {
     @Bean
-    @ConditionalOnBean(ChatClient.Builder.class)
-    AiTextGenerator springAiTextGenerator(
-            ChatClient.Builder builder,
+    @ConditionalOnMissingBean(AiTextGenerator.class)
+    AiTextGenerator aiTextGenerator(
+            ObjectProvider<ChatModel> chatModelProvider,
+            @Value("${edu.ai.provider-name:aliyun-bailian}") String provider,
             @Value("${spring.ai.openai.chat.options.model:configured-model}") String model) {
-        ChatClient chatClient = builder.build();
+        ChatModel chatModel = chatModelProvider.getIfAvailable();
+        if (chatModel == null) {
+            return fallbackAiTextGenerator();
+        }
+        ChatClient chatClient = ChatClient.create(chatModel);
         return new AiTextGenerator() {
             @Override
             public Flux<String> stream(String systemPrompt, String userPrompt) {
@@ -37,7 +43,7 @@ public class AiGenerationConfig {
 
             @Override
             public String provider() {
-                return "spring-ai-openai";
+                return provider;
             }
 
             @Override
@@ -52,12 +58,10 @@ public class AiGenerationConfig {
         };
     }
 
-    @Bean
-    @ConditionalOnMissingBean(AiTextGenerator.class)
-    AiTextGenerator fallbackAiTextGenerator() {
+    private AiTextGenerator fallbackAiTextGenerator() {
         return new AiTextGenerator() {
             private static final String MESSAGE =
-                    "AI 模型尚未配置；课程权限与上下文检查已完成，请配置 AI_CHAT_PROVIDER 和模型密钥后重试。";
+                    "AI 模型尚未配置；授权上下文检查已完成，请配置 AI_CHAT_PROVIDER=openai 和 DASHSCOPE_API_KEY 后重试。";
 
             @Override
             public Flux<String> stream(String systemPrompt, String userPrompt) {

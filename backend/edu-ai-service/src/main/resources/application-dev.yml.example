@@ -8,4 +8,4 @@ spring:
       config:
         enabled: true
 
-# 模型与密钥只通过 dev 环境变量或配置中心注入，不得提交到仓库。
+# 百炼模型与 DASHSCOPE_API_KEY 只通过 dev 环境变量或配置中心注入，不得提交到仓库。

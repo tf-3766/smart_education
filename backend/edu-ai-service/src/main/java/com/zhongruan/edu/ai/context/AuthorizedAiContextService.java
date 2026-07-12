@@ -6,6 +6,11 @@ import com.zhongruan.edu.common.exception.BusinessException;
 import com.zhongruan.edu.feign.ai.AiContextPurpose;
 import com.zhongruan.edu.feign.ai.AiCourseContextRequest;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
+import com.zhongruan.edu.feign.ai.AiPaperContextRequest;
+import com.zhongruan.edu.feign.ai.AiPaperContextResponse;
+import com.zhongruan.edu.feign.ai.AiResourceContextRequest;
+import com.zhongruan.edu.feign.ai.AiSubmissionContextResponse;
+import com.zhongruan.edu.feign.ai.AiWarningContextResponse;
 import com.zhongruan.edu.feign.ai.BizAiContextFeignClient;
 import feign.FeignException;
 import org.springframework.stereotype.Service;
@@ -36,6 +41,50 @@ public class AuthorizedAiContextService {
         }
         if (response == null || response.data() == null || !"SUCCESS".equals(response.code())) {
             throw new BusinessException(CommonErrorCode.AI_SERVICE_UNAVAILABLE, "无法获取授权课程上下文");
+        }
+        return response.data();
+    }
+
+    public AiSubmissionContextResponse submissionContext(
+            String authorization, Long userId, String role, Long submissionId, String traceId) {
+        try {
+            ApiResponse<AiSubmissionContextResponse> response = contextClient.getSubmissionContext(
+                    authorization,
+                    new AiResourceContextRequest(
+                            userId, role, submissionId, AiContextPurpose.GRADING_COMMENT_DRAFT, traceId));
+            return requireData(response);
+        } catch (FeignException exception) {
+            throw translate(exception);
+        }
+    }
+
+    public AiWarningContextResponse warningContext(
+            String authorization, Long userId, String role, Long warningId, String traceId) {
+        try {
+            ApiResponse<AiWarningContextResponse> response = contextClient.getWarningContext(
+                    authorization,
+                    new AiResourceContextRequest(userId, role, warningId, AiContextPurpose.RISK_EXPLANATION, traceId));
+            return requireData(response);
+        } catch (FeignException exception) {
+            throw translate(exception);
+        }
+    }
+
+    public AiPaperContextResponse paperContext(
+            String authorization, Long userId, String role, Long courseId, String traceId) {
+        try {
+            ApiResponse<AiPaperContextResponse> response = contextClient.getPaperContext(
+                    authorization,
+                    new AiPaperContextRequest(userId, role, courseId, AiContextPurpose.PAPER_SUGGESTION, traceId));
+            return requireData(response);
+        } catch (FeignException exception) {
+            throw translate(exception);
+        }
+    }
+
+    private <T> T requireData(ApiResponse<T> response) {
+        if (response == null || response.data() == null || !"SUCCESS".equals(response.code())) {
+            throw new BusinessException(CommonErrorCode.AI_SERVICE_UNAVAILABLE, "无法获取授权业务上下文");
         }
         return response.data();
     }

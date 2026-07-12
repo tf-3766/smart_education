@@ -100,9 +100,63 @@ class AiContextApiIntegrationTest {
                 .andExpect(jsonPath("$.data.enrolled").value(true));
     }
 
+    @Test
+    void courseTeacherReceivesPurposeSpecificAiContexts() throws Exception {
+        String token = login("teacher", "t123456");
+
+        mockMvc.perform(post("/_internal/v1/ai-context/submission")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(resourceContextRequest(1002, "TEACHER", 32001, "GRADING_COMMENT_DRAFT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.courseId").value(21001))
+                .andExpect(jsonPath("$.data.assignmentTitle").value("第一章课后练习"))
+                .andExpect(jsonPath("$.data.submissionContent").value("学生提交的第一章练习内容。"));
+
+        mockMvc.perform(post("/_internal/v1/ai-context/warning")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(resourceContextRequest(1002, "TEACHER", 36001, "RISK_EXPLANATION")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.warningType").value("PROGRESS_LAG"))
+                .andExpect(jsonPath("$.data.evidences[0].metricCode").value("completedLessonRate"));
+
+        mockMvc.perform(post("/_internal/v1/ai-context/paper")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(paperContextRequest(1002, "TEACHER", 21001)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.courseName").value("已发布测试课程"))
+                .andExpect(jsonPath("$.data.questions[0].questionId").value(37101))
+                .andExpect(jsonPath("$.data.questions[0].stem").value("下列哪一项最符合课程中的核心概念？"));
+    }
+
+    @Test
+    void purposeSpecificContextRejectsTeacherOutsideCourse() throws Exception {
+        String token = login("teacher2", "t123456");
+
+        mockMvc.perform(post("/_internal/v1/ai-context/submission")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(resourceContextRequest(1004, "TEACHER", 32001, "GRADING_COMMENT_DRAFT")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
     private String contextRequest(long userId, String roleCode, Integer lessonId) throws Exception {
         return objectMapper.writeValueAsString(new ContextRequest(
                 userId, roleCode, 21001, lessonId, null, "COURSE_QA", "ai-context-test-trace"));
+    }
+
+    private String resourceContextRequest(long userId, String roleCode, long resourceId, String purpose)
+            throws Exception {
+        return objectMapper.writeValueAsString(
+                new ResourceContextRequest(userId, roleCode, resourceId, purpose, "ai-context-test-trace"));
+    }
+
+    private String paperContextRequest(long userId, String roleCode, long courseId) throws Exception {
+        return objectMapper.writeValueAsString(
+                new PaperContextRequest(userId, roleCode, courseId, "PAPER_SUGGESTION", "ai-context-test-trace"));
     }
 
     private String login(String username, String password) throws Exception {
@@ -129,4 +183,10 @@ class AiContextApiIntegrationTest {
             Long materialId,
             String purpose,
             String traceId) {}
+
+    private record ResourceContextRequest(
+            long userId, String roleCode, long resourceId, String purpose, String traceId) {}
+
+    private record PaperContextRequest(
+            long userId, String roleCode, long courseId, String purpose, String traceId) {}
 }

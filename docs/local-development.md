@@ -64,10 +64,23 @@ Copy-Item backend\edu-ai-service\src\main\resources\application-local.yml.exampl
 | `NACOS_*` | 服务注册与配置中心 | local/dev 使用 |
 | `CORS_ALLOWED_ORIGINS` | 前端允许来源 | 有本地默认值 |
 | `GATEWAY_SERVER_PORT/BIZ_SERVER_PORT/AI_SERVER_PORT` | 服务端口 | 有默认值 |
-| `AI_CHAT_PROVIDER` | `none`或`openai`；默认 `none` | 否 |
-| `OPENAI_API_KEY/OPENAI_BASE_URL/OPENAI_CHAT_MODEL` | Spring AI 模型适配；启用 `openai` 时配置 | 按提供商 |
+| `AI_CHAT_PROVIDER` | `none` 或 `openai`；百炼使用 OpenAI 兼容协议，默认 `none` | 否 |
+| `DASHSCOPE_API_KEY` | 阿里云百炼 API Key；只放环境变量或配置中心 | 启用模型时是 |
+| `DASHSCOPE_BASE_URL/DASHSCOPE_CHAT_MODEL` | 默认北京地域兼容地址与 `qwen-plus`，可按业务空间/地域调整 | 有默认值 |
+| `AI_TEMPERATURE/AI_MAX_TOKENS` | 生成温度与单次最大输出 token | 有默认值 |
 
 `.env`、`application-local.yml`、`application-dev.yml`、日志、IDE 文件与 `target/` 已被 `.gitignore` 排除。
+
+启用百炼示例（先在百炼控制台创建 API Key，切勿把真实值提交到 Git）：
+
+```powershell
+$env:AI_CHAT_PROVIDER = "openai"
+$env:DASHSCOPE_API_KEY = "<your-bailian-api-key>"
+$env:DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+$env:DASHSCOPE_CHAT_MODEL = "qwen-plus"
+```
+
+`DASHSCOPE_BASE_URL` 必须与 API Key 的地域和业务空间匹配；生产环境建议使用百炼业务空间专属地址。
 
 ## 4. 启动基础设施与服务
 

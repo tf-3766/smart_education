@@ -19,4 +19,19 @@ public interface BizAiContextFeignClient {
     ApiResponse<AiCourseContextResponse> getCourseContext(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody AiCourseContextRequest request);
+
+    @PostMapping("/submission")
+    ApiResponse<AiSubmissionContextResponse> getSubmissionContext(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiResourceContextRequest request);
+
+    @PostMapping("/warning")
+    ApiResponse<AiWarningContextResponse> getWarningContext(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiResourceContextRequest request);
+
+    @PostMapping("/paper")
+    ApiResponse<AiPaperContextResponse> getPaperContext(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiPaperContextRequest request);
 }

@@ -8,5 +8,6 @@ spring:
       config:
         enabled: true
 
-# 默认 AI_CHAT_PROVIDER=none，问答/摘要接口返回明确的框架模式。
-# 启用模型时由环境变量注入 AI_CHAT_PROVIDER=openai 和 OPENAI_API_KEY，不得在本文件写密钥。
+# 默认 AI_CHAT_PROVIDER=none，AI 接口返回明确的框架模式。
+# 启用阿里云百炼时由环境变量注入 AI_CHAT_PROVIDER=openai 和 DASHSCOPE_API_KEY。
+# 密钥不得写入本文件或提交到仓库。
