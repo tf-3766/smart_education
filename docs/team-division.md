@@ -43,9 +43,9 @@
 
 ### AI 暂缓范围
 
-- 不编写 RAG、Qdrant 写入检索、模型调用、SSE 公开 Controller。
-- 保留 `edu-ai-service`、Qdrant 容器、内部课程上下文 Feign 契约和 Gateway 路由作为后续基础。
-- 开始 AI 开发前，先冻结 AI 请求/响应、权限检查和失败降级策略。
+- 已接入 Spring AI 1.1.8 和阿里云百炼 OpenAI 兼容接口，完成课程问答 SSE、课时摘要、作业评语、风险解释、组卷建议、模型未配置降级和管理状态。
+- AI 必须经 `edu-feign-api` 读取 Biz 授权上下文，不连接 Biz MySQL，不直接修改正式数据。
+- 当前问答使用 Biz 返回的授权课时正文；Qdrant/向量 RAG 仍作为后续独立能力，不影响现有受控上下文生成。
 
 ### 验收标准
 

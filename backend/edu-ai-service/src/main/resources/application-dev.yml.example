@@ -8,4 +8,4 @@ spring:
       config:
         enabled: true
 
-# 本阶段 dev 环境同样不配置模型、向量库或 RAG。
+# 百炼模型与 DASHSCOPE_API_KEY 只通过 dev 环境变量或配置中心注入，不得提交到仓库。

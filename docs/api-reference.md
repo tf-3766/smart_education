@@ -1,6 +1,6 @@
 # 前后端 API 参考
 
-> 状态：2026-07-10
+> 状态：2026-07-12
 > 网关地址：`http://localhost:18080`
 > 本文用于前后端联调；已实现接口的字段以当前 Controller DTO/VO 为准，未实现接口的字段必须在实现前补充到本文。
 
@@ -313,13 +313,25 @@ X-Trace-Id: <optional-trace-id>
 
 | 方法 | 路径 | 角色 | 请求 / 响应 | 状态 |
 |---|---|---|---|---|
-| `POST` | `/api/v1/ai/courses/{courseId}/qa/stream` | 学生/教师 | 请求字段待设计 / `text/event-stream` | 未实现，字段待设计 |
-| `POST` | `/api/v1/ai/lessons/{lessonId}/summary-draft` | 教师 | 请求字段待设计 / JSON 草稿字段待设计 | 未实现，字段待设计 |
-| `POST` | `/api/v1/ai/submissions/{submissionId}/comment-draft` | 教师 | 请求字段待设计 / JSON 草稿字段待设计 | 未实现，字段待设计 |
-| `POST` | `/api/v1/ai/warnings/{warningId}/explanation` | 教师 | 请求字段待设计 / JSON 草稿字段待设计 | 未实现，字段待设计 |
-| `POST` | `/api/v1/ai/exams/paper-suggestions` | 教师 | 请求字段待设计 / JSON 建议字段待设计 | 未实现，字段待设计 |
+| `POST` | `/api/v1/ai/courses/{courseId}/qa/stream` | 学生/教师 | `CourseQaRequest` / `text/event-stream` | 已实现，使用授权课时正文 |
+| `POST` | `/api/v1/ai/lessons/{lessonId}/summary-draft` | 教师 | `LessonSummaryRequest` / `AiDraftVO` | 已实现，仅返回草稿 |
+| `GET` | `/api/v1/ai/admin/status` | 管理员/超级管理员 | 无 / `AiServiceStatusVO` | 已实现 |
+| `POST` | `/api/v1/ai/submissions/{submissionId}/comment-draft` | 教师 | `AiDraftInstructionRequest` / `AiDraftVO` | 已实现，仅返回评语草稿 |
+| `POST` | `/api/v1/ai/warnings/{warningId}/explanation` | 教师 | `AiDraftInstructionRequest` / `AiDraftVO` | 已实现，仅返回解释草稿 |
+| `POST` | `/api/v1/ai/exams/paper-suggestions` | 教师 | `PaperSuggestionRequest` / `AiDraftVO` | 已实现，仅从授权题库生成建议 |
 
-SSE 事件固定为 `meta`、`delta`、`citation`、`done`、`error`。AI 只能返回回答、建议、草稿和引用，正式业务数据必须由 Biz 服务在人工确认后写入。
+| AI DTO / VO | JSON 字段 |
+|---|---|
+| `CourseQaRequest` | `question*: string(1-2000)`，`lessonId?: string` |
+| `LessonSummaryRequest` | `courseId*: string` |
+| `AiDraftInstructionRequest` | `instruction?: string(<=500)` |
+| `PaperSuggestionRequest` | `courseId*: string`，`questionCount*: integer(1-100)`，`totalScore*: decimal(>0)`，`requirements?: string(<=1000)` |
+| `AiCitationVO` | `resourceType`，`resourceId`，`title`，`locator` |
+| `AiDraftVO` | `requestId`，`draftType`，`businessId`，`content`，`provider`，`model`，`status: DRAFT/FRAMEWORK_ONLY`，`citations: AiCitationVO[]`，`createdAt` |
+| `AiServiceStatusVO` | `serviceStatus`，`framework`，`frameworkVersion`，`provider`，`model`，`modelConfigured: boolean`，`vectorStoreConfigured: boolean`，`checkedAt` |
+| `AiStreamEvent` | `type`，`requestId`，`data`，`timestamp` |
+
+SSE 事件固定为 `meta`、`delta`、`citation`、`done`、`error`，每个事件的 JSON 数据为 `AiStreamEvent`：`type`、`requestId`、`data`、`timestamp`；同一次请求的全部事件共用一个 `requestId`。`error.data` 为 `{code,message}`，Biz 返回的 401/403/404/409 会保留对应统一错误码，模型或下游不可用才返回 `AI_SERVICE_UNAVAILABLE`。AI 服务基于 Spring AI 1.1.8，通过 OpenAI 兼容协议接入阿里云百炼。默认 `AI_CHAT_PROVIDER=none`，此时 `provider=fallback` 且仅说明模型未配置；配置 `AI_CHAT_PROVIDER=openai`、`DASHSCOPE_API_KEY` 和可选 `DASHSCOPE_BASE_URL/DASHSCOPE_CHAT_MODEL` 后启用 `ChatClient`，默认模型为 `qwen-plus`。AI 只能返回回答、建议、草稿和引用，正式业务数据必须由 Biz 服务在人工确认后写入。
 
 ### 4.5 作业、成绩、论坛与预警的数据格式
 
@@ -386,8 +398,25 @@ SSE 事件固定为 `meta`、`delta`、`citation`、`done`、`error`。AI 只能
 | 方法 | 路径 | 调用方 | 提供方 | 状态 |
 |---|---|---|---|---|
 | `POST` | `/_internal/v1/ai-context/course` | `edu-ai-service` | `edu-biz-service` | 已实现，内部接口 |
+| `POST` | `/_internal/v1/ai-context/submission` | `edu-ai-service` | `edu-biz-service` | 已实现，教师提交上下文 |
+| `POST` | `/_internal/v1/ai-context/warning` | `edu-ai-service` | `edu-biz-service` | 已实现，教师预警上下文 |
+| `POST` | `/_internal/v1/ai-context/paper` | `edu-ai-service` | `edu-biz-service` | 已实现，教师题库上下文 |
 
-该接口由 `edu-feign-api` 的 `BizAiContextFeignClient` 调用，Gateway 和前端都不得暴露或调用它。
+该接口由 `edu-feign-api` 的 `BizAiContextFeignClient` 调用，AI 服务必须透传当前用户的 `Authorization` 头。Biz 以 JWT principal 为唯一身份来源，拒绝请求体伪造的 `userId/roleCode`，并重新验证选课/教师关系、课时解锁和资料可见范围。Gateway 和前端都不得暴露或调用它。
+
+内部请求和响应使用 Java `Long`，因此 JSON 中的 ID 是整数，不适用公开 API 的“响应 ID 字符串化”约定：
+
+| 内部类型 | JSON 字段 |
+|---|---|
+| `AiCourseContextRequest` | `userId*: number`，`roleCode*: string`，`courseId*: number`，`lessonId?: number`，`materialId?: number`，`purpose*: AiContextPurpose`，`traceId?: string` |
+| `AiContextPurpose` | `COURSE_QA`、`LESSON_SUMMARY_DRAFT`、`GRADING_COMMENT_DRAFT`、`RISK_EXPLANATION`、`PAPER_SUGGESTION` |
+| `AiCourseContextResponse` | `courseId`，`courseCode`，`courseName`，`courseStatus`，`reviewStatus`，`ownerTeacherId`，`teacherMember: boolean`，`enrolled: boolean`，`lessons: AiLessonRef[]`，`materials: AiMaterialRef[]` |
+| `AiLessonRef` | `lessonId`，`chapterId`，`title`，`status`，`contentType`，`content?`，`estimatedMinutes?` |
+| `AiMaterialRef` | `materialId`，`chapterId?`，`lessonId?`，`name`，`materialType`，`fileKey?`，`fileUrl?`，`visibility`，`status` |
+| `AiResourceContextRequest` | `userId*`，`roleCode*`，`resourceId*`，`purpose*`，`traceId?` |
+| `AiSubmissionContextResponse` | `courseId`，`assignmentId`，`assignmentTitle`，`assignmentDescription?`，`maxScore`，`submissionId`，`submissionContent?`，`currentScore?` |
+| `AiWarningContextResponse` | `courseId`，`warningId`，`warningType`，`warningLevel`，`summary`，`suggestion?`，`evidences: AiWarningEvidenceRef[]` |
+| `AiPaperContextResponse` | `courseId`，`courseCode`，`courseName`，`questions: AiQuestionRef[]` |
 
 ## 6. 错误码与维护规则
 
