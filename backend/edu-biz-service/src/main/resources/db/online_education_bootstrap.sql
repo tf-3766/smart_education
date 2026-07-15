@@ -3,6 +3,10 @@
 -- Includes the complete schema and local demo data used by this project.
 -- This is the only database initialization source for local development.
 
+-- Force the client session to utf8mb4 so Chinese seed data survives loads
+-- from docker-entrypoint-initdb.d or clients whose default charset differs.
+SET NAMES utf8mb4;
+
 -- ============================================================================
 -- Authentication, authorization, and managed file schema
 -- ============================================================================
@@ -544,6 +548,67 @@ CREATE TABLE edu_announcement (
 CREATE INDEX idx_announcement_scope ON edu_announcement (scope_type, course_id, status, deleted, published_at, id);
 CREATE INDEX idx_announcement_audience ON edu_announcement (audience, status, deleted, published_at, id);
 
+CREATE TABLE edu_notification (
+    id BIGINT NOT NULL,
+    recipient_user_id BIGINT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    category VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    source_type VARCHAR(32) NOT NULL,
+    idempotency_key VARCHAR(200) NOT NULL,
+    announcement_id BIGINT NULL,
+    course_id BIGINT NULL,
+    assignment_id BIGINT NULL,
+    exam_id BIGINT NULL,
+    warning_id BIGINT NULL,
+    created_at DATETIME(3) NOT NULL,
+    created_by BIGINT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    updated_by BIGINT NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_notification_idempotency UNIQUE (idempotency_key)
+);
+
+CREATE INDEX idx_notification_recipient ON edu_notification (recipient_user_id, status, category, deleted, created_at, id);
+CREATE INDEX idx_notification_announcement ON edu_notification (announcement_id, status, deleted, id);
+
+CREATE TABLE edu_notification_read (
+    id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    notification_id BIGINT NOT NULL,
+    read_at DATETIME(3) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    created_by BIGINT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    updated_by BIGINT NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_notification_read_user UNIQUE (user_id, notification_id)
+);
+
+CREATE INDEX idx_notification_read_user ON edu_notification_read (user_id, deleted, notification_id);
+
+CREATE TABLE edu_notification_preference (
+    id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    category VARCHAR(32) NOT NULL,
+    enabled TINYINT NOT NULL DEFAULT 1,
+    created_at DATETIME(3) NOT NULL,
+    created_by BIGINT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    updated_by BIGINT NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_notification_preference_user UNIQUE (user_id, category)
+);
+
+CREATE INDEX idx_notification_preference_user ON edu_notification_preference (user_id, deleted, category);
+
 CREATE TABLE edu_learning_warning (
     id BIGINT NOT NULL,
     course_id BIGINT NOT NULL,
@@ -978,6 +1043,52 @@ VALUES
     (35002, 'SYSTEM', NULL, '系统联调公告', '当前环境用于项目联调和演示。', 'ALL', 'PUBLISHED', CURRENT_TIMESTAMP,
      CURRENT_TIMESTAMP, 1003, CURRENT_TIMESTAMP, 1003, 0, 0)
 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), status = VALUES(status), deleted = 0, updated_at = CURRENT_TIMESTAMP;
+
+INSERT INTO edu_notification
+    (id, recipient_user_id, title, content, category, status, source_type, idempotency_key,
+     announcement_id, course_id, assignment_id, exam_id, warning_id,
+     created_at, created_by, updated_at, updated_by, deleted, version)
+VALUES
+    (50001, 1001, '第一章学习提醒', '请在本周内完成第一章学习与课后作业。', 'COURSE', 'PUBLISHED', 'ANNOUNCEMENT',
+     'announcement:35001:user:1001', 35001, 21001, NULL, NULL, NULL,
+     CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0),
+    (50002, 1001, '系统联调公告', '当前环境用于项目联调和演示。', 'SYSTEM', 'PUBLISHED', 'ANNOUNCEMENT',
+     'announcement:35002:user:1001', 35002, NULL, NULL, NULL, NULL,
+     CURRENT_TIMESTAMP, 1003, CURRENT_TIMESTAMP, 1003, 0, 0),
+    (50003, 1002, '系统联调公告', '当前环境用于项目联调和演示。', 'SYSTEM', 'PUBLISHED', 'ANNOUNCEMENT',
+     'announcement:35002:user:1002', 35002, NULL, NULL, NULL, NULL,
+     CURRENT_TIMESTAMP, 1003, CURRENT_TIMESTAMP, 1003, 0, 0),
+    (50004, 1003, '系统联调公告', '当前环境用于项目联调和演示。', 'SYSTEM', 'PUBLISHED', 'ANNOUNCEMENT',
+     'announcement:35002:user:1003', 35002, NULL, NULL, NULL, NULL,
+     CURRENT_TIMESTAMP, 1003, CURRENT_TIMESTAMP, 1003, 0, 0),
+    (50005, 1004, '系统联调公告', '当前环境用于项目联调和演示。', 'SYSTEM', 'PUBLISHED', 'ANNOUNCEMENT',
+     'announcement:35002:user:1004', 35002, NULL, NULL, NULL, NULL,
+     CURRENT_TIMESTAMP, 1003, CURRENT_TIMESTAMP, 1003, 0, 0),
+    (50006, 1001, '作业已发布：第一章课后练习', '请按时完成作业，截止时间：2026-09-15T23:59:59Z',
+     'ASSIGNMENT', 'PUBLISHED', 'ASSIGNMENT_PUBLISHED', 'assignment:31001:published:user:1001',
+     NULL, 21001, 31001, NULL, NULL, CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0),
+    (50007, 1002, '收到作业提交：第一章课后练习', '有新的学生作业等待批改。',
+     'ASSIGNMENT', 'PUBLISHED', 'ASSIGNMENT_SUBMITTED', 'submission:32001:submitted:user:1002',
+     NULL, 21001, 31001, NULL, NULL, CURRENT_TIMESTAMP, 1001, CURRENT_TIMESTAMP, 1001, 0, 0),
+    (50008, 1001, '学习预警：学习进度低于课程节奏', '建议完成第一章补学并提交学习反馈。',
+     'WARNING', 'PUBLISHED', 'WARNING_CREATED', 'warning:36001:created:user:1001',
+     NULL, 21001, NULL, NULL, 36001, CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0),
+    (50009, 1002, '学生学习预警：学习进度低于课程节奏', '请进入预警中心查看并跟进。',
+     'WARNING', 'PUBLISHED', 'WARNING_CREATED', 'warning:36001:created:user:1002',
+     NULL, 21001, NULL, NULL, 36001, CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0),
+    (50010, 1001, '作业批改已完成：第一章课后练习', '成绩已发布，请进入成绩页面查看。',
+     'ASSIGNMENT', 'PUBLISHED', 'GRADE_PUBLISHED', 'grade:33001:published:user:1001',
+     NULL, 21001, 31001, NULL, NULL, CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0),
+    (50011, 1001, '考试安排已发布：第一章随堂测验', '考试时间：2026-09-16T09:00Z 至 2026-09-16T10:00Z',
+     'EXAM', 'PUBLISHED', 'EXAM_PUBLISHED', 'exam:38001:published:user:1001',
+     NULL, 21001, NULL, 38001, NULL, CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0)
+ON DUPLICATE KEY UPDATE
+    title = VALUES(title),
+    content = VALUES(content),
+    category = VALUES(category),
+    status = VALUES(status),
+    deleted = 0,
+    updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO edu_learning_warning
     (id, course_id, student_id, warning_type, warning_level, warning_status, summary, suggestion,

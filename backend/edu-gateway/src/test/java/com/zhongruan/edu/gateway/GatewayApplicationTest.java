@@ -14,8 +14,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.http.HttpHeaders;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.cors.reactive.CorsWebFilter;
 import reactor.core.publisher.Mono;
 
 @SpringBootTest(properties = {
@@ -34,6 +36,9 @@ class GatewayApplicationTest {
 
     @Autowired
     private JwtGatewayFilter jwtGatewayFilter;
+
+    @Autowired
+    private CorsWebFilter corsWebFilter;
 
     @Test
     void exposesOnlyExplicitBizAndAiRoutes() {
@@ -93,5 +98,24 @@ class GatewayApplicationTest {
                 .block(Duration.ofSeconds(2));
 
         assertTrue(forwarded.get());
+    }
+
+    @Test
+    void gatewayAllowsBothSupportedViteDevelopmentOrigins() {
+        for (String origin : List.of("http://localhost:5173", "http://localhost:5174")) {
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.options("http://gateway.local/api/v1/auth/login")
+                            .header(HttpHeaders.ORIGIN, origin)
+                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type,x-trace-id")
+                            .build());
+
+            corsWebFilter.filter(exchange, ignored -> Mono.error(
+                            new AssertionError("CORS preflight should be handled by the gateway")))
+                    .block(Duration.ofSeconds(2));
+
+            assertEquals(origin, exchange.getResponse().getHeaders()
+                    .getFirst(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+        }
     }
 }

@@ -105,6 +105,12 @@ class ExamApiIntegrationTest {
                 .andExpect(jsonPath("$.data.records[*].examId", hasItem(examId)))
                 .andExpect(jsonPath("$.data.records[*].title", hasItem("考试接口集成测试")));
 
+        mockMvc.perform(get("/api/v1/notifications?category=EXAM")
+                        .header("Authorization", bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].sourceType", hasItem("EXAM_PUBLISHED")))
+                .andExpect(jsonPath("$.data.records[*].examId", hasItem(examId)));
+
         mockMvc.perform(put("/api/v1/teacher/questions/{questionId}", questionId)
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,6 +1,7 @@
 package com.zhongruan.edu.biz.assignment.api;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhongruan.edu.biz.notification.application.service.NotificationDeadlineScheduler;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +32,9 @@ class AssignmentApiIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private NotificationDeadlineScheduler deadlineScheduler;
 
     @Test
     void teacherPublishesAssignmentAndEnrolledStudentSubmitsIt() throws Exception {
@@ -72,6 +77,11 @@ class AssignmentApiIntegrationTest {
                 .andReturn();
         int publishedVersion = body(publishResult).path("data").path("version").asInt();
 
+        mockMvc.perform(get("/api/v1/notifications?category=ASSIGNMENT")
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].title", hasItem("作业已发布：A1 集成测试作业")));
+
         mockMvc.perform(get("/api/v1/teacher/courses/21001/assignments")
                         .header("Authorization", bearer(teacher)))
                 .andExpect(status().isOk())
@@ -112,6 +122,11 @@ class AssignmentApiIntegrationTest {
                 .andExpect(jsonPath("$.data.submissionStatus.code").value("SUBMITTED"))
                 .andExpect(jsonPath("$.data.studentId").value("1001"))
                 .andExpect(jsonPath("$.data.submittedAt").exists());
+
+        mockMvc.perform(get("/api/v1/notifications?category=ASSIGNMENT")
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].title", hasItem("收到作业提交：A1 集成测试作业")));
 
         mockMvc.perform(get("/api/v1/student/assignments/{assignmentId}", assignmentId)
                         .header("Authorization", bearer(student)))
@@ -174,6 +189,19 @@ class AssignmentApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.availabilityStatus.code").value("OVERDUE"));
 
+        deadlineScheduler.publishDueAssignmentNotifications();
+
+        mockMvc.perform(get("/api/v1/notifications?category=ASSIGNMENT")
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].sourceType", hasItem("ASSIGNMENT_DEADLINE")))
+                .andExpect(jsonPath("$.data.records[*].assignmentId", hasItem(assignmentId)));
+        mockMvc.perform(get("/api/v1/notifications?category=ASSIGNMENT")
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].sourceType", hasItem("ASSIGNMENT_DEADLINE")))
+                .andExpect(jsonPath("$.data.records[*].assignmentId", hasItem(assignmentId)));
+
         mockMvc.perform(post("/api/v1/student/assignments/{assignmentId}/submissions", assignmentId)
                         .header("Authorization", bearer(student))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -184,6 +212,46 @@ class AssignmentApiIntegrationTest {
         mockMvc.perform(get("/api/v1/student/courses/21003/assignments")
                         .header("Authorization", bearer(student)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void manuallyClosingAssignmentNotifiesRecipientsWithoutDuplicateDeadlineEvents() throws Exception {
+        String teacher = login("teacher", "t123456");
+        String student = login("student", "123456");
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/teacher/courses/21001/assignments")
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"手动截止通知测试",
+                                  "maxScore":100,
+                                  "openAt":"2020-01-01T00:00:00+08:00",
+                                  "dueAt":"2099-12-31T23:59:59+08:00"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String assignmentId = body(createResult).path("data").path("assignmentId").asText();
+
+        mockMvc.perform(post("/api/v1/teacher/assignments/{assignmentId}/publish", assignmentId)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/teacher/assignments/{assignmentId}/close", assignmentId)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.assignmentStatus.code").value("CLOSED"));
+
+        mockMvc.perform(get("/api/v1/notifications?category=ASSIGNMENT")
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[?(@.assignmentId == '" + assignmentId
+                        + "' && @.sourceType == 'ASSIGNMENT_DEADLINE')]").value(hasSize(1)));
+        mockMvc.perform(get("/api/v1/notifications?category=ASSIGNMENT")
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[?(@.assignmentId == '" + assignmentId
+                        + "' && @.sourceType == 'ASSIGNMENT_DEADLINE')]").value(hasSize(1)));
     }
 
     @Test

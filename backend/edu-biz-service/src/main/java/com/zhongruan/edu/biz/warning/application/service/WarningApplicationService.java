@@ -30,6 +30,7 @@ import com.zhongruan.edu.biz.grade.domain.enums.GradeSourceType;
 import com.zhongruan.edu.biz.grade.domain.enums.GradeStatus;
 import com.zhongruan.edu.biz.grade.infrastructure.persistence.entity.GradeRecordEntity;
 import com.zhongruan.edu.biz.grade.infrastructure.persistence.mapper.GradeRecordMapper;
+import com.zhongruan.edu.biz.notification.application.service.NotificationApplicationService;
 import com.zhongruan.edu.biz.warning.api.dto.query.WarningListQuery;
 import com.zhongruan.edu.biz.warning.api.dto.request.GenerateCourseWarningsRequest;
 import com.zhongruan.edu.biz.warning.api.dto.request.WarningHandleRequest;
@@ -79,6 +80,7 @@ public class WarningApplicationService {
     private final CourseManagementService courseManagementService;
     private final CoursePermissionService coursePermissionService;
     private final WarningAssembler assembler;
+    private final NotificationApplicationService notificationService;
     private final Clock clock = Clock.systemUTC();
 
     public WarningApplicationService(
@@ -94,7 +96,8 @@ public class WarningApplicationService {
             UserMapper userMapper,
             CourseManagementService courseManagementService,
             CoursePermissionService coursePermissionService,
-            WarningAssembler assembler) {
+            WarningAssembler assembler,
+            NotificationApplicationService notificationService) {
         this.warningMapper = warningMapper;
         this.evidenceMapper = evidenceMapper;
         this.enrollmentMapper = enrollmentMapper;
@@ -108,6 +111,7 @@ public class WarningApplicationService {
         this.courseManagementService = courseManagementService;
         this.coursePermissionService = coursePermissionService;
         this.assembler = assembler;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -362,6 +366,7 @@ public class WarningApplicationService {
         warningMapper.insert(warning);
         WarningEvidenceEntity evidence = evidence(candidate, warning.getId());
         evidenceMapper.insert(evidence);
+        notificationService.publishWarning(warning);
         return assembler.toVO(warning, List.of(evidence), studentName(candidate.studentId()));
     }
 

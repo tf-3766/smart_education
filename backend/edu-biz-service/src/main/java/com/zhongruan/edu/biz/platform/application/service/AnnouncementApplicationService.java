@@ -9,6 +9,7 @@ import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEnro
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseTeacherEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseEnrollmentMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseTeacherMapper;
+import com.zhongruan.edu.biz.notification.application.service.NotificationApplicationService;
 import com.zhongruan.edu.biz.platform.api.dto.query.AnnouncementListQuery;
 import com.zhongruan.edu.biz.platform.api.dto.request.CreateAnnouncementRequest;
 import com.zhongruan.edu.biz.platform.api.dto.request.WithdrawAnnouncementRequest;
@@ -34,17 +35,20 @@ public class AnnouncementApplicationService {
     private final CourseEnrollmentMapper enrollmentMapper;
     private final CourseTeacherMapper courseTeacherMapper;
     private final CoursePermissionService coursePermissionService;
+    private final NotificationApplicationService notificationService;
     private final Clock clock = Clock.systemUTC();
 
     public AnnouncementApplicationService(
             AnnouncementMapper announcementMapper,
             CourseEnrollmentMapper enrollmentMapper,
             CourseTeacherMapper courseTeacherMapper,
-            CoursePermissionService coursePermissionService) {
+            CoursePermissionService coursePermissionService,
+            NotificationApplicationService notificationService) {
         this.announcementMapper = announcementMapper;
         this.enrollmentMapper = enrollmentMapper;
         this.courseTeacherMapper = courseTeacherMapper;
         this.coursePermissionService = coursePermissionService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -157,6 +161,7 @@ public class AnnouncementApplicationService {
         announcement.setPublishedAt(LocalDateTime.now(clock));
         announcement.setCreatedBy(publisherId);
         announcementMapper.insert(announcement);
+        notificationService.publishAnnouncement(announcement);
         return toVO(announcement);
     }
 
@@ -170,6 +175,7 @@ public class AnnouncementApplicationService {
         if (announcementMapper.updateById(announcement) != 1) {
             throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT);
         }
+        notificationService.withdrawAnnouncement(announcement.getId());
         return toVO(announcement);
     }
 

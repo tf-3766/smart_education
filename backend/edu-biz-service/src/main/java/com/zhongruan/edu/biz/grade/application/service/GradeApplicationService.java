@@ -29,6 +29,7 @@ import com.zhongruan.edu.biz.grade.domain.enums.GradeSourceType;
 import com.zhongruan.edu.biz.grade.domain.enums.GradeStatus;
 import com.zhongruan.edu.biz.grade.infrastructure.persistence.entity.GradeRecordEntity;
 import com.zhongruan.edu.biz.grade.infrastructure.persistence.mapper.GradeRecordMapper;
+import com.zhongruan.edu.biz.notification.application.service.NotificationApplicationService;
 import com.zhongruan.edu.common.api.PageResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
@@ -55,6 +56,7 @@ public class GradeApplicationService {
     private final UserMapper userMapper;
     private final CourseManagementService courseManagementService;
     private final GradeAssembler assembler;
+    private final NotificationApplicationService notificationService;
     private final Clock clock = Clock.systemUTC();
 
     public GradeApplicationService(
@@ -64,7 +66,8 @@ public class GradeApplicationService {
             CourseEnrollmentMapper enrollmentMapper,
             UserMapper userMapper,
             CourseManagementService courseManagementService,
-            GradeAssembler assembler) {
+            GradeAssembler assembler,
+            NotificationApplicationService notificationService) {
         this.assignmentMapper = assignmentMapper;
         this.submissionMapper = submissionMapper;
         this.gradeMapper = gradeMapper;
@@ -72,6 +75,7 @@ public class GradeApplicationService {
         this.userMapper = userMapper;
         this.courseManagementService = courseManagementService;
         this.assembler = assembler;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -140,6 +144,9 @@ public class GradeApplicationService {
         } else {
             updateGradeOrConflict(grade);
         }
+        if (publishNow) {
+            notificationService.publishGrade(grade, assignment);
+        }
         AssignmentSubmissionEntity freshSubmission = requireSubmission(submissionId);
         GradeRecordEntity freshGrade = requireGrade(grade.getId());
         return assembler.toTeacherSubmission(
@@ -164,6 +171,7 @@ public class GradeApplicationService {
         updateSubmissionOrConflict(submission);
 
         AssignmentEntity assignment = requireAssignment(grade.getSourceId());
+        notificationService.publishGrade(grade, assignment);
         GradeRecordEntity freshGrade = requireGrade(gradeId);
         AssignmentSubmissionEntity freshSubmission = requireSubmission(submission.getId());
         return assembler.toTeacherSubmission(

@@ -47,7 +47,7 @@ class MySqlBootstrapInitializationTest {
         String version = jdbcTemplate.queryForObject("SELECT VERSION()", String.class);
         assertTrue(version.startsWith("8."));
         assertEquals(
-                33,
+                36,
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()",
                         Integer.class));
@@ -68,6 +68,9 @@ class MySqlBootstrapInitializationTest {
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_exam_attempt", Integer.class));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_course_category", Integer.class));
         assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_announcement", Integer.class));
+        assertEquals(11, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification", Integer.class));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification_read", Integer.class));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification_preference", Integer.class));
     }
 
     private void assertPasswordMatches(String username, String rawPassword) {

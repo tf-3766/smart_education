@@ -27,6 +27,7 @@ import com.zhongruan.edu.biz.course.application.service.CourseManagementService;
 import com.zhongruan.edu.biz.course.application.service.CoursePermissionService;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseLessonEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseLessonMapper;
+import com.zhongruan.edu.biz.notification.application.service.NotificationApplicationService;
 import com.zhongruan.edu.biz.storage.application.service.FileStorageService;
 import com.zhongruan.edu.biz.storage.domain.FilePurpose;
 import com.zhongruan.edu.biz.storage.infrastructure.persistence.entity.StoredFileEntity;
@@ -55,6 +56,7 @@ public class AssignmentApplicationService {
     private final CoursePermissionService coursePermissionService;
     private final AssignmentAssembler assembler;
     private final FileStorageService fileStorageService;
+    private final NotificationApplicationService notificationService;
     private final Clock clock = Clock.systemUTC();
 
     public AssignmentApplicationService(
@@ -65,7 +67,8 @@ public class AssignmentApplicationService {
             CourseManagementService courseManagementService,
             CoursePermissionService coursePermissionService,
             AssignmentAssembler assembler,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            NotificationApplicationService notificationService) {
         this.assignmentMapper = assignmentMapper;
         this.attachmentMapper = attachmentMapper;
         this.submissionMapper = submissionMapper;
@@ -74,6 +77,7 @@ public class AssignmentApplicationService {
         this.coursePermissionService = coursePermissionService;
         this.assembler = assembler;
         this.fileStorageService = fileStorageService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -144,6 +148,7 @@ public class AssignmentApplicationService {
         assignment.setStatus(AssignmentStatus.PUBLISHED.name());
         assignment.setPublishedAt(now());
         updateAssignmentOrConflict(assignment);
+        notificationService.publishAssignment(assignment);
         return detail(assignment);
     }
 
@@ -157,6 +162,7 @@ public class AssignmentApplicationService {
         }
         assignment.setStatus(AssignmentStatus.CLOSED.name());
         updateAssignmentOrConflict(assignment);
+        notificationService.publishAssignmentDeadline(assignment);
         return detail(assignment);
     }
 
@@ -253,6 +259,7 @@ public class AssignmentApplicationService {
         } else {
             updateSubmissionOrConflict(submission);
         }
+        notificationService.publishAssignmentSubmission(assignment, submission);
         return assembler.toSubmissionDetail(submission);
     }
 

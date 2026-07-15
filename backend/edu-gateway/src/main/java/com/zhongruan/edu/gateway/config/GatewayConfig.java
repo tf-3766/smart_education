@@ -63,7 +63,8 @@ public class GatewayConfig {
 
     @Bean
     CorsWebFilter corsWebFilter(
-            @Value("${edu.gateway.cors.allowed-origins:http://localhost:5173}") List<String> allowedOrigins) {
+            @Value("${edu.gateway.cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
+                    List<String> allowedOrigins) {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

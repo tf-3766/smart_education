@@ -67,6 +67,20 @@ class WarningApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.records[*].warningId", hasItem(warningId)));
 
+        mockMvc.perform(get("/api/v1/notifications?category=WARNING")
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].sourceType", hasItem("WARNING_CREATED")));
+        mockMvc.perform(get("/api/v1/notifications?category=WARNING")
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].sourceType", hasItem("WARNING_CREATED")));
+
+        mockMvc.perform(get("/api/v1/notifications?category=ASSIGNMENT")
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].sourceType", hasItem("GRADE_PUBLISHED")));
+
         mockMvc.perform(get("/api/v1/teacher/courses/21001/warnings")
                         .header("Authorization", bearer(otherTeacher)))
                 .andExpect(status().isForbidden());

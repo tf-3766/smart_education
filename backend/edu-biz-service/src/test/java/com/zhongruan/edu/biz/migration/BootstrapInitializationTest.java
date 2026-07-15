@@ -25,7 +25,7 @@ class BootstrapInitializationTest {
         Set<String> tables = Set.copyOf(jdbcTemplate.queryForList(
                 "SELECT LOWER(TABLE_NAME) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'public'",
                 String.class));
-        assertEquals(33, tables.size());
+        assertEquals(36, tables.size());
         assertTrue(tables.containsAll(Set.of(
                 "sys_user", "sys_role", "sys_permission", "sys_user_role", "sys_role_permission")));
         assertTrue(tables.containsAll(Set.of(
@@ -41,6 +41,9 @@ class BootstrapInitializationTest {
                 "edu_exam_paper",
                 "edu_exam_attempt",
                 "edu_announcement",
+                "edu_notification",
+                "edu_notification_read",
+                "edu_notification_preference",
                 "edu_ai_generation_record")));
         assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
         assertEquals(
@@ -77,6 +80,9 @@ class BootstrapInitializationTest {
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_exam_attempt", Integer.class));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_course_category", Integer.class));
         assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_announcement", Integer.class));
+        assertEquals(11, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification", Integer.class));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification_read", Integer.class));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification_preference", Integer.class));
         assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_ai_generation_record", Integer.class));
     }
 

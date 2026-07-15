@@ -43,6 +43,7 @@ import com.zhongruan.edu.biz.exam.infrastructure.persistence.mapper.ExamPaperQue
 import com.zhongruan.edu.biz.exam.infrastructure.persistence.mapper.QuestionBankMapper;
 import com.zhongruan.edu.biz.exam.infrastructure.persistence.mapper.QuestionMapper;
 import com.zhongruan.edu.biz.exam.infrastructure.persistence.mapper.QuestionOptionMapper;
+import com.zhongruan.edu.biz.notification.application.service.NotificationApplicationService;
 import com.zhongruan.edu.common.api.PageResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
@@ -66,6 +67,7 @@ public class ExamManagementService {
     private final ExamMapper examMapper;
     private final ExamPaperMapper examPaperMapper;
     private final ExamPaperQuestionMapper examPaperQuestionMapper;
+    private final NotificationApplicationService notificationService;
 
     public ExamManagementService(
             CourseMapper courseMapper,
@@ -75,7 +77,8 @@ public class ExamManagementService {
             QuestionOptionMapper questionOptionMapper,
             ExamMapper examMapper,
             ExamPaperMapper examPaperMapper,
-            ExamPaperQuestionMapper examPaperQuestionMapper) {
+            ExamPaperQuestionMapper examPaperQuestionMapper,
+            NotificationApplicationService notificationService) {
         this.courseMapper = courseMapper;
         this.coursePermissionService = coursePermissionService;
         this.questionBankMapper = questionBankMapper;
@@ -84,6 +87,7 @@ public class ExamManagementService {
         this.examMapper = examMapper;
         this.examPaperMapper = examPaperMapper;
         this.examPaperQuestionMapper = examPaperQuestionMapper;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -361,6 +365,7 @@ public class ExamManagementService {
         updateOrConflict(examPaperMapper.updateById(paper), "试卷草稿已被其他请求修改，请刷新后重试");
         exam.setStatus(ExamStatus.PUBLISHED.name());
         updateOrConflict(examMapper.updateById(exam), "考试已被其他请求修改，请刷新后重试");
+        notificationService.publishExam(exam);
         return toExamPaper(paper);
     }
 
