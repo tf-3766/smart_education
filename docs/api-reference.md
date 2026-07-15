@@ -91,6 +91,8 @@ X-Trace-Id: <optional-trace-id>
 | `PUT` | `/api/v1/teacher/courses/{courseId}` | `UpdateCourseRequest` | `CourseDetailVO` |
 | `POST` | `/api/v1/teacher/courses/{courseId}/submit-review` | 无 | `CourseDetailVO` |
 | `POST` | `/api/v1/teacher/courses/{courseId}/publish` | 无 | `CourseDetailVO` |
+| `POST` | `/api/v1/teacher/courses/{courseId}/start` | 无 | `CourseDetailVO` |
+| `POST` | `/api/v1/teacher/courses/{courseId}/finish` | 无 | `CourseDetailVO` |
 | `POST` | `/api/v1/teacher/courses/{courseId}/offline` | 无 | `CourseDetailVO` |
 | `GET` | `/api/v1/teacher/courses/{courseId}/teachers` | 无 | `List<CourseTeacherVO>` |
 | `POST` | `/api/v1/teacher/courses/{courseId}/teachers` | `AddCourseTeacherRequest` | `CourseTeacherVO` |
@@ -134,7 +136,7 @@ X-Trace-Id: <optional-trace-id>
 | `GET` | `/api/v1/student/courses/{courseId}/progress` | 路径参数 | `CourseProgressVO` |
 | `GET` | `/api/v1/student/materials/{materialId}` | 路径参数 | `MaterialAccessVO` |
 
-### 3.6 管理员课程审核
+### 3.6 管理员课程审核与治理
 
 | 方法 | 路径 | 请求 | 响应 |
 |---|---|---|---|
@@ -142,6 +144,11 @@ X-Trace-Id: <optional-trace-id>
 | `GET` | `/api/v1/admin/course-reviews/{courseId}` | 路径参数 | `CourseReviewDetailVO` |
 | `POST` | `/api/v1/admin/course-reviews/{courseId}/approve` | `ReviewCourseRequest` | `CourseReviewVO` |
 | `POST` | `/api/v1/admin/course-reviews/{courseId}/reject` | `RejectCourseRequest` | `CourseReviewVO` |
+| `GET` | `/api/v1/admin/courses/{courseId}` | 路径参数 | `CourseDetailVO` |
+| `PUT` | `/api/v1/admin/courses/{courseId}` | `UpdateCourseRequest` | `CourseDetailVO` |
+| `POST` | `/api/v1/admin/courses/{courseId}/offline` | 无 | `CourseDetailVO` |
+
+课程主状态按 `DRAFT → PENDING_REVIEW → PUBLISHED → ONGOING → FINISHED` 单向变化，任一未下线状态均可进入 `OFFLINE`，下线后不可恢复或编辑。`PUBLISHED` 表示课程已经发布、允许在选课时间窗内选课但尚未开课；教师调用 `start` 后进入 `ONGOING`，调用 `finish` 后进入 `FINISHED`。学生选课状态与课程主状态分开保存，因此“已选课但未开课”由课程 `PUBLISHED` 与选课记录 `ENROLLED` 共同表示。管理员编辑只修改课程资料和时间安排，不绕过审核或改变课程主状态；管理员下线使用同一状态机规则。
 
 ### 3.7 超级管理员用户授权
 

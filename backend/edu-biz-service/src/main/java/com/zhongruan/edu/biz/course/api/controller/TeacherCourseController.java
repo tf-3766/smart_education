@@ -91,6 +91,22 @@ public class TeacherCourseController {
         return ApiResponse.success(service.publish(user.userId(), courseId), trace(request));
     }
 
+    @PostMapping("/{courseId}/start")
+    public ApiResponse<CourseDetailVO> start(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long courseId,
+            HttpServletRequest request) {
+        return ApiResponse.success(service.start(user.userId(), courseId), trace(request));
+    }
+
+    @PostMapping("/{courseId}/finish")
+    public ApiResponse<CourseDetailVO> finish(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long courseId,
+            HttpServletRequest request) {
+        return ApiResponse.success(service.finish(user.userId(), courseId), trace(request));
+    }
+
     @PostMapping("/{courseId}/offline")
     public ApiResponse<CourseDetailVO> offline(
             @AuthenticationPrincipal AuthenticatedUser user,

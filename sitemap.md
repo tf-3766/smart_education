@@ -303,8 +303,8 @@
 | 用户管理 | `AdminUserList` | `/admin/users` | 管理员 | 管理学生、教师和管理员账号 | 角色/状态/院系筛选、新建/导入、启停、进入详情 | 传统业务 | 登录 + `admin` + 用户管理权限 |
 | 用户详情 | `AdminUserDetail` | `/admin/users/:userId` | 管理员 | 查看和维护单个用户 | 基本资料、角色、状态、组织归属、重置安全状态、必要操作记录 | 传统业务 | 登录 + `admin` + 用户管理权限；限制查看敏感信息 |
 | 课程分类 | `AdminCourseCategoryList` | `/admin/course-categories` | 管理员 | 维护全局课程分类 | 新建、编辑、排序、启停、引用检查 | 传统业务 | 登录 + `admin` + 课程配置权限 |
-| 课程管理 | `AdminCourseList` | `/admin/courses` | 管理员 | 查看全校课程及运行状态 | 分类/院系/状态筛选、上下线、审核状态、详情入口 | 传统业务 | 登录 + `admin` + 课程管理权限 |
-| 课程详情 | `AdminCourseDetail` | `/admin/courses/:courseId` | 管理员 | 查看课程元数据和全局运行情况 | 基本信息、教师、选课、章节摘要、作业/考试运行、审核记录 | 传统业务 | 登录 + `admin` + 课程查看权限；默认不直接修改教师教学内容 |
+| 课程管理 | `AdminCourseList` | `/admin/courses` | 管理员 | 查看全校课程及运行状态 | 分类/院系/状态筛选、课程下线、审核状态、详情入口 | 传统业务 | 登录 + `admin` + 课程管理权限 |
+| 课程详情 | `AdminCourseDetail` | `/admin/courses/:courseId` | 管理员 | 查看和治理课程元数据与全局运行情况 | 基本信息、时间安排、元数据编辑、下线、教师、选课、章节摘要、作业/考试运行、审核记录 | 传统业务 | 登录 + `admin` + 课程管理权限；不直接修改教师教学正文，不绕过审核或改变课程主状态 |
 | 课程审核 | `AdminCourseReviewList` | `/admin/course-reviews` | 管理员 | 集中处理待审核课程 | 待审核/通过/驳回筛选、提交人、提交时间、审核详情入口 | 传统业务 | 登录 + `admin` + 课程审核权限 |
 | 课程审核详情 | `AdminCourseReviewDetail` | `/admin/course-reviews/:reviewId` | 管理员 | 对课程发布申请做出审核结论 | 课程信息对比、材料、审核意见、通过/驳回、历史记录 | 传统业务 | 登录 + `admin` + 审核权限；审核结果不可静默覆盖 |
 | 公告管理 | `AdminAnnouncementList` | `/admin/announcements` | 管理员 | 管理校级与全局公告 | 状态/范围筛选、新建、编辑、发布/撤回、查看触达 | 传统业务 | 登录 + `admin` + 公告管理权限 |

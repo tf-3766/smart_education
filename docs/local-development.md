@@ -136,6 +136,9 @@ GET  /api/v1/course-categories
 GET/POST/PUT/DELETE /api/v1/admin/course-categories[/{categoryId}]
 GET/POST /api/v1/teacher/courses
 GET/PUT  /api/v1/teacher/courses/{courseId}
+POST /api/v1/teacher/courses/{courseId}/submit-review|publish|start|finish|offline
+GET/PUT  /api/v1/admin/courses/{courseId}
+POST /api/v1/admin/courses/{courseId}/offline
 GET/POST /api/v1/student/courses[/{courseId}]
 GET/POST /api/v1/teacher/courses/{courseId}/assignments
 GET/PUT/POST /api/v1/student/assignments/{assignmentId}/...

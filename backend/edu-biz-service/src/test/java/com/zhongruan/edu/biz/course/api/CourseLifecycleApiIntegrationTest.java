@@ -124,6 +124,7 @@ class CourseLifecycleApiIntegrationTest {
     void reviewApprovalAndPublicationFormAnExplicitLifecycle() throws Exception {
         String teacherToken = login("teacher", "t123456");
         String adminToken = login("admin", "admin123");
+        String studentToken = login("student", "123456");
         String courseId = createCourse(teacherToken, "LIFECYCLE-001");
 
         mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/publish", courseId)
@@ -148,6 +149,57 @@ class CourseLifecycleApiIntegrationTest {
                         .header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status.code").value("PUBLISHED"));
+
+        mockMvc.perform(post("/api/v1/student/courses/{courseId}/enroll", courseId)
+                        .header("Authorization", bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status.code").value("ENROLLED"));
+
+        mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/finish", courseId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPERATION_NOT_ALLOWED"));
+
+        mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/start", courseId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status.code").value("ONGOING"));
+
+        mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/finish", courseId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status.code").value("FINISHED"));
+    }
+
+    @Test
+    void adminCanEditAndOfflineCourseButTeacherCannotUseAdminEndpoints() throws Exception {
+        String teacherToken = login("teacher", "t123456");
+        String adminToken = login("admin", "admin123");
+        String courseId = createCourse(teacherToken, "ADMIN-GOVERN-001");
+
+        mockMvc.perform(put("/api/v1/admin/courses/{courseId}", courseId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateCourseJson("教师越权修改", 0)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/api/v1/admin/courses/{courseId}", courseId)
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateCourseJson("管理员修订课程", 0)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("管理员修订课程"))
+                .andExpect(jsonPath("$.data.status.code").value("DRAFT"));
+
+        mockMvc.perform(post("/api/v1/admin/courses/{courseId}/offline", courseId)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status.code").value("OFFLINE"));
+
+        mockMvc.perform(post("/api/v1/admin/courses/{courseId}/offline", courseId)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPERATION_NOT_ALLOWED"));
     }
 
     @Test

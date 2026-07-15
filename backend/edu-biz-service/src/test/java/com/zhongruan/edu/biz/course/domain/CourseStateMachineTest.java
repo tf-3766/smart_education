@@ -15,6 +15,9 @@ class CourseStateMachineTest {
         assertTrue(CourseStatus.DRAFT.canTransitionTo(CourseStatus.PENDING_REVIEW));
         assertFalse(CourseStatus.DRAFT.canTransitionTo(CourseStatus.PUBLISHED));
         assertTrue(CourseStatus.PENDING_REVIEW.canTransitionTo(CourseStatus.PUBLISHED));
+        assertTrue(CourseStatus.PUBLISHED.canTransitionTo(CourseStatus.ONGOING));
+        assertTrue(CourseStatus.ONGOING.canTransitionTo(CourseStatus.FINISHED));
+        assertFalse(CourseStatus.PUBLISHED.canTransitionTo(CourseStatus.FINISHED));
         assertFalse(CourseStatus.OFFLINE.canTransitionTo(CourseStatus.PUBLISHED));
     }
 

@@ -128,6 +128,11 @@ public class CourseManagementService {
         return detail(requireCourse(courseId), latestReviewReason(courseId), true);
     }
 
+    @Transactional(readOnly = true)
+    public CourseDetailVO getForAdmin(Long courseId) {
+        return detail(requireCourse(courseId), latestReviewReason(courseId), true);
+    }
+
     @Transactional
     public CourseDetailVO update(Long teacherId, Long courseId, UpdateCourseRequest request) {
         requireOwner(teacherId, courseId);
@@ -138,6 +143,23 @@ public class CourseManagementService {
                 || (reviewStatus != CourseReviewStatus.NOT_SUBMITTED && reviewStatus != CourseReviewStatus.REJECTED)) {
             throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "当前课程状态不允许修改关键字段");
         }
+        applyUpdate(course, request);
+        updateOrConflict(course);
+        return detail(course, latestReviewReason(courseId), true);
+    }
+
+    @Transactional
+    public CourseDetailVO updateAsAdmin(Long courseId, UpdateCourseRequest request) {
+        CourseEntity course = requireCourse(courseId);
+        if (CourseStatus.OFFLINE.name().equals(course.getStatus())) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "已下线课程不允许继续编辑");
+        }
+        applyUpdate(course, request);
+        updateOrConflict(course);
+        return detail(course, latestReviewReason(courseId), true);
+    }
+
+    private void applyUpdate(CourseEntity course, UpdateCourseRequest request) {
         validateTimes(request.enrollmentOpenAt(), request.enrollmentCloseAt(), request.startAt(), request.endAt());
         requireCategory(request.categoryId());
         course.setName(request.name().trim());
@@ -152,8 +174,6 @@ public class CourseManagementService {
         course.setStartAt(utc(request.startAt()));
         course.setEndAt(utc(request.endAt()));
         course.setVersion(request.version());
-        updateOrConflict(course);
-        return detail(course, latestReviewReason(courseId), true);
     }
 
     @Transactional
@@ -185,16 +205,26 @@ public class CourseManagementService {
     }
 
     @Transactional
+    public CourseDetailVO start(Long teacherId, Long courseId) {
+        requireOwner(teacherId, courseId);
+        return transition(courseId, CourseStatus.ONGOING, "当前课程状态不允许开课");
+    }
+
+    @Transactional
+    public CourseDetailVO finish(Long teacherId, Long courseId) {
+        requireOwner(teacherId, courseId);
+        return transition(courseId, CourseStatus.FINISHED, "当前课程状态不允许结课");
+    }
+
+    @Transactional
     public CourseDetailVO offline(Long teacherId, Long courseId) {
         requireOwner(teacherId, courseId);
-        CourseEntity course = requireCourse(courseId);
-        CourseStatus current = CourseStatus.valueOf(course.getStatus());
-        if (!current.canTransitionTo(CourseStatus.OFFLINE)) {
-            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "课程已下线");
-        }
-        course.setStatus(CourseStatus.OFFLINE.name());
-        updateOrConflict(course);
-        return detail(course, latestReviewReason(courseId), true);
+        return transition(courseId, CourseStatus.OFFLINE, "课程已下线");
+    }
+
+    @Transactional
+    public CourseDetailVO offlineAsAdmin(Long courseId) {
+        return transition(courseId, CourseStatus.OFFLINE, "课程已下线");
     }
 
     @Transactional(readOnly = true)
@@ -301,6 +331,17 @@ public class CourseManagementService {
         if (courseMapper.updateById(course) != 1) {
             throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "课程已被其他请求修改，请刷新后重试");
         }
+    }
+
+    private CourseDetailVO transition(Long courseId, CourseStatus target, String message) {
+        CourseEntity course = requireCourse(courseId);
+        CourseStatus current = CourseStatus.valueOf(course.getStatus());
+        if (!current.canTransitionTo(target)) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, message);
+        }
+        course.setStatus(target.name());
+        updateOrConflict(course);
+        return detail(course, latestReviewReason(courseId), true);
     }
 
     private void validateTimes(
