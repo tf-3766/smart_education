@@ -8,6 +8,9 @@
 
 - **名称**：`X-AI-Api-Key`
 - **值**：DashScope / 阿里百炼 API Key（如 `sk-...`），明文。
+- **配套头**：`X-AI-Model`（可选）——用户在 AI 设置页选择的对话模型
+  （qwen-plus / qwen-turbo / qwen-max / qwen-long）。存在时后端应以其覆盖
+  `DASHSCOPE_CHAT_MODEL`；缺失时用后端默认。非法模型名按后端校验拒绝即可。
 - **携带范围**：仅 `/api/v1/ai/*` 路径（前端只对该前缀注入，其它请求不带）：
   - `POST /api/v1/ai/lessons/{lessonId}/summary-draft`
   - `POST /api/v1/ai/submissions/{submissionId}/comment-draft`
