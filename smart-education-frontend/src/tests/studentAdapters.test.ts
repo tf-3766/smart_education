@@ -40,4 +40,28 @@ describe('student real-data adapter', () => {
     expect(api.studentList).toHaveBeenCalledWith('10', { page: 1, size: 100 })
     expect(api.studentExams).toHaveBeenCalledWith('10', { page: 1, size: 100 })
   })
+
+  // 已下线/已结束课程的子资源会 403，任意 403 都会把整页跳到「无权访问」。
+  // 因此这类课程必须「根本不发起子资源请求」，只在列表里保留课程本身。
+  it('对不可学习（已下线等）课程不发起 progress/作业/考试/论坛请求，避免 403 跳飞整页', async () => {
+    api.myCourses.mockResolvedValue({
+      records: [
+        { courseId: '10', courseCode: 'PY101', name: 'Python', ownerTeacherName: '李老师', status: { code: 'PUBLISHED', label: '已发布' }, enrollmentStatus: { code: 'ENROLLED', label: '已选' }, enrollable: false },
+        { courseId: '11', courseCode: 'OFF1', name: '已下线课', ownerTeacherName: '王老师', status: { code: 'OFFLINE', label: '已下线' }, enrollmentStatus: { code: 'ENROLLED', label: '已选' }, enrollable: false },
+      ],
+      page: 1, size: 20, total: 2, totalPages: 1,
+    })
+
+    const result = await loadStudentOverview()
+
+    // 两门课都在列表里
+    expect(result.courses.map((c) => c.id)).toEqual(['10', '11'])
+    // 只对可学习课程 10 发起子资源请求，绝不碰下线课 11
+    expect(api.progress).toHaveBeenCalledWith('10')
+    expect(api.progress).not.toHaveBeenCalledWith('11')
+    for (const fn of [api.studentList, api.studentExams, api.studentTopics]) {
+      expect(fn).toHaveBeenCalledWith('10', expect.anything())
+      expect(fn).not.toHaveBeenCalledWith('11', expect.anything())
+    }
+  })
 })
