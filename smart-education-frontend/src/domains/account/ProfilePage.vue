@@ -113,7 +113,7 @@ const permissionRows = computed(() => {
   return permissions.slice(0, 12)
 })
 const permissionCountLabel = computed(() => {
-  const count = session.backendUser?.permissions.length ?? 0
+  const count = (session.backendUser?.permissions ?? []).length
   return count ? `${count} 项` : '无明细'
 })
 
