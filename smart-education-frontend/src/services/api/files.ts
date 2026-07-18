@@ -1,6 +1,6 @@
 // 3.2 文件上传与访问接口
 import { demoDelay } from '../runtime'
-import { del, fileContentUrl, get, isRealMode, upload } from './client'
+import { del, fileContentUrl, get, isRealMode, TOKEN_STORAGE_KEY, upload } from './client'
 import { conflict, currentUser, db, nextId, notFound, nowIso, persist } from './demo/db'
 import type { FilePurpose, StoredFileVO } from './types'
 
@@ -49,6 +49,21 @@ export const filesApi = {
   contentUrl(fileId: string): string {
     if (isRealMode()) return fileContentUrl(fileId)
     return db.files.find((item) => item.fileId === fileId)?.accessUrl ?? `/api/v1/files/${fileId}/content`
+  },
+
+  /**
+   * 以带鉴权的方式拉取文件内容并返回可直接用于 <img>/下载 的对象 URL。
+   * 文件内容接口需 Authorization 头，<img src> 无法携带，故用 fetch+blob。
+   * 用完请 URL.revokeObjectURL 释放。演示模式回退占位地址。
+   */
+  async contentObjectUrl(fileId: string): Promise<string> {
+    if (!isRealMode()) return this.contentUrl(fileId)
+    const token = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    const response = await fetch(fileContentUrl(fileId), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!response.ok) throw new Error(`文件加载失败（HTTP ${response.status}）`)
+    return URL.createObjectURL(await response.blob())
   },
 
   async remove(fileId: string): Promise<void> {

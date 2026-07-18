@@ -17,11 +17,10 @@
         <span class="account-chip" :title="`${session.currentUser.name} · ${roleLabels[session.currentRole]}`">
           <span class="account-name">{{ session.currentUser.name }}</span>
         </span>
-        <RouterLink class="account-center-link" to="/account/profile" aria-label="个人中心" title="个人中心">
+        <RouterLink class="account-center-link" to="/account/profile" aria-label="个人中心（含退出登录）" title="个人中心">
           <UserRound :size="18" />
           <span>个人中心</span>
         </RouterLink>
-        <button class="text-link logout-link" type="button" @click="onLogout">退出登录</button>
       </div>
     </header>
 
@@ -56,7 +55,7 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { Bell, Menu, UserRound } from 'lucide-vue-next'
 import NotificationDrawer from '@/components/NotificationDrawer.vue'
 import { getRoleSidebar } from '@/layouts/roleSidebar'
@@ -65,7 +64,6 @@ import { roleLabels, useSessionStore } from '@/stores/session'
 import { useNotificationStore } from '@/stores/notifications'
 import type { Role } from '@/types/domain'
 
-const router = useRouter()
 const route = useRoute()
 const session = useSessionStore()
 const notifications = useNotificationStore()
@@ -100,9 +98,4 @@ watch(
 )
 
 onUnmounted(() => notifications.stopRealtime())
-
-async function onLogout() {
-  await session.logoutRemote()
-  await router.push('/login')
-}
 </script>

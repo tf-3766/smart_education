@@ -207,6 +207,11 @@ button, a, select { cursor: pointer; }
 .account-grid { align-items: start; }
 .account-profile-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .account-profile-icon { flex: 0 0 auto; width: 52px; height: 52px; display: grid; place-items: center; color: var(--brand); background: var(--brand-face); border: 1px solid #d5e4ff; }
+.account-avatar { flex: 0 0 auto; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; color: var(--brand); background: var(--brand-face); border: 1px solid #d5e4ff; }
+.account-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.account-profile-meta { min-width: 0; }
+.account-avatar-actions { display: flex; gap: 12px; margin-top: 8px; }
+.text-link.danger { color: var(--danger, #d14343); }
 .account-profile-head h2 { margin: 0; color: var(--ink); font-size: 19px; font-weight: 700; }
 .account-profile-head p { margin: 4px 0 0; color: var(--muted); }
 .account-fields { display: grid; margin: 0; }

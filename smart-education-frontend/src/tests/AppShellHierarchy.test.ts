@@ -23,12 +23,13 @@ describe('workspace sidebar (flat per-role nav)', () => {
     expect(s).toContain('matchPrefixes')
   })
 
-  it('keeps the topbar honest about implemented account actions', () => {
+  it('topbar 只保留个人中心入口，退出登录内置其中不再单列', () => {
     const s = source()
     expect(s).toContain('to="/account/profile"')
     expect(s).toContain('个人中心')
-    expect(s).toContain('退出登录')
-    expect(s).toContain('logoutRemote')
+    // 退出登录已移入个人中心，顶栏不再有独立退出按钮
+    expect(s).not.toContain('logout-link')
+    expect(s).not.toContain('logoutRemote')
     expect(s).not.toContain('切换账号')
     expect(s).not.toContain('user-avatar')
   })

@@ -3,6 +3,7 @@
 // 组卷建议、服务状态。演示模式回退本地合成数据。
 // AI 只返回草稿与建议，正式业务数据必须经人工确认后由业务接口写入。
 import { demoDelay } from '../runtime'
+import { AI_KEY_HEADER, AI_MODEL_HEADER, getAiKey, getAiModel } from '../aiKey'
 import { get, isRealMode, post, postEventStream } from './client'
 import { db, nextId, notFound, nowIso } from './demo/db'
 import type { AiCitationVO, AiDraftVO, AiServiceStatusVO, AiStreamEvent, CourseQaRequest, LessonSummaryRequest, PaperSuggestionRequest } from './types'
@@ -65,10 +66,37 @@ export const aiApi = {
     ))
   },
 
-  /** AI 服务状态（管理员）。 */
-  async adminStatus(): Promise<AiServiceStatusVO> {
-    if (isRealMode()) return get<AiServiceStatusVO>('/api/v1/ai/admin/status')
-    return demoDelay({ provider: 'fallback', model: null, available: true, mode: 'FRAMEWORK_ONLY', checkedAt: nowIso() })
+  /**
+   * AI 服务状态（管理员）。传入 override 时用其中的密钥/模型「就地测试」——用于「测试连接」，
+   * 测试的是当前输入而非已保存值；后端会用该密钥真实探测所选模型并回传成败原因。
+   */
+  async adminStatus(override?: { apiKey?: string; model?: string }): Promise<AiServiceStatusVO> {
+    if (isRealMode()) {
+      const headers: Record<string, string> = {}
+      if (override?.apiKey) headers[AI_KEY_HEADER] = override.apiKey
+      if (override?.model) headers[AI_MODEL_HEADER] = override.model
+      return get<AiServiceStatusVO>('/api/v1/ai/admin/status', undefined, Object.keys(headers).length ? headers : undefined)
+    }
+    const configured = Boolean(override?.apiKey ?? getAiKey())
+    return demoDelay({
+      provider: configured ? 'dashscope' : 'fallback',
+      model: override?.model || getAiModel() || 'qwen-plus',
+      available: configured,
+      mode: configured ? 'BYO_KEY' : 'FRAMEWORK_ONLY',
+      checkedAt: nowIso(),
+      serviceStatus: 'UP',
+      framework: 'Spring AI',
+      frameworkVersion: '1.1.8',
+      modelConfigured: configured,
+      ragEnabled: true,
+      ragMode: configured ? 'HYBRID' : 'DISABLED',
+      vectorStoreConfigured: configured,
+      vectorStoreProvider: 'Qdrant',
+      vectorCollection: 'edu_knowledge',
+      embeddingProvider: configured ? 'dashscope' : 'none',
+      toolCallingEnabled: true,
+      conversationMemoryEnabled: true,
+    })
   },
 
   /** 批改评语草稿（教师）。真实模式请求后端；仅返回草稿，须人工确认后再写入。 */

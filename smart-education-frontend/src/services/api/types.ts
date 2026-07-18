@@ -81,8 +81,14 @@ export interface LogoutVO {
 }
 
 export interface UpdateAvatarRequest {
-  fileId?: number | null
+  // 文件 ID 为雪花号，字符串直传避免精度丢失（后端 Jackson 可将字符串强转 Long）。
+  fileId?: string | number | null
   version: number
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
 }
 
 // —— 3.2 文件 ——
@@ -1068,6 +1074,8 @@ export interface AdminStatisticsVO {
 export interface CourseQaRequest {
   question: string
   lessonId?: string | null
+  /** 会话 ID：同一会话内连续提问以启用后端「对话记忆」多轮上下文。字符串直传，避免精度问题。 */
+  conversationId?: string | null
 }
 
 export interface LessonSummaryRequest {
@@ -1094,10 +1102,20 @@ export interface AiDraftVO {
 }
 
 export interface AiStreamEvent {
-  type: 'meta' | 'delta' | 'citation' | 'done' | 'error'
+  // tool：RAG 检索/工具调用进度；meta 携带能力元信息；delta 增量正文；citation 引用；done/error 终止。
+  type: 'meta' | 'tool' | 'delta' | 'citation' | 'done' | 'error'
   requestId: string
   data: unknown
   timestamp: string
+}
+
+/** tool 事件 data 结构：AI 进入模型前/中的检索与工具调用进度。 */
+export interface AiToolEvent {
+  toolName: string
+  status: string
+  input?: string | null
+  summary?: string | null
+  result?: AiCitationVO[] | null
 }
 
 export interface CourseTemplateVO {
@@ -1139,5 +1157,23 @@ export interface AiServiceStatusVO {
   model?: string | null
   available: boolean
   mode?: string | null
+  detail?: string | null
   checkedAt?: string | null
+  /** 服务健康状态，例如 UP。 */
+  serviceStatus?: string | null
+  /** 底层框架名与版本，例如 Spring AI 1.1.8。 */
+  framework?: string | null
+  frameworkVersion?: string | null
+  /** 是否已配置可用模型（密钥+模型就绪）。 */
+  modelConfigured?: boolean | null
+  /** RAG 检索增强是否开启，及其模式与向量库信息。 */
+  ragEnabled?: boolean | null
+  ragMode?: string | null
+  vectorStoreConfigured?: boolean | null
+  vectorStoreProvider?: string | null
+  vectorCollection?: string | null
+  embeddingProvider?: string | null
+  /** 工具调用与对话记忆能力。 */
+  toolCallingEnabled?: boolean | null
+  conversationMemoryEnabled?: boolean | null
 }

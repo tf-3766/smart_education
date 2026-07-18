@@ -99,6 +99,12 @@ export const useSessionStore = defineStore('session', () => {
     persist()
   }
 
+  // 头像/资料变更后，用后端回传的最新用户覆盖并落盘，保持当前会话与展示同步。
+  function applyCurrentUser(user: CurrentUserVO) {
+    backendUser.value = user
+    persist(true)
+  }
+
   function switchRole(role: Role) {
     backendUser.value = null
     currentRole.value = role
@@ -177,6 +183,7 @@ export const useSessionStore = defineStore('session', () => {
     isDemoMode,
     roleLabels,
     login,
+    applyCurrentUser,
     switchRole,
     logout,
     loginWithCredentials,

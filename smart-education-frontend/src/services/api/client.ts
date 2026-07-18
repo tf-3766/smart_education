@@ -23,8 +23,8 @@ export function buildQuery(params?: Record<string, unknown>): string {
   return query ? `?${query}` : ''
 }
 
-export function get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
-  return request<T>(`${path}${buildQuery(params)}`)
+export function get<T>(path: string, params?: Record<string, unknown>, headers?: Record<string, string>): Promise<T> {
+  return request<T>(`${path}${buildQuery(params)}`, headers ? { headers } : undefined)
 }
 
 export function post<T>(path: string, body?: unknown): Promise<T> {

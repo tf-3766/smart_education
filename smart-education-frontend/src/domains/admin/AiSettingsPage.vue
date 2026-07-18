@@ -11,7 +11,19 @@
           <div class="spread"><span class="muted">模型</span><span>{{ status.model || '—' }}</span></div>
           <div class="spread"><span class="muted">可用</span><StatusBadge :tone="status.available ? 'green' : 'red'" :label="status.available ? '可用' : '不可用'" /></div>
           <div class="spread"><span class="muted">模式</span><span>{{ modeLabel(status.mode) }}</span></div>
+          <div v-if="!status.available && status.detail" class="notice" style="margin-top: 4px"><div><strong>失败原因</strong><p class="form-error" role="alert" style="word-break: break-all">{{ status.detail }}</p></div></div>
           <div class="spread"><span class="muted">检查时间</span><span>{{ status.checkedAt ? formatTime(status.checkedAt) : '—' }}</span></div>
+
+          <template v-if="hasCapabilities">
+            <hr style="border: none; border-top: 1px solid var(--line); margin: 6px 0 2px" />
+            <div class="muted" style="font-weight: 650; color: var(--ink)">框架能力</div>
+            <div v-if="status.framework" class="spread"><span class="muted">框架</span><span>{{ status.framework }}<template v-if="status.frameworkVersion"> {{ status.frameworkVersion }}</template></span></div>
+            <div class="spread"><span class="muted">RAG 检索增强</span><StatusBadge :tone="status.ragEnabled ? 'green' : 'gray'" :label="capLabel(status.ragEnabled, ragModeLabel(status.ragMode))" /></div>
+            <div class="spread"><span class="muted">向量库</span><span>{{ vectorStoreLabel }}</span></div>
+            <div v-if="status.embeddingProvider" class="spread"><span class="muted">嵌入模型</span><span>{{ providerLabel(status.embeddingProvider) }}</span></div>
+            <div class="spread"><span class="muted">工具调用</span><StatusBadge :tone="status.toolCallingEnabled ? 'green' : 'gray'" :label="capLabel(status.toolCallingEnabled)" /></div>
+            <div class="spread"><span class="muted">对话记忆（多轮）</span><StatusBadge :tone="status.conversationMemoryEnabled ? 'green' : 'gray'" :label="capLabel(status.conversationMemoryEnabled)" /></div>
+          </template>
         </div>
       </section>
 
@@ -34,7 +46,7 @@
         <p v-if="hasStoredKey" class="muted" style="margin: 6px 0 0; font-size: 12.5px">当前已保存密钥：{{ masked }}<template v-if="storedModel"> · 模型：{{ storedModel }}</template></p>
         <div class="form-actions">
           <AppButton variant="secondary" :disabled="!hasStoredKey" @click="clear">清除</AppButton>
-          <AppButton variant="secondary" :loading="state.loading.value" @click="loadStatus">测试连接</AppButton>
+          <AppButton variant="secondary" :loading="state.loading.value" :disabled="!keyInput" @click="testConnection">测试连接</AppButton>
           <AppButton variant="primary" :disabled="!dirty" @click="save">保存</AppButton>
         </div>
       </section>
@@ -73,6 +85,14 @@ async function loadStatus() {
   const data = await state.run(() => aiApi.adminStatus())
   if (data) status.value = data
 }
+// 测试连接：用当前「输入框」里的密钥与模型即时探测（无需先保存），并回显可用/失败原因。
+async function testConnection() {
+  const data = await state.run(() => aiApi.adminStatus({ apiKey: keyInput.value, model: modelInput.value }))
+  if (data) {
+    status.value = data
+    flash(data.available ? '连接成功，密钥可用' : '连接失败，请查看失败原因')
+  }
+}
 function save() {
   setAiKey(keyInput.value)
   setAiModel(modelInput.value)
@@ -92,6 +112,17 @@ function clear() {
 }
 const formatTime = formatDateTime
 const providerLabel = (provider: string) => (({ dashscope: '阿里百炼（DashScope）', openai: 'OpenAI', fallback: '未接入（占位回退）', none: '未配置' } as Record<string, string>)[provider] ?? provider)
-const modeLabel = (mode?: string | null) => !mode ? '—' : (({ FRAMEWORK_ONLY: '仅框架（未接模型）', LLM: '大模型', RAG: '检索增强' } as Record<string, string>)[mode] ?? mode)
+const modeLabel = (mode?: string | null) => !mode ? '—' : (({ FRAMEWORK_ONLY: '仅框架（未接模型）', LLM: '大模型', RAG: '检索增强', BYO_KEY: '自带密钥', MODEL: '大模型', UNAVAILABLE: '不可用' } as Record<string, string>)[mode] ?? mode)
+
+// 框架能力：仅当后端返回了扩展能力字段时才展示该区块。
+const hasCapabilities = computed(() => Boolean(status.value && (status.value.framework || status.value.ragEnabled != null || status.value.toolCallingEnabled != null || status.value.conversationMemoryEnabled != null)))
+const capLabel = (on?: boolean | null, extra?: string) => (on ? (extra ? `已开启 · ${extra}` : '已开启') : '未开启')
+const ragModeLabel = (mode?: string | null) => !mode ? '' : (({ HYBRID: '混合检索', VECTOR: '向量检索', KEYWORD: '关键词', DISABLED: '' } as Record<string, string>)[mode] ?? mode)
+const vectorStoreLabel = computed(() => {
+  const s = status.value
+  if (!s || !s.vectorStoreConfigured) return '未配置'
+  const provider = s.vectorStoreProvider || '向量库'
+  return s.vectorCollection ? `${provider} · ${s.vectorCollection}` : provider
+})
 onMounted(loadStatus)
 </script>
