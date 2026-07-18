@@ -1,4 +1,7 @@
 import { assignmentsApi, examsApi, forumApi, studentLearningApi } from '@/services/api'
+// 首页并发聚合里的 best-effort 请求：越权/下线课程的子资源会 403，
+// 用 tolerant 统一吞掉异常并抑制全局 forbidden 跳转（见 httpClient.tolerant）。
+import { tolerant as settled } from '@/services/httpClient'
 import type {
   StudentAssignmentListItemVO,
   StudentCourseListItemVO,
@@ -37,17 +40,9 @@ export interface StudentOverview {
   topics: ForumTopicListItemVO[]
 }
 
-const settled = async <T>(promise: Promise<T>, fallback: T): Promise<T> => {
-  try {
-    return await promise
-  } catch {
-    return fallback
-  }
-}
-
 // 学生仅在课程处于 PUBLISHED/ONGOING 时可访问其学习内容（与后端 StudentLearningService 一致）。
-// 已下线/已结束等课程的 progress、作业、考试、论坛子资源会返回 403，而 httpClient 对任意 403 都会
-// 广播 forbidden 事件跳转「无权访问」——settled 只吞掉了 promise，拦不住该事件。故这些课程必须「根本不发起请求」。
+// 已下线/已结束等课程的 progress、作业、考试、论坛子资源会返回 403。虽然 settled(=tolerant) 现已能抑制
+// 403 的全局跳转，这里仍按状态过滤，直接不发起注定 403 的请求（减少无谓往返，双保险）。
 const LEARNABLE_COURSE_STATUS = new Set(['PUBLISHED', 'ONGOING'])
 const isLearnable = (statusCode: string) => LEARNABLE_COURSE_STATUS.has(statusCode)
 

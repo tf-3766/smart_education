@@ -1,4 +1,6 @@
 import { assignmentsApi, forumApi, teacherCoursesApi, warningsApi } from '@/services/api'
+// best-effort 聚合：个别课程/资源越权返回 403 时，tolerant 吞掉异常并抑制全局 forbidden 跳转。
+import { tolerant as settled } from '@/services/httpClient'
 import type { AssignmentDetailVO, ForumTopicListItemVO, LearningWarningVO, TeacherCourseListItemVO } from '@/services/api/types'
 
 export interface TeacherCourseItem extends Omit<TeacherCourseListItemVO, 'status'> {
@@ -13,10 +15,6 @@ export interface TeacherOverview {
   assignments: AssignmentDetailVO[]
   warnings: LearningWarningVO[]
   topics: ForumTopicListItemVO[]
-}
-
-const settled = async <T>(promise: Promise<T>, fallback: T): Promise<T> => {
-  try { return await promise } catch { return fallback }
 }
 
 export async function loadTeacherOverview(): Promise<TeacherOverview> {

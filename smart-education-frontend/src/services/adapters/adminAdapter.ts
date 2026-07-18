@@ -1,4 +1,5 @@
 import { adminStatisticsApi, adminUsersApi, aiApi, courseReviewsApi } from '@/services/api'
+import { tolerant } from '@/services/httpClient'
 import type { AdminStatisticsVO, AdminUserVO, AiServiceStatusVO, CourseReviewListItemVO } from '@/services/api/types'
 
 export interface AdminOverview {
@@ -17,7 +18,7 @@ export async function loadAdminOverview(options: { includeUsers?: boolean } = {}
     adminStatisticsApi.get(),
     includeUsers ? adminUsersApi.list({ page: 1, size: 100 }).then((page) => page.records) : Promise.resolve([]),
     courseReviewsApi.list({ page: 1, size: 100 }),
-    aiApi.adminStatus().catch(() => null),
+    tolerant(aiApi.adminStatus(), null),
   ])
   return { statistics, users, reviews: reviews.records, ai }
 }
