@@ -22,4 +22,13 @@ describe('workspace sidebar (flat per-role nav)', () => {
     expect(s).toMatch(/function isActive/)
     expect(s).toContain('matchPrefixes')
   })
+
+  it('keeps the topbar honest about implemented account actions', () => {
+    const s = source()
+    expect(s).toContain('退出登录')
+    expect(s).toContain('logoutRemote')
+    expect(s).not.toContain('切换账号')
+    expect(s).not.toContain('个人中心')
+    expect(s).not.toContain('user-avatar')
+  })
 })

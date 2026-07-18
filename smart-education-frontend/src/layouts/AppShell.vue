@@ -14,10 +14,10 @@
           <Bell :size="20" />
           <b v-if="notifications.unreadCount">{{ notifications.unreadCount }}</b>
         </button>
-        <span class="user-chip">
-          <span class="user-avatar">{{ session.currentUser.name.slice(0, 1) }}</span>
+        <span class="account-chip" :title="`${session.currentUser.name} · ${roleLabels[session.currentRole]}`">
+          <span class="account-name">{{ session.currentUser.name }}</span>
         </span>
-        <button class="text-link" @click="onLogout">切换账号</button>
+        <button class="text-link logout-link" type="button" @click="onLogout">退出登录</button>
       </div>
     </header>
 

@@ -117,8 +117,8 @@ button, a, select { cursor: pointer; }
 /* 预览身份切换（弱化为文字+下拉，非按钮） */
 .preview-switch { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .preview-switch .role-select { min-height: 32px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink-2); font-weight: 600; }
-.user-chip { display: inline-flex; align-items: center; gap: 8px; }
-.user-avatar { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; color: #fff; background: #18aab5; font-size: 13px; font-weight: 700; }
+.account-chip { min-width: 0; max-width: 132px; display: inline-flex; align-items: center; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .app-body { min-height: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
 
@@ -405,7 +405,7 @@ button, a, select { cursor: pointer; }
   .topbar { gap: 12px; padding: 0 14px; }
   .mobile-sidebar-toggle { display: grid; }
   .topbar-actions { min-width: 0; gap: 8px; }
-  .preview-switch > span:first-child, .user-chip, .topbar-actions > .text-link { display: none; }
+  .preview-switch > span:first-child, .account-chip, .topbar-actions > .text-link { display: none; }
   .workspace-sidebar { position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: min(84vw, 310px); height: 100vh; transform: translateX(-100%); box-shadow: var(--shadow-pop); transition: transform .2s ease; }
   .workspace-sidebar.open { transform: translateX(0); }
   .workspace-sidebar-backdrop { position: fixed; z-index: 40; inset: 0; display: block; pointer-events: none; opacity: 0; border: 0; background: rgba(15,23,42,.32); transition: opacity .2s ease; }
