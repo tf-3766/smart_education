@@ -17,6 +17,10 @@
         <span class="account-chip" :title="`${session.currentUser.name} · ${roleLabels[session.currentRole]}`">
           <span class="account-name">{{ session.currentUser.name }}</span>
         </span>
+        <RouterLink class="account-center-link" to="/account/profile" aria-label="个人中心" title="个人中心">
+          <UserRound :size="18" />
+          <span>个人中心</span>
+        </RouterLink>
         <button class="text-link logout-link" type="button" @click="onLogout">退出登录</button>
       </div>
     </header>
@@ -53,7 +57,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { Bell, Menu } from 'lucide-vue-next'
+import { Bell, Menu, UserRound } from 'lucide-vue-next'
 import NotificationDrawer from '@/components/NotificationDrawer.vue'
 import { getRoleSidebar } from '@/layouts/roleSidebar'
 import type { RoleSidebarItem } from '@/layouts/roleSidebar'

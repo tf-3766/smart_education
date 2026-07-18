@@ -9,4 +9,12 @@ describe('application routing shell', () => {
     expect(source).toContain('<RouterView')
     expect(source).not.toContain('<AppShell')
   })
+
+  it('exposes a signed-in account profile route inside the shared shell', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/router/index.ts'), 'utf8')
+
+    expect(source).toContain("path: '/account'")
+    expect(source).toContain("path: 'profile'")
+    expect(source).toContain("@/domains/account/ProfilePage.vue")
+  })
 })

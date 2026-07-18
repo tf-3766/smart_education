@@ -17,6 +17,15 @@ const routes: RouteRecordRaw[] = [
   { path: '/403', component: () => import('@/domains/system/ForbiddenPage.vue'), meta: { title: '无权访问' } },
 
   {
+    path: '/account',
+    component: AppShell,
+    children: [
+      { path: '', redirect: '/account/profile' },
+      { path: 'profile', component: () => import('@/domains/account/ProfilePage.vue'), meta: { title: '个人中心' } },
+    ],
+  },
+
+  {
     path: '/student',
     component: AppShell,
     meta: { role: 'student' },

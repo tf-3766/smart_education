@@ -25,10 +25,11 @@ describe('workspace sidebar (flat per-role nav)', () => {
 
   it('keeps the topbar honest about implemented account actions', () => {
     const s = source()
+    expect(s).toContain('to="/account/profile"')
+    expect(s).toContain('个人中心')
     expect(s).toContain('退出登录')
     expect(s).toContain('logoutRemote')
     expect(s).not.toContain('切换账号')
-    expect(s).not.toContain('个人中心')
     expect(s).not.toContain('user-avatar')
   })
 })
