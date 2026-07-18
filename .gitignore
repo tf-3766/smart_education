@@ -1,0 +1,13 @@
+.DS_Store
+.pnpm-store/
+.tutor/
+jinshanHomework/
+openedx-platform/
+lms/
+smart_education/
+
+smart-education-frontend/node_modules/
+smart-education-frontend/dist/
+smart-education-frontend/.env.local
+smart-education-frontend/.DS_Store
+smart-education-frontend/.superpowers/
