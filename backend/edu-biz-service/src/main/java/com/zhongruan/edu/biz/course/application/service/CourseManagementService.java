@@ -12,13 +12,17 @@ import com.zhongruan.edu.biz.course.api.dto.query.CourseListQuery;
 import com.zhongruan.edu.biz.course.api.dto.request.AddCourseTeacherRequest;
 import com.zhongruan.edu.biz.course.api.dto.request.CreateCourseRequest;
 import com.zhongruan.edu.biz.course.api.dto.request.UpdateCourseRequest;
+import com.zhongruan.edu.biz.course.api.vo.CollabInvitationVO;
 import com.zhongruan.edu.biz.course.api.vo.CourseDetailVO;
+import com.zhongruan.edu.biz.course.api.vo.CourseTemplateVO;
 import com.zhongruan.edu.biz.course.api.vo.CourseTeacherVO;
 import com.zhongruan.edu.biz.course.api.vo.TeacherCourseListItemVO;
+import com.zhongruan.edu.biz.course.api.vo.TeacherOptionVO;
 import com.zhongruan.edu.biz.course.application.assembler.CourseAssembler;
 import com.zhongruan.edu.biz.course.domain.enums.CourseReviewStatus;
 import com.zhongruan.edu.biz.course.domain.enums.CourseStatus;
 import com.zhongruan.edu.biz.course.domain.enums.CourseTeacherRole;
+import com.zhongruan.edu.biz.course.domain.enums.CourseTeacherStatus;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseReviewEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseTeacherEntity;
@@ -32,6 +36,7 @@ import com.zhongruan.edu.common.exception.BusinessException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import org.springframework.dao.DuplicateKeyException;
@@ -95,6 +100,7 @@ public class CourseManagementService {
             owner.setCourseId(course.getId());
             owner.setTeacherId(teacherId);
             owner.setRole(CourseTeacherRole.OWNER.name());
+            owner.setStatus(CourseTeacherStatus.ACTIVE.name());
             courseTeacherMapper.insert(owner);
         } catch (DuplicateKeyException exception) {
             throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "课程编号已存在");
@@ -105,7 +111,8 @@ public class CourseManagementService {
     @Transactional(readOnly = true)
     public PageResponse<TeacherCourseListItemVO> listForTeacher(Long teacherId, CourseListQuery query) {
         List<Long> courseIds = courseTeacherMapper.selectList(Wrappers.<CourseTeacherEntity>lambdaQuery()
-                        .eq(CourseTeacherEntity::getTeacherId, teacherId))
+                        .eq(CourseTeacherEntity::getTeacherId, teacherId)
+                        .eq(CourseTeacherEntity::getStatus, CourseTeacherStatus.ACTIVE.name()))
                 .stream()
                 .map(CourseTeacherEntity::getCourseId)
                 .toList();
@@ -239,9 +246,72 @@ public class CourseManagementService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<CourseTemplateVO> listTemplates() {
+        LinkedHashMap<String, CourseTemplateVO> templates = new LinkedHashMap<>();
+        courseMapper.selectList(Wrappers.<CourseEntity>lambdaQuery()
+                        .orderByAsc(CourseEntity::getName)
+                        .orderByAsc(CourseEntity::getId))
+                .forEach(course -> templates.putIfAbsent(
+                        course.getCourseCode(),
+                        new CourseTemplateVO(
+                                String.valueOf(course.getId()),
+                                course.getCourseCode(),
+                                course.getName(),
+                                course.getSummary())));
+        return templates.values().stream().limit(100).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeacherOptionVO> listTeacherDirectory() {
+        return userMapper.findEnabledTeachers().stream()
+                .map(teacher -> new TeacherOptionVO(String.valueOf(teacher.getId()), teacher.getDisplayName()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CollabInvitationVO> listInvitations(Long teacherId) {
+        return courseTeacherMapper.selectList(Wrappers.<CourseTeacherEntity>lambdaQuery()
+                        .eq(CourseTeacherEntity::getTeacherId, teacherId)
+                        .eq(CourseTeacherEntity::getRole, CourseTeacherRole.COLLABORATOR.name())
+                        .eq(CourseTeacherEntity::getStatus, CourseTeacherStatus.PENDING.name())
+                        .orderByDesc(CourseTeacherEntity::getCreatedAt))
+                .stream()
+                .map(relation -> {
+                    CourseEntity course = requireCourse(relation.getCourseId());
+                    return new CollabInvitationVO(
+                            String.valueOf(course.getId()),
+                            course.getName(),
+                            String.valueOf(course.getOwnerTeacherId()),
+                            userName(course.getOwnerTeacherId()),
+                            assembler.time(relation.getCreatedAt()));
+                })
+                .toList();
+    }
+
+    @Transactional
+    public void acceptInvitation(Long teacherId, Long courseId) {
+        CourseTeacherEntity relation = pendingInvitation(teacherId, courseId);
+        relation.setStatus(CourseTeacherStatus.ACTIVE.name());
+        if (courseTeacherMapper.updateById(relation) != 1) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "邀请已被其他请求处理，请刷新后重试");
+        }
+    }
+
+    @Transactional
+    public void rejectInvitation(Long teacherId, Long courseId) {
+        CourseTeacherEntity relation = pendingInvitation(teacherId, courseId);
+        if (courseTeacherMapper.deleteById(relation.getId()) != 1) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "邀请已被其他请求处理，请刷新后重试");
+        }
+    }
+
     @Transactional
     public CourseTeacherVO addTeacher(Long ownerId, Long courseId, AddCourseTeacherRequest request) {
         requireOwner(ownerId, courseId);
+        if (ownerId.equals(request.teacherId())) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "无需邀请课程负责人本人");
+        }
         UserEntity teacher = userMapper.selectById(request.teacherId());
         Set<String> roles = teacher == null ? Set.of() : roleMapper.findRoleCodesByUserId(request.teacherId());
         if (teacher == null
@@ -249,24 +319,33 @@ public class CourseManagementService {
                 || !roles.contains(RoleCode.TEACHER.name())) {
             throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND, "教师账号不存在或不可用");
         }
-        CourseTeacherEntity existing = courseTeacherMapper.selectOne(Wrappers.<CourseTeacherEntity>lambdaQuery()
-                .eq(CourseTeacherEntity::getCourseId, courseId)
-                .eq(CourseTeacherEntity::getTeacherId, request.teacherId()));
-        if (existing != null) {
-            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "该教师已加入课程");
+        CourseTeacherEntity existing = courseTeacherMapper.findIncludingDeleted(courseId, request.teacherId());
+        if (existing != null && Integer.valueOf(0).equals(existing.getDeleted())) {
+            String message = CourseTeacherStatus.PENDING.name().equals(existing.getStatus())
+                    ? "已向该教师发出邀请，等待对方确认"
+                    : "该教师已加入课程";
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, message);
         }
-        CourseTeacherEntity relation = new CourseTeacherEntity();
-        relation.setCourseId(courseId);
-        relation.setTeacherId(request.teacherId());
-        relation.setRole(CourseTeacherRole.COLLABORATOR.name());
-        try {
-            courseTeacherMapper.insert(relation);
-        } catch (DuplicateKeyException exception) {
-            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "该教师已加入课程");
+        CourseTeacherEntity relation;
+        if (existing != null) {
+            if (courseTeacherMapper.restoreInvitation(existing.getId(), ownerId) != 1) {
+                throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "邀请恢复失败，请刷新后重试");
+            }
+            relation = courseTeacherMapper.selectById(existing.getId());
+        } else {
+            relation = new CourseTeacherEntity();
+            relation.setCourseId(courseId);
+            relation.setTeacherId(request.teacherId());
+            relation.setRole(CourseTeacherRole.COLLABORATOR.name());
+            relation.setStatus(CourseTeacherStatus.PENDING.name());
+            try {
+                courseTeacherMapper.insert(relation);
+            } catch (DuplicateKeyException exception) {
+                throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "该教师已收到邀请或已加入课程");
+            }
         }
         return assembler.toTeacher(relation, teacher.getDisplayName());
     }
-
     @Transactional
     public void removeTeacher(Long ownerId, Long courseId, Long teacherId) {
         requireOwner(ownerId, courseId);
@@ -283,6 +362,17 @@ public class CourseManagementService {
         courseTeacherMapper.deleteById(relation.getId());
     }
 
+    private CourseTeacherEntity pendingInvitation(Long teacherId, Long courseId) {
+        CourseTeacherEntity relation = courseTeacherMapper.selectOne(Wrappers.<CourseTeacherEntity>lambdaQuery()
+                .eq(CourseTeacherEntity::getCourseId, courseId)
+                .eq(CourseTeacherEntity::getTeacherId, teacherId)
+                .eq(CourseTeacherEntity::getRole, CourseTeacherRole.COLLABORATOR.name())
+                .eq(CourseTeacherEntity::getStatus, CourseTeacherStatus.PENDING.name()));
+        if (relation == null) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND, "协作邀请不存在或已处理");
+        }
+        return relation;
+    }
     public CourseEntity requireCourse(Long courseId) {
         CourseEntity course = courseMapper.selectById(courseId);
         if (course == null) {

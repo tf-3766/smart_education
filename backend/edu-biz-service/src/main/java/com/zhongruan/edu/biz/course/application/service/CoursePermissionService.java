@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.zhongruan.edu.biz.course.domain.enums.ChapterStatus;
 import com.zhongruan.edu.biz.course.domain.enums.CourseReviewStatus;
 import com.zhongruan.edu.biz.course.domain.enums.CourseStatus;
+import com.zhongruan.edu.biz.course.domain.enums.CourseTeacherStatus;
 import com.zhongruan.edu.biz.course.domain.enums.EnrollmentStatus;
 import com.zhongruan.edu.biz.course.domain.enums.LessonStatus;
 import com.zhongruan.edu.biz.course.domain.enums.LessonUnlockType;
@@ -60,7 +61,8 @@ public class CoursePermissionService {
     public boolean canEditCourseContent(Long userId, Long courseId) {
         return courseTeacherMapper.selectCount(Wrappers.<CourseTeacherEntity>lambdaQuery()
                         .eq(CourseTeacherEntity::getCourseId, courseId)
-                        .eq(CourseTeacherEntity::getTeacherId, userId))
+                        .eq(CourseTeacherEntity::getTeacherId, userId)
+                        .eq(CourseTeacherEntity::getStatus, CourseTeacherStatus.ACTIVE.name()))
                 > 0;
     }
 

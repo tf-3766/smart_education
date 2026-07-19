@@ -11,6 +11,7 @@ import com.zhongruan.edu.biz.course.api.vo.TeacherCourseListItemVO;
 import com.zhongruan.edu.biz.course.domain.enums.CourseReviewStatus;
 import com.zhongruan.edu.biz.course.domain.enums.CourseStatus;
 import com.zhongruan.edu.biz.course.domain.enums.CourseTeacherRole;
+import com.zhongruan.edu.biz.course.domain.enums.CourseTeacherStatus;
 import com.zhongruan.edu.biz.course.domain.enums.EnrollmentStatus;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEnrollmentEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEntity;
@@ -86,6 +87,7 @@ public class CourseAssembler {
                 id(relation.getTeacherId()),
                 teacherName,
                 CodeLabelVO.of(CourseTeacherRole.valueOf(relation.getRole())),
+                CodeLabelVO.of(CourseTeacherStatus.valueOf(relation.getStatus())),
                 relation.getVersion());
     }
 

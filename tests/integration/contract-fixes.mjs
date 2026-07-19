@@ -1,6 +1,8 @@
 // 契约修复回归（demo 模式）：验证 demo 层与真实后端形状一致。
 // RED→GREEN：先看失败，再改 services/api 使其通过。
-const FRONTEND = '/workspace/lms/smart-education-frontend'
+import { fileURLToPath } from 'node:url'
+
+const FRONTEND = fileURLToPath(new URL('../../frontend', import.meta.url))
 process.env.VITE_API_MODE = 'demo' // 覆盖 .env.local，强制 demo 模式
 
 const storage = new Map()

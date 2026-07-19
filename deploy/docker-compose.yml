@@ -75,7 +75,7 @@ services:
       NACOS_AUTH_ENABLE: "false"
 
       # Nacos 3.x 必填
-      NACOS_AUTH_TOKEN: "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo="
+      NACOS_AUTH_TOKEN: "c21hcnQtZWR1Y2F0aW9uLW5hY29zLWF1dGgtdG9rZW4tMjAyNi1sb2NhbC1kZXY="
 
       NACOS_AUTH_IDENTITY_KEY: "nacos"
 
@@ -107,6 +107,18 @@ services:
     networks:
       - smart-education-net
 
+  tesseract:
+    build:
+      context: ./tesseract
+    container_name: smart-education-tesseract
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      TESSDATA_PREFIX: /usr/share/tesseract-ocr/5/tessdata
+    volumes:
+      - ../backend/data/uploads:/data
+    networks:
+      - smart-education-net
 networks:
   smart-education-net:
     driver: bridge

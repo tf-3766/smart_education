@@ -2,6 +2,8 @@ package com.zhongruan.edu.biz.grade.api.vo;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
 
 public record TeacherSubmissionGradeVO(
         String submissionId,
@@ -12,6 +14,8 @@ public record TeacherSubmissionGradeVO(
         CodeLabelVO submissionStatus,
         OffsetDateTime submittedAt,
         String content,
+        Map<String, List<String>> answers,
+        String fileId,
         String fileKey,
         String fileUrl,
         BigDecimal score,

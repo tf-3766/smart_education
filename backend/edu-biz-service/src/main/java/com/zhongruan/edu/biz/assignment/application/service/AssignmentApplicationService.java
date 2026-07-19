@@ -1,11 +1,14 @@
 package com.zhongruan.edu.biz.assignment.application.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhongruan.edu.biz.assignment.api.dto.query.AssignmentListQuery;
 import com.zhongruan.edu.biz.assignment.api.dto.request.AssignmentAttachmentRequest;
 import com.zhongruan.edu.biz.assignment.api.dto.request.AssignmentCreateRequest;
+import com.zhongruan.edu.biz.assignment.api.dto.request.AssignmentQuestionRequest;
 import com.zhongruan.edu.biz.assignment.api.dto.request.AssignmentUpdateRequest;
 import com.zhongruan.edu.biz.assignment.api.dto.request.SubmissionSaveRequest;
 import com.zhongruan.edu.biz.assignment.api.dto.request.SubmissionSubmitRequest;
@@ -34,12 +37,15 @@ import com.zhongruan.edu.biz.storage.infrastructure.persistence.entity.StoredFil
 import com.zhongruan.edu.common.api.PageResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -57,6 +63,7 @@ public class AssignmentApplicationService {
     private final AssignmentAssembler assembler;
     private final FileStorageService fileStorageService;
     private final NotificationApplicationService notificationService;
+    private final ObjectMapper objectMapper;
     private final Clock clock = Clock.systemUTC();
 
     public AssignmentApplicationService(
@@ -68,7 +75,8 @@ public class AssignmentApplicationService {
             CoursePermissionService coursePermissionService,
             AssignmentAssembler assembler,
             FileStorageService fileStorageService,
-            NotificationApplicationService notificationService) {
+            NotificationApplicationService notificationService,
+            ObjectMapper objectMapper) {
         this.assignmentMapper = assignmentMapper;
         this.attachmentMapper = attachmentMapper;
         this.submissionMapper = submissionMapper;
@@ -78,6 +86,7 @@ public class AssignmentApplicationService {
         this.assembler = assembler;
         this.fileStorageService = fileStorageService;
         this.notificationService = notificationService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -85,12 +94,15 @@ public class AssignmentApplicationService {
         courseManagementService.requireEditor(teacherId, courseId);
         validateTimes(request.openAt(), request.dueAt());
         validateLesson(courseId, request.lessonId());
+        validateAssignmentDefinition(request.responseMode(), request.questions(), request.maxScore());
 
         AssignmentEntity assignment = new AssignmentEntity();
         assignment.setCourseId(courseId);
         assignment.setLessonId(request.lessonId());
         assignment.setTitle(request.title().trim());
         assignment.setDescription(trim(request.description()));
+        assignment.setResponseMode(responseMode(request.responseMode()));
+        assignment.setQuestionsJson(json(request.questions()));
         assignment.setMaxScore(request.maxScore());
         assignment.setStatus(AssignmentStatus.DRAFT.name());
         assignment.setOpenAt(utc(request.openAt()));
@@ -124,10 +136,13 @@ public class AssignmentApplicationService {
         }
         validateTimes(request.openAt(), request.dueAt());
         validateLesson(assignment.getCourseId(), request.lessonId());
+        validateAssignmentDefinition(request.responseMode(), request.questions(), request.maxScore());
         ensurePublishedUpdateSafe(assignment, request);
         assignment.setLessonId(request.lessonId());
         assignment.setTitle(request.title().trim());
         assignment.setDescription(trim(request.description()));
+        assignment.setResponseMode(responseMode(request.responseMode()));
+        assignment.setQuestionsJson(json(request.questions()));
         assignment.setMaxScore(request.maxScore());
         assignment.setOpenAt(utc(request.openAt()));
         assignment.setDueAt(utc(request.dueAt()));
@@ -190,7 +205,8 @@ public class AssignmentApplicationService {
         requireStudentAssignmentAccess(studentId, assignment);
         AssignmentSubmissionEntity submission = findSubmission(assignmentId, studentId);
         return new StudentAssignmentDetailVO(
-                detail(assignment), submission == null ? null : assembler.toSubmissionDetail(submission));
+                assembler.toStudentDetail(assignment, attachments(assignment.getId()), availability(assignment)),
+                submission == null ? null : assembler.toSubmissionDetail(submission));
     }
 
     @Transactional
@@ -214,6 +230,7 @@ public class AssignmentApplicationService {
         }
         FileReference file = submissionFile(studentId, request.fileId(), request.fileKey(), request.fileUrl());
         submission.setContent(trim(request.content()));
+        submission.setAnswersJson(json(request.answers()));
         submission.setFileId(file.fileId());
         submission.setFileKey(file.fileKey());
         submission.setFileUrl(file.fileUrl());
@@ -230,9 +247,9 @@ public class AssignmentApplicationService {
         AssignmentEntity assignment = requireAssignment(assignmentId);
         requireStudentAssignmentAccess(studentId, assignment);
         ensureAcceptingWork(assignment, true);
-        if (isBlank(request.content()) && request.fileId() == null
-                && isBlank(request.fileKey()) && isBlank(request.fileUrl())) {
-            throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "正式提交至少需要文本或附件");
+        if (isBlank(request.content()) && (request.answers() == null || request.answers().isEmpty())
+                && request.fileId() == null && isBlank(request.fileKey()) && isBlank(request.fileUrl())) {
+            throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "正式提交至少需要在线回答、题目答案或附件");
         }
         AssignmentSubmissionEntity existing = findSubmission(assignmentId, studentId);
         if (existing != null && SubmissionStatus.valueOf(existing.getStatus()).isFinalSubmission()) {
@@ -249,6 +266,7 @@ public class AssignmentApplicationService {
         }
         FileReference file = submissionFile(studentId, request.fileId(), request.fileKey(), request.fileUrl());
         submission.setContent(trim(request.content()));
+        submission.setAnswersJson(json(request.answers()));
         submission.setFileId(file.fileId());
         submission.setFileKey(file.fileKey());
         submission.setFileUrl(file.fileUrl());
@@ -320,6 +338,61 @@ public class AssignmentApplicationService {
         }
     }
 
+    private void validateAssignmentDefinition(
+            String requestedMode, List<AssignmentQuestionRequest> questions, BigDecimal maxScore) {
+        String mode = responseMode(requestedMode);
+        List<AssignmentQuestionRequest> items = questions == null ? List.of() : questions;
+        if ("QUIZ".equals(mode) && items.isEmpty()) {
+            throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "题目作答模式至少需要一道题");
+        }
+        Set<String> ids = new HashSet<>();
+        BigDecimal questionScore = BigDecimal.ZERO;
+        for (AssignmentQuestionRequest question : items) {
+            if (!ids.add(question.questionId())) {
+                throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "作业题目编号不能重复");
+            }
+            List<String> options = question.options() == null ? List.of() : question.options();
+            List<String> answers = question.correctAnswers() == null ? List.of() : question.correctAnswers();
+            switch (question.questionType()) {
+                case "SINGLE_CHOICE", "TRUE_FALSE" -> {
+                    if (options.size() < 2 || answers.size() != 1) {
+                        throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "单选题和判断题需要至少两个选项且只能有一个正确答案");
+                    }
+                }
+                case "MULTI_CHOICE" -> {
+                    if (options.size() < 2 || answers.isEmpty()) {
+                        throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "多选题需要至少两个选项和一个正确答案");
+                    }
+                }
+                case "FILL_BLANK" -> {
+                    if (answers.isEmpty()) {
+                        throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "填空题至少需要一个参考答案");
+                    }
+                }
+                case "SHORT_ANSWER" -> {
+                    // 简答题允许不配置标准答案，由教师人工评分。
+                }
+                default -> throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "不支持的作业题型");
+            }
+            questionScore = questionScore.add(question.score());
+        }
+        if (questionScore.compareTo(maxScore) > 0) {
+            throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "题目分值合计不能超过作业满分");
+        }
+    }
+
+    private String responseMode(String value) {
+        return value == null || value.isBlank() ? "MIXED" : value;
+    }
+
+    private String json(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value == null ? List.of() : value);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "作业题目或答案格式不正确");
+        }
+    }
+
     private void validateTimes(OffsetDateTime openAt, OffsetDateTime dueAt) {
         if (openAt != null && dueAt != null && !dueAt.isAfter(openAt)) {
             throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "作业截止时间必须晚于开放时间");
@@ -331,6 +404,8 @@ public class AssignmentApplicationService {
             return;
         }
         boolean gradingBasisChanged = !Objects.equals(assignment.getLessonId(), request.lessonId())
+                || !Objects.equals(assignment.getResponseMode(), responseMode(request.responseMode()))
+                || !Objects.equals(assignment.getQuestionsJson(), json(request.questions()))
                 || assignment.getMaxScore().compareTo(request.maxScore()) != 0
                 || !Objects.equals(assignment.getOpenAt(), utc(request.openAt()))
                 || !Objects.equals(assignment.getDueAt(), utc(request.dueAt()));

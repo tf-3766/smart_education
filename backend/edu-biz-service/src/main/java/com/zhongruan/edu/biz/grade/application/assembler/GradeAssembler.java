@@ -1,5 +1,8 @@
 package com.zhongruan.edu.biz.grade.application.assembler;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhongruan.edu.biz.assignment.domain.enums.SubmissionStatus;
 import com.zhongruan.edu.biz.assignment.infrastructure.persistence.entity.AssignmentEntity;
 import com.zhongruan.edu.biz.assignment.infrastructure.persistence.entity.AssignmentSubmissionEntity;
@@ -14,10 +17,18 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
 public class GradeAssembler {
+    private static final TypeReference<Map<String, List<String>>> ANSWER_MAP = new TypeReference<>() {};
+    private final ObjectMapper objectMapper;
+
+    public GradeAssembler(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
     public TeacherSubmissionGradeVO toTeacherSubmission(
             AssignmentSubmissionEntity submission,
             AssignmentEntity assignment,
@@ -33,6 +44,8 @@ public class GradeAssembler {
                 CodeLabelVO.of(SubmissionStatus.valueOf(submission.getStatus())),
                 time(submission.getSubmittedAt()),
                 submission.getContent(),
+                answers(submission.getAnswersJson()),
+                id(submission.getFileId()),
                 submission.getFileKey(),
                 submission.getFileUrl(),
                 submission.getScore(),
@@ -83,6 +96,17 @@ public class GradeAssembler {
                 publishedGradeCount,
                 averageScore,
                 lowScoreCount);
+    }
+
+    private Map<String, List<String>> answers(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(json, ANSWER_MAP);
+        } catch (JsonProcessingException ignored) {
+            return Map.of();
+        }
     }
 
     private OffsetDateTime time(LocalDateTime value) {

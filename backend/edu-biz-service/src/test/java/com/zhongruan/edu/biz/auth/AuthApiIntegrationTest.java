@@ -26,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -39,6 +40,33 @@ class AuthApiIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Test
+    @Transactional
+    void pendingTeacherReceivesApprovalMessageInsteadOfCredentialError() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username":"pending.teacher.test",
+                                  "password":"Teacher123",
+                                  "displayName":"待审核教师",
+                                  "role":"TEACHER"
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.userStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data.approvalRequired").value(true));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"pending.teacher.test","password":"Teacher123"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_PENDING_APPROVAL"))
+                .andExpect(jsonPath("$.message").value("教师账号正在等待管理员审核，审核通过后即可登录"));
+    }
 
     @Test
     void loginSucceedsWithStudentAccountAndReturnsUnifiedEnvelope() throws Exception {
@@ -172,6 +200,78 @@ class AuthApiIntegrationTest {
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
+    @Test
+    void changePasswordRejectsIncorrectCurrentPasswordWithBusinessError() throws Exception {
+        String accessToken = loginAndGetToken("teacher", "t123456");
+
+        mockMvc.perform(post("/api/v1/auth/me/password")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"definitely-wrong","newPassword":"Teacher2026"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CURRENT_PASSWORD_INCORRECT"))
+                .andExpect(jsonPath("$.message").value("当前密码不正确"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
+    @Test
+    void changePasswordRejectsWeakAndUnchangedPasswords() throws Exception {
+        String accessToken = loginAndGetToken("teacher", "t123456");
+
+        mockMvc.perform(post("/api/v1/auth/me/password")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"t123456","newPassword":"weak"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PARAM_VALIDATION_ERROR"));
+
+        String adminAccessToken = loginAndGetToken("admin", "admin123");
+        mockMvc.perform(post("/api/v1/auth/me/password")
+                        .header("Authorization", "Bearer " + adminAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"admin123","newPassword":"admin123"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PASSWORD_UNCHANGED"))
+                .andExpect(jsonPath("$.message").value("新密码不能与当前密码相同"));
+    }
+
+    @Test
+    @Transactional
+    void changePasswordPersistsNewHashAndKeepsCurrentTokenValid() throws Exception {
+        String accessToken = loginAndGetToken("teacher", "t123456");
+
+        mockMvc.perform(post("/api/v1/auth/me/password")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"t123456","newPassword":"Teacher2026"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new Credentials("teacher", "t123456"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new Credentials("teacher", "Teacher2026"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
+    }
     @Test
     void logoutAcknowledgesClientSideTokenDiscard() throws Exception {
         String accessToken = loginAndGetToken("student", "123456");

@@ -3,13 +3,19 @@ package com.zhongruan.edu.biz.storage.api.controller;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestContextFactory;
 import com.zhongruan.edu.biz.storage.api.vo.StoredFileVO;
+import com.zhongruan.edu.biz.storage.api.vo.FileTextPreviewVO;
 import com.zhongruan.edu.biz.storage.application.service.FileStorageService;
 import com.zhongruan.edu.biz.storage.application.service.FileStorageService.StoredFileContent;
+import com.zhongruan.edu.biz.storage.application.service.FilePreviewService;
+import com.zhongruan.edu.biz.storage.application.service.MaterialTextExtractionService;
+import com.zhongruan.edu.biz.storage.application.service.MaterialTextExtractionService.ExtractedText;
+import com.zhongruan.edu.biz.storage.application.service.FilePreviewService.PreviewImage;
 import com.zhongruan.edu.biz.storage.domain.FilePurpose;
 import com.zhongruan.edu.common.api.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -29,10 +35,14 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/files")
 public class FileController {
     private final FileStorageService service;
+    private final FilePreviewService previewService;
+    private final MaterialTextExtractionService extractionService;
     private final RequestContextFactory contextFactory;
 
-    public FileController(FileStorageService service, RequestContextFactory contextFactory) {
+    public FileController(FileStorageService service, FilePreviewService previewService, MaterialTextExtractionService extractionService, RequestContextFactory contextFactory) {
         this.service = service;
+        this.previewService = previewService;
+        this.extractionService = extractionService;
         this.contextFactory = contextFactory;
     }
 
@@ -72,6 +82,31 @@ public class FileController {
                 .header("X-Content-Type-Options", "nosniff")
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(content.resource());
+    }
+
+    @GetMapping("/{fileId}/preview")
+    public ResponseEntity<Resource> preview(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long fileId,
+            @RequestParam(defaultValue = "0") int page) {
+        PreviewImage preview = previewService.renderPptx(user, fileId, page);
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .contentLength(preview.content().length)
+                .header("X-Preview-Page", String.valueOf(preview.page()))
+                .header("X-Preview-Page-Count", String.valueOf(preview.pageCount()))
+                .header("Cache-Control", "private, max-age=300")
+                .header("X-Content-Type-Options", "nosniff")
+                .body(new ByteArrayResource(preview.content()));
+    }
+    @GetMapping("/{fileId}/text-preview")
+    public ApiResponse<FileTextPreviewVO> textPreview(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long fileId,
+            HttpServletRequest request) {
+        ExtractedText extracted = extractionService.extract(user, fileId);
+        return ApiResponse.success(new FileTextPreviewVO(
+                extracted.text(), extracted.status(), extracted.message(), extracted.truncated()), trace(request));
     }
 
     @DeleteMapping("/{fileId}")

@@ -2,11 +2,17 @@ package com.zhongruan.edu.ai.application;
 
 import com.zhongruan.edu.ai.api.vo.AiCitationVO;
 import com.zhongruan.edu.ai.api.vo.AiDraftVO;
+import com.zhongruan.edu.ai.api.vo.AiKnowledgeBaseStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiServiceStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
 import com.zhongruan.edu.ai.context.AuthorizedAiContextService;
 import com.zhongruan.edu.ai.generation.AiTextGenerator;
+import com.zhongruan.edu.ai.knowledge.CourseKnowledgeBaseService;
+import com.zhongruan.edu.ai.tools.CourseContextTools;
+import com.zhongruan.edu.ai.tools.PlatformUtilityTools;
+import com.zhongruan.edu.ai.tools.RoleScopedPlatformTools;
 import com.zhongruan.edu.common.exception.BusinessException;
+import com.zhongruan.edu.feign.ai.AiAssistantContextResponse;
 import com.zhongruan.edu.feign.ai.AiContextPurpose;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
@@ -33,11 +39,19 @@ import reactor.core.scheduler.Schedulers;
 public class AiApplicationService {
     private final AuthorizedAiContextService contextService;
     private final AiTextGenerator generator;
+    private final CourseKnowledgeBaseService knowledgeBase;
+    private final PlatformUtilityTools platformUtilityTools;
     private final Clock clock = Clock.systemUTC();
 
-    public AiApplicationService(AuthorizedAiContextService contextService, AiTextGenerator generator) {
+    public AiApplicationService(
+            AuthorizedAiContextService contextService,
+            AiTextGenerator generator,
+            CourseKnowledgeBaseService knowledgeBase,
+            PlatformUtilityTools platformUtilityTools) {
         this.contextService = contextService;
         this.generator = generator;
+        this.knowledgeBase = knowledgeBase;
+        this.platformUtilityTools = platformUtilityTools;
     }
 
     public Flux<AiStreamEvent> courseQa(
@@ -47,27 +61,50 @@ public class AiApplicationService {
             Long courseId,
             Long lessonId,
             String question,
+            String requestedConversationId,
             String traceId) {
         String requestId = UUID.randomUUID().toString();
+        String conversationId = conversationId(userId, courseId, requestedConversationId, requestId);
         return Mono.fromCallable(() -> {
                     AiCourseContextResponse context = contextService.courseContext(
-                            authorization,
-                            userId,
-                            role,
-                            courseId,
-                            lessonId,
-                            AiContextPurpose.COURSE_QA,
-                            traceId);
-                    return new PreparedRequest(
-                            systemPrompt(context, "回答课程问题，只能使用提供的课程上下文；上下文不足时明确说明。"),
-                            "问题：" + question.trim(),
-                            citations(context, lessonId));
+                            authorization, userId, role, courseId, lessonId, AiContextPurpose.COURSE_QA, traceId);
+                    CourseKnowledgeBaseService.Retrieval retrieval = knowledgeBase.retrieve(courseId, lessonId, question.trim());
+                    String prompt = systemPrompt(
+                            context,
+                            "回答课程问题；优先依据 RAG 检索片段，必要时可调用课程目录工具。上下文不足时明确说明。",
+                            !retrieval.matched());
+                    if (retrieval.matched()) {
+                        prompt += "\nRAG 检索到的课程知识片段：\n" + retrieval.context();
+                    }
+                    List<AiCitationVO> citations = retrieval.matched()
+                            ? retrieval.citations()
+                            : citations(context, lessonId);
+                    return new PreparedRequest(prompt, "问题：" + question.trim(), citations, context, retrieval);
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMapMany(prepared -> Flux.concat(
                         Flux.just(event("meta", requestId, new Meta(
-                                courseId, generator.provider(), generator.model(), generator.configured()))),
-                        generator.stream(prepared.systemPrompt(), prepared.userPrompt())
+                                courseId,
+                                generator.provider(),
+                                generator.model(),
+                                generator.configured(),
+                                prepared.retrieval().vectorStoreAvailable(),
+                                conversationId,
+                                generator.configured()))),
+                        Flux.just(event("tool", requestId, new ToolData(
+                                "courseKnowledgeSearch",
+                                prepared.retrieval().vectorStoreAvailable() ? "COMPLETED" : "SKIPPED",
+                                question.trim(),
+                                prepared.retrieval().matched()
+                                        ? "已从课程知识库检索到相关片段"
+                                        : "知识库未命中，已回退到授权课时正文",
+                                prepared.citations()))),
+                        generator.stream(
+                                        prepared.systemPrompt(),
+                                        prepared.userPrompt(),
+                                        conversationId,
+                                        platformUtilityTools,
+                                        new CourseContextTools(prepared.context()))
                                 .filter(chunk -> chunk != null && !chunk.isEmpty())
                                 .map(chunk -> event("delta", requestId, chunk)),
                         Flux.fromIterable(prepared.citations())
@@ -76,6 +113,84 @@ public class AiApplicationService {
                 .onErrorResume(error -> Flux.just(event("error", requestId, errorData(error))));
     }
 
+    public Flux<AiStreamEvent> assistantChat(
+            String authorization,
+            Long userId,
+            String role,
+            Long courseId,
+            Long lessonId,
+            String pagePath,
+            String pageTitle,
+            String question,
+            String requestedConversationId,
+            String traceId) {
+        if (courseId != null && ("STUDENT".equals(role) || "TEACHER".equals(role))) {
+            return courseQa(authorization, userId, role, courseId, lessonId, question, requestedConversationId, traceId);
+        }
+        String requestId = UUID.randomUUID().toString();
+        String clientConversation = requestedConversationId == null || requestedConversationId.isBlank()
+                ? requestId : requestedConversationId.trim();
+        String conversationId = "user-%s:role-%s:assistant:%s".formatted(userId, role, clientConversation);
+        String roleScope = switch (role) {
+            case "STUDENT" -> "帮助学生理解本人课程、学习任务、作业考试、学习进度和本人预警；不得访问其他学生数据。";
+            case "TEACHER" -> "帮助教师完成其负责课程的建设、资料发布、作业批改、考试组卷、讨论管理和学情干预；正式发布必须由教师确认。";
+            case "ADMIN", "SUPER_ADMIN" -> "帮助管理员理解用户审核、选课时间、平台治理、统计监控和 AI 服务状态；不得代替管理员执行高风险操作。";
+            default -> "仅回答平台公开使用说明。";
+        };
+        return Mono.fromCallable(() -> contextService.assistantContext(authorization, userId, role, traceId))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMapMany(context -> {
+                    String systemPrompt = """
+                            你是“知行教学云”的全局教学智能助手。%s
+                            当前角色：%s
+                            当前页面：%s（%s）
+                            下方事实由业务服务按照当前 JWT 身份和角色从真实数据库实时读取，必须优先据此回答；
+                            需要选课时间、本人课程、本人预警、作业、考试或平台指标时，可调用对应只读工具核对。
+                            不得虚构未提供的数据，不得把其他用户信息归到当前用户；资料型课程问题应进入具体课程后使用课程 RAG。
+                            回答简洁、可操作，说明数据为空或尚未设置的情况，不展示内部推理，不声称已执行未实际发生的写操作。
+
+                            当前授权数据库快照：
+                            %s
+                            """.formatted(roleScope, role, text(pageTitle), text(pagePath), assistantFacts(context));
+                    return Flux.concat(
+                            Flux.just(event("meta", requestId, new Meta(
+                                    null, generator.provider(), generator.model(), generator.configured(), false,
+                                    conversationId, generator.configured()))),
+                            Flux.just(event("tool", requestId, new ToolData(
+                                    "authorizedPlatformContext", "COMPLETED", role,
+                                    "已从业务数据库读取当前账号的授权事实", List.of()))),
+                            generator.stream(
+                                            systemPrompt,
+                                            question.trim(),
+                                            conversationId,
+                                            platformUtilityTools,
+                                            new RoleScopedPlatformTools(context))
+                                    .filter(chunk -> chunk != null && !chunk.isEmpty())
+                                    .map(chunk -> event("delta", requestId, chunk)),
+                            Flux.just(event("done", requestId, new Done("COMPLETED"))));
+                })
+                .onErrorResume(error -> Flux.just(event("error", requestId, errorData(error))));
+    }
+
+    public Mono<AiKnowledgeBaseStatusVO> knowledgeBaseStatus(
+            String authorization, Long userId, String role, Long courseId, String traceId) {
+        return Mono.fromCallable(() -> {
+                    contextService.courseContext(
+                            authorization, userId, role, courseId, null, AiContextPurpose.COURSE_QA, traceId);
+                    return knowledgeBase.status(courseId);
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    public Mono<AiKnowledgeBaseStatusVO> syncKnowledgeBase(
+            String authorization, Long userId, String role, Long courseId, String traceId) {
+        return Mono.fromCallable(() -> {
+                    AiCourseContextResponse context = contextService.courseContext(
+                            authorization, userId, role, courseId, null, AiContextPurpose.COURSE_QA, traceId);
+                    return knowledgeBase.sync(context);
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
     public Mono<AiDraftVO> lessonSummary(
             String authorization,
             Long userId,
@@ -92,9 +207,40 @@ public class AiApplicationService {
                             lessonId,
                             AiContextPurpose.LESSON_SUMMARY_DRAFT,
                             traceId);
+                    AiLessonRef selectedLesson = context.lessons().stream()
+                            .filter(lesson -> lessonId.equals(lesson.lessonId()))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException("已授权上下文中缺少目标课时"));
+                    String selectedMaterials = context.materials().stream()
+                            .filter(material -> lessonId.equals(material.lessonId()))
+                            .filter(material -> "PUBLISHED".equals(material.status()))
+                            .map(material -> {
+                                String body = material.extractedText() == null || material.extractedText().isBlank()
+                                        ? "正文状态：" + text(material.extractionStatus()) + "；" + text(material.extractionMessage())
+                                        : "已抽取正文：\n" + truncate(material.extractedText(), 8000);
+                                return "资料：%s（%s，资料 ID %s）\n%s".formatted(
+                                        material.name(), material.materialType(), material.materialId(), body);
+                            })
+                            .reduce((left, right) -> left + "\n\n" + right)
+                            .orElse("当前课时暂无已发布资料");
+                    String summarySystemPrompt = """
+                            你是在线教育系统的课时摘要助手。下列课时和资料已经由业务服务完成权限校验，
+                            必须视为真实、可见且已授权，禁止再次质疑课时 ID、资料可见性或声称无权限。
+                            优先根据给定的课时说明和已抽取资料正文生成结构清晰的中文摘要草稿，不修改正式内容，
+                            不虚构文件中未提供的细节；当附件正文尚未抽取时，应概括资料主题与学习建议，
+                            不能把“未抽取正文”误写成“资料不存在”或“课时不可见”。输出使用简洁纯文本，不使用 Markdown 星号、井号、横线分隔符或表情符号。
+                            课程：%s（%s）
+                            目标课时：%s（课时 ID %s）
+                            课时说明：%s
+                            预计学习时长：%s 分钟
+                            已发布资料：
+                            %s
+                            """.formatted(
+                            context.courseName(), context.courseCode(), selectedLesson.title(), selectedLesson.lessonId(),
+                            text(selectedLesson.content()), selectedLesson.estimatedMinutes(), selectedMaterials);
                     String content = generator.generate(
-                            systemPrompt(context, "生成结构清晰的课时摘要草稿，不得修改正式课程内容。"),
-                            "请为课时 " + lessonId + " 生成摘要草稿。上下文不足时明确说明。 ");
+                            summarySystemPrompt,
+                            "请用四个清晰的小标题输出：学习目标、核心内容、资料使用建议、学习检查点。");
                     return new AiDraftVO(
                             UUID.randomUUID().toString(),
                             "LESSON_SUMMARY",
@@ -243,11 +389,51 @@ public class AiApplicationService {
                 generator.provider(),
                 generator.model(),
                 generator.configured(),
-                false,
+                knowledgeBase.configured(),
                 now());
     }
 
+    private String conversationId(
+            Long userId, Long courseId, String requestedConversationId, String requestId) {
+        String clientValue = requestedConversationId == null || requestedConversationId.isBlank()
+                ? requestId
+                : requestedConversationId.trim();
+        return "user-%s:course-%s:%s".formatted(userId, courseId, clientValue);
+    }
+    private String assistantFacts(AiAssistantContextResponse context) {
+        return """
+                快照时间：%s
+                学期选课时间：
+                %s
+                当前账号可见课程：
+                %s
+                当前授权学习预警：
+                %s
+                当前授权作业：
+                %s
+                当前授权考试：
+                %s
+                平台汇总指标：
+                %s
+                """.formatted(
+                context.generatedAt(), section(context.enrollmentWindows()), section(context.courses()),
+                section(context.warnings()), section(context.assignments()), section(context.exams()),
+                section(context.platformMetrics()));
+    }
+
+    private String section(List<String> values) {
+        return values == null || values.isEmpty()
+                ? "- 无"
+                : values.stream().limit(100).map(value -> "- " + truncate(value, 600))
+                        .reduce((left, right) -> left + "\n" + right).orElse("- 无");
+    }
+
     private String systemPrompt(AiCourseContextResponse context, String instruction) {
+        return systemPrompt(context, instruction, true);
+    }
+
+    private String systemPrompt(
+            AiCourseContextResponse context, String instruction, boolean includeAuthorizedLessonContent) {
         String lessonNames = context.lessons().stream()
                 .map(AiLessonRef::title)
                 .limit(20)
@@ -258,12 +444,14 @@ public class AiApplicationService {
                 .limit(20)
                 .reduce((left, right) -> left + "、" + right)
                 .orElse("无可用资料");
-        String lessonContent = context.lessons().stream()
-                .filter(lesson -> lesson.content() != null && !lesson.content().isBlank())
-                .limit(10)
-                .map(lesson -> "【课时 %s】\n%s".formatted(lesson.title(), truncate(lesson.content(), 4000)))
-                .reduce((left, right) -> left + "\n\n" + right)
-                .orElse("无可用课时正文");
+        String lessonContent = includeAuthorizedLessonContent
+                ? context.lessons().stream()
+                        .filter(lesson -> lesson.content() != null && !lesson.content().isBlank())
+                        .limit(10)
+                        .map(lesson -> "【课时 %s】\n%s".formatted(lesson.title(), truncate(lesson.content(), 4000)))
+                        .reduce((left, right) -> left + "\n\n" + right)
+                        .orElse("无可用课时正文")
+                : "已使用向量检索片段，未注入整门课程正文。";
         return """
                 你是在线教育辅助教学系统中的课程助手。
                 课程：%s（%s）
@@ -351,9 +539,25 @@ public class AiApplicationService {
     private record PreparedRequest(
             String systemPrompt,
             String userPrompt,
-            List<AiCitationVO> citations) {}
+            List<AiCitationVO> citations,
+            AiCourseContextResponse context,
+            CourseKnowledgeBaseService.Retrieval retrieval) {}
 
-    private record Meta(Long courseId, String provider, String model, boolean modelConfigured) {}
+    private record Meta(
+            Long courseId,
+            String provider,
+            String model,
+            boolean modelConfigured,
+            boolean vectorStoreConfigured,
+            String conversationId,
+            boolean toolCallingConfigured) {}
+
+    private record ToolData(
+            String toolName,
+            String status,
+            String input,
+            String summary,
+            List<AiCitationVO> result) {}
 
     private record Done(String status) {}
 

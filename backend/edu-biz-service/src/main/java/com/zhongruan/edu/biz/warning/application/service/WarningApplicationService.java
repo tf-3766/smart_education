@@ -19,6 +19,7 @@ import com.zhongruan.edu.biz.course.domain.enums.EnrollmentStatus;
 import com.zhongruan.edu.biz.course.domain.enums.LearningStatus;
 import com.zhongruan.edu.biz.course.domain.enums.LessonStatus;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseChapterEntity;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEnrollmentEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseLessonEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.LessonLearningRecordEntity;
@@ -367,11 +368,11 @@ public class WarningApplicationService {
         WarningEvidenceEntity evidence = evidence(candidate, warning.getId());
         evidenceMapper.insert(evidence);
         notificationService.publishWarning(warning);
-        return assembler.toVO(warning, List.of(evidence), studentName(candidate.studentId()));
+        return toWarningVO(warning, List.of(evidence), studentName(candidate.studentId()));
     }
 
     private LearningWarningVO preview(WarningCandidate candidate) {
-        return assembler.toVO(warning(candidate), List.of(evidence(candidate, null)), studentName(candidate.studentId()));
+        return toWarningVO(warning(candidate), List.of(evidence(candidate, null)), studentName(candidate.studentId()));
     }
 
     private LearningWarningEntity warning(WarningCandidate candidate) {
@@ -411,9 +412,16 @@ public class WarningApplicationService {
         List<WarningEvidenceEntity> evidences = evidenceMapper.selectList(Wrappers.<WarningEvidenceEntity>lambdaQuery()
                 .eq(WarningEvidenceEntity::getWarningId, warning.getId())
                 .orderByAsc(WarningEvidenceEntity::getId));
-        return assembler.toVO(warning, evidences, studentName(warning.getStudentId()));
+        return toWarningVO(warning, evidences, studentName(warning.getStudentId()));
     }
 
+    private LearningWarningVO toWarningVO(
+            LearningWarningEntity warning, List<WarningEvidenceEntity> evidences, String studentName) {
+        CourseEntity course = courseManagementService.requireCourse(warning.getCourseId());
+        UserEntity teacher = userMapper.selectById(course.getOwnerTeacherId());
+        String teacherName = teacher == null ? null : teacher.getDisplayName();
+        return assembler.toVO(warning, evidences, studentName, course.getName(), teacherName);
+    }
     private void applyFilters(
             LambdaQueryWrapper<LearningWarningEntity> wrapper,
             WarningListQuery query,

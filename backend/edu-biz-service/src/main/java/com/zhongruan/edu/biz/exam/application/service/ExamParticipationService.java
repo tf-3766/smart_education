@@ -141,7 +141,7 @@ public class ExamParticipationService {
             QuestionType type = QuestionType.valueOf(question.getQuestionType());
             ExamAnswerSubmitRequest value = submitted.get(item.getQuestionId());
             BigDecimal answerScore = null;
-            if (type == QuestionType.SHORT_ANSWER) {
+            if (manualQuestion(type)) {
                 fullyAutoGraded = false;
             } else {
                 answerScore = value != null && isCorrect(item.getQuestionId(), type, value.answerContent())
@@ -212,7 +212,7 @@ public class ExamParticipationService {
             }
             ExamPaperQuestionEntity item = paperItems.get(grade.questionId());
             QuestionEntity question = item == null ? null : requireQuestion(item.getQuestionId());
-            if (item == null || !QuestionType.SHORT_ANSWER.name().equals(question.getQuestionType())) {
+            if (item == null || !manualQuestion(QuestionType.valueOf(question.getQuestionType()))) {
                 throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "只能人工评分当前试卷中的简答题");
             }
             if (grade.score().compareTo(item.getScore()) > 0) {
@@ -237,7 +237,7 @@ public class ExamParticipationService {
             ExamAnswerEntity answer = answerMapper.selectOne(Wrappers.<ExamAnswerEntity>lambdaQuery()
                     .eq(ExamAnswerEntity::getAttemptId, attemptId)
                     .eq(ExamAnswerEntity::getQuestionId, item.getQuestionId()));
-            if (QuestionType.SHORT_ANSWER.name().equals(question.getQuestionType())
+            if (manualQuestion(QuestionType.valueOf(question.getQuestionType()))
                     && answer != null && answer.getScore() == null) {
                 throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "仍有简答题尚未评分");
             }
@@ -344,6 +344,10 @@ public class ExamParticipationService {
             }
         }
         return values;
+    }
+
+    private boolean manualQuestion(QuestionType type) {
+        return type == QuestionType.SHORT_ANSWER || type == QuestionType.FILL_BLANK;
     }
 
     private boolean isCorrect(Long questionId, QuestionType type, String answerContent) {

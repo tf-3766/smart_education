@@ -6,4 +6,5 @@ public record CourseTeacherVO(
         String teacherId,
         String teacherName,
         CodeLabelVO role,
+        CodeLabelVO status,
         Integer version) {}

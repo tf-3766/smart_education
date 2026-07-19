@@ -118,4 +118,18 @@ class GatewayApplicationTest {
                     .getFirst(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
         }
     }
+
+    @Test
+    void gatewayExposesPreviewPaginationHeadersToBrowserClients() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("http://gateway.local/api/v1/files/1/preview?page=0")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                        .build());
+
+        corsWebFilter.filter(exchange, ignored -> Mono.empty()).block(Duration.ofSeconds(2));
+
+        List<String> exposed = exchange.getResponse().getHeaders().getAccessControlExposeHeaders();
+        assertTrue(exposed.contains("X-Preview-Page"));
+        assertTrue(exposed.contains("X-Preview-Page-Count"));
+    }
 }

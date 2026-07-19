@@ -8,16 +8,17 @@ jinshanHomework/
 openedx-platform/
 lms/
 smart_education/
+.superpowers/
 
 # Frontend
 node_modules/
 dist/
 *.tsbuildinfo
-smart-education-frontend/node_modules/
-smart-education-frontend/dist/
-smart-education-frontend/.env.local
-smart-education-frontend/.DS_Store
-smart-education-frontend/.superpowers/
+tests/integration/results.json
+
+# Python
+__pycache__/
+*.py[cod]
 
 # Java / Maven
 target/
@@ -50,6 +51,7 @@ backend/**/application-dev.properties
 *.log
 logs/
 data/
+backups/
 
 # Microsoft Office lock files
 ~$*.docx

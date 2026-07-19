@@ -20,8 +20,12 @@
 
 | File | Owner | Scope | Status |
 |---|---|---|---|
-| `online_education_bootstrap.sql` | A+B | auth, course, learning, assignment, grade, forum, warning, exam, question, category, announcement, and AI acceptance audit tables with demo data | Active |
+| `online_education_bootstrap.sql` | A+B | auth, course, collaboration invitation state, term enrollment windows, learning, assignment, grade, forum, warning, exam, question, category, announcement, and AI acceptance audit tables with demo data | Active |
+| `manual-upgrades/2026-07-18_front_back_alignment.sql` | A+B | Idempotent local upgrade for pre-2026-07-18 course-teacher and term-window schemas; not auto-executed | Local upgrade only |
 
+## Existing Local Databases
+
+Compose only executes the Bootstrap SQL for an empty MySQL volume. A local database created before 2026-07-18 must either be recreated from the Bootstrap SQL or upgraded once with `manual-upgrades/2026-07-18_front_back_alignment.sql`. The manual script is idempotent, but it is not a production migration framework; back up any non-demo data before running it.
 ## Review Checklist
 
 - [ ] The Bootstrap SQL matches the Entity and Mapper changes.

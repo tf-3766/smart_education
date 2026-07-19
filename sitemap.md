@@ -1,7 +1,7 @@
 # 在线教育辅助教学系统 Sitemap 与路由规划
 
-> 基于需求说明书、[`ui-spec.md`](./ui-spec.md) 与 [`docs/api-contract-platform.md`](./docs/api-contract-platform.md) 的页面、权限和接口边界继续细化。  
-> 当前阶段只定义页面、导航、路由、权限与跳转关系，不包含 Vue 页面、组件或业务代码。
+> 基于需求说明书、[`ui-spec.md`](./ui-spec.md) 与 [`docs/api-reference.md`](./docs/api-reference.md) 的页面、权限和接口边界继续细化。
+> 文档范围：页面、导航、路由、权限与跳转关系。
 
 ## 1. 规划结论
 

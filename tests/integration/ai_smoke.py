@@ -3,17 +3,13 @@
 """
 AI 冒烟脚本：一键跑通全部 6 个 AI 接口并打印每步结果，用于调试与验收。
 
-用法（在 Mac 上，后端已启动时）：
-    # 不带密钥：只验证链路（鉴权/路由/RAG-工具事件/草稿结构），AI 正文为 fallback 占位
+用法（后端已启动时）：
     python3 tests/integration/ai_smoke.py
 
-    # 带真实百炼 DashScope 密钥：端到端验收真实生成
-    AI_KEY=sk-你的密钥 AI_MODEL=qwen-plus python3 tests/integration/ai_smoke.py
+AI 模型由后端环境变量统一配置（DASHSCOPE_API_KEY / DASHSCOPE_MODEL），脚本不会读取、保存或发送密钥。
 
 可选环境变量：
-    GATEWAY   网关地址，默认 http://localhost:18080（我的沙箱里用 http://host.docker.internal:18080）
-    AI_KEY    阿里百炼 DashScope 密钥；留空则走后端 fallback
-    AI_MODEL  对话模型，默认 qwen-plus
+    GATEWAY   网关地址，默认 http://localhost:18080
     STUDENT / TEACHER / ADMIN  形如 user:pass，默认 student:123456 / teacher:t123456 / admin:admin123
 
 退出码：全部 PASS/SKIP 为 0；出现 FAIL 为 1。
@@ -25,8 +21,6 @@ import urllib.request
 import urllib.error
 
 GATEWAY = os.environ.get("GATEWAY", "http://localhost:18080").rstrip("/")
-AI_KEY = os.environ.get("AI_KEY", "").strip()
-AI_MODEL = os.environ.get("AI_MODEL", "qwen-plus").strip()
 CREDS = {
     "student": os.environ.get("STUDENT", "student:123456"),
     "teacher": os.environ.get("TEACHER", "teacher:t123456"),
@@ -47,15 +41,12 @@ def report(kind, title, detail=""):
     print(f"{tag} {title}" + (f"  {dim('· ' + detail)}" if detail else ""))
 
 
-def http(method, path, token=None, body=None, ai_headers=False, stream=False, timeout=90):
+def http(method, path, token=None, body=None, stream=False, timeout=90):
     """返回 (status_code, 解析后的对象 或 SSE 事件列表 或 原始文本)。异常返回 (0, str)。"""
     url = GATEWAY + path
     headers = {"Content-Type": "application/json", "X-Trace-Id": f"smoke-{os.getpid()}"}
     if token:
         headers["Authorization"] = "Bearer " + token
-    if ai_headers and AI_KEY:
-        headers["X-AI-Api-Key"] = AI_KEY
-        headers["X-AI-Model"] = AI_MODEL
     if stream:
         headers["Accept"] = "text/event-stream"
     data = json.dumps(body).encode() if body is not None else None
@@ -121,8 +112,8 @@ def login(role):
 
 
 def parse_sse(events):
-    """归纳 SSE 事件：返回 (事件类型集合, provider, tool摘要, delta文本, 引用数, 错误)。"""
-    kinds, provider, tool_summary, delta, citations, err = set(), None, None, "", 0, None
+    """归纳 SSE 事件：返回 (事件类型集合, provider, delta文本, 引用数, 错误)。"""
+    kinds, provider, delta, citations, err = set(), None, "", 0, None
     for ev in events:
         k = ev.get("event"); kinds.add(k)
         try:
@@ -132,20 +123,19 @@ def parse_sse(events):
         payload = d.get("data", d) if isinstance(d, dict) else {}
         if k == "meta" and isinstance(payload, dict):
             provider = payload.get("provider")
-        elif k == "tool" and isinstance(payload, dict):
-            tool_summary = payload.get("summary") or payload.get("toolName")
+
         elif k == "delta":
             delta += str(payload)
         elif k == "citation":
             citations += 1
         elif k in ("error", "_read_error"):
             err = payload.get("message") if isinstance(payload, dict) else str(payload) or d.get("message")
-    return kinds, provider, tool_summary, delta, citations, err
+    return kinds, provider, delta, citations, err
 
 
 def main():
-    print(dim(f"网关 {GATEWAY} · 模型 {AI_MODEL} · 密钥 {'已提供' if AI_KEY else red('未提供(将走 fallback 占位)')}"))
-    print(dim("提示：未提供密钥时，AI 正文为「模型尚未配置」占位属正常，脚本此时验证的是链路是否打通。\n"))
+    print(dim(f"网关 {GATEWAY} · AI 配置由后端环境变量统一提供"))
+    print(dim("提示：modelConfigured=false 时，AI 正文为「模型尚未配置」占位属正常。\n"))
 
     # 0. 登录
     toks = {r: login(r) for r in ("student", "teacher", "admin")}
@@ -161,13 +151,11 @@ def main():
     stok, ttok, atok = toks["student"], toks["teacher"], toks["admin"]
 
     # 1. AI 服务状态（管理员）
-    code, obj = http("GET", "/api/v1/ai/admin/status", token=atok, ai_headers=True)
+    code, obj = http("GET", "/api/v1/ai/admin/status", token=atok)
     st = data_of(obj) if code == 200 else None
     if st:
-        caps = f"available={st.get('available')} rag={st.get('ragEnabled')} 向量库={st.get('vectorStoreConfigured')} 工具={st.get('toolCallingEnabled')} 记忆={st.get('conversationMemoryEnabled')}"
-        report("PASS", "① AI 状态/测试连接", f"provider={st.get('provider')} model={st.get('model')} {caps}")
-        if AI_KEY and not st.get("available"):
-            report("FAIL", "  └ 测试连接：密钥不可用", f"detail={st.get('detail')}")
+        caps = f"modelConfigured={st.get('modelConfigured')} vectorStoreConfigured={st.get('vectorStoreConfigured')}"
+        report("PASS", "① AI 服务状态", f"service={st.get('serviceStatus')} provider={st.get('provider')} model={st.get('model')} {caps}")
     else:
         report("FAIL", "① AI 状态/测试连接", f"HTTP {code} {obj}")
 
@@ -186,13 +174,13 @@ def main():
         cid = course.get("courseId")
         code, events = http("POST", f"/api/v1/ai/courses/{cid}/qa/stream", token=stok,
                             body={"question": "这门课主要讲什么？", "conversationId": "smoke-conv-1"},
-                            ai_headers=True, stream=True, timeout=90)
-        kinds, provider, tool_summary, delta, cites, err = parse_sse(events)
+                            stream=True, timeout=90)
+        kinds, provider, delta, cites, err = parse_sse(events)
         if err:
             report("FAIL", "② 课程答疑(SSE)", f"error: {err}")
         elif "done" in kinds or delta:
-            seq = "→".join([k for k in ("meta", "tool", "delta", "citation", "done") if k in kinds])
-            report("PASS", "② 课程答疑(SSE)", f"事件 {seq} · provider={provider} · 检索:{tool_summary} · 引用×{cites} · 正文{len(delta)}字")
+            seq = "→".join([k for k in ("meta", "delta", "citation", "done") if k in kinds])
+            report("PASS", "② 课程答疑(SSE)", f"事件 {seq} · provider={provider} · 引用×{cites} · 正文{len(delta)}字")
         else:
             report("FAIL", "② 课程答疑(SSE)", f"未收到 done/delta，事件={sorted(kinds)} HTTP={code}")
 
@@ -212,7 +200,7 @@ def main():
         report("SKIP", "③ 课时摘要草稿", "教师课程下没有可用课时")
     else:
         code, obj = http("POST", f"/api/v1/ai/lessons/{lid}/summary-draft", token=ttok,
-                         body={"courseId": tcid}, ai_headers=True)
+                         body={"courseId": tcid})
         d = data_of(obj) if code == 200 else None
         if d:
             report("PASS", "③ 课时摘要草稿", f"provider={d.get('provider')} status={d.get('status')} 正文{len(d.get('content') or '')}字")
@@ -231,7 +219,7 @@ def main():
         report("SKIP", "④ 批改评语草稿", "没有可批改的学生提交")
     else:
         code, obj = http("POST", f"/api/v1/ai/submissions/{subid}/comment-draft", token=ttok,
-                         body={"instruction": "语气鼓励一些"}, ai_headers=True)
+                         body={"instruction": "语气鼓励一些"})
         d = data_of(obj) if code == 200 else None
         if d:
             report("PASS", "④ 批改评语草稿", f"provider={d.get('provider')} 正文{len(d.get('content') or '')}字")
@@ -247,7 +235,7 @@ def main():
         report("SKIP", "⑤ 预警解读草稿", "该课程暂无预警（可先在教师端生成预警再跑）")
     else:
         code, obj = http("POST", f"/api/v1/ai/warnings/{wid}/explanation", token=ttok,
-                         body={"instruction": None}, ai_headers=True)
+                         body={"instruction": None})
         d = data_of(obj) if code == 200 else None
         if d:
             report("PASS", "⑤ 预警解读草稿", f"provider={d.get('provider')} 正文{len(d.get('content') or '')}字")
@@ -259,8 +247,7 @@ def main():
         report("SKIP", "⑥ 组卷建议草稿", "教师没有课程")
     else:
         code, obj = http("POST", "/api/v1/ai/exams/paper-suggestions", token=ttok,
-                         body={"courseId": tcid, "questionCount": 5, "totalScore": 100, "requirements": "覆盖第一章"},
-                         ai_headers=True)
+                         body={"courseId": tcid, "questionCount": 5, "totalScore": 100, "requirements": "覆盖第一章"})
         d = data_of(obj) if code == 200 else None
         if d:
             report("PASS", "⑥ 组卷建议草稿", f"provider={d.get('provider')} 正文{len(d.get('content') or '')}字")
@@ -279,8 +266,7 @@ def summary():
     print()
     line = f"汇总：{green(str(RESULTS['PASS'])+' PASS')} · {red(str(RESULTS['FAIL'])+' FAIL')} · {yellow(str(RESULTS['SKIP'])+' SKIP')}"
     print(line)
-    if not AI_KEY:
-        print(dim("说明：未填 AI_KEY，provider=fallback 与占位正文属正常；要验收真实生成请带 AI_KEY 重跑。"))
+    print(dim("说明：provider=fallback 与占位正文表示后端未配置模型；请在后端环境变量中设置 DASHSCOPE_API_KEY 后重启服务。"))
     if RESULTS["FAIL"]:
         print(dim("排错：拿响应里的 traceId 去 backend/logs/edu-ai-service-local.log 与 edu-biz-service-local.log 里 grep。"))
     return 1 if RESULTS["FAIL"] else 0

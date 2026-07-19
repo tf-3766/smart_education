@@ -176,6 +176,27 @@ INSERT INTO edu_course_category
 VALUES
     (1, '计算机与软件', 10, 1, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
 
+CREATE TABLE edu_term_enrollment_window (
+    id BIGINT NOT NULL,
+    term VARCHAR(32) NOT NULL,
+    enrollment_open_at DATETIME(3) NULL,
+    enrollment_close_at DATETIME(3) NULL,
+    created_at DATETIME(3) NOT NULL,
+    created_by BIGINT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    updated_by BIGINT NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_term_enrollment_window UNIQUE (term)
+);
+
+CREATE INDEX idx_term_enrollment_window_term ON edu_term_enrollment_window (deleted, term);
+
+INSERT INTO edu_term_enrollment_window
+    (id, term, enrollment_open_at, enrollment_close_at, created_at, created_by, updated_at, updated_by, deleted, version)
+VALUES
+    (20001, '2026 秋季', '2026-08-20 01:00:00', '2026-09-05 09:00:00', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0);
 CREATE TABLE edu_course (
     id BIGINT NOT NULL,
     course_code VARCHAR(64) NOT NULL,
@@ -213,6 +234,7 @@ CREATE TABLE edu_course_teacher (
     course_id BIGINT NOT NULL,
     teacher_id BIGINT NOT NULL,
     role VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
     created_at DATETIME(3) NOT NULL,
     created_by BIGINT NOT NULL,
     updated_at DATETIME(3) NOT NULL,
@@ -223,8 +245,8 @@ CREATE TABLE edu_course_teacher (
     CONSTRAINT uk_course_teacher UNIQUE (course_id, teacher_id)
 );
 
-CREATE INDEX idx_course_teacher_teacher ON edu_course_teacher (teacher_id, deleted, role, course_id);
-CREATE INDEX idx_course_teacher_course_role ON edu_course_teacher (course_id, role, deleted, teacher_id);
+CREATE INDEX idx_course_teacher_teacher ON edu_course_teacher (teacher_id, deleted, status, role, course_id);
+CREATE INDEX idx_course_teacher_course_role ON edu_course_teacher (course_id, role, status, deleted, teacher_id);
 
 CREATE TABLE edu_course_enrollment (
     id BIGINT NOT NULL,
@@ -382,6 +404,8 @@ CREATE TABLE edu_assignment (
     lesson_id BIGINT NULL,
     title VARCHAR(160) NOT NULL,
     description TEXT NULL,
+    response_mode VARCHAR(32) NOT NULL DEFAULT 'MIXED',
+    questions_json TEXT NULL,
     max_score DECIMAL(7,2) NOT NULL,
     status VARCHAR(32) NOT NULL,
     open_at DATETIME(3) NULL,
@@ -428,6 +452,7 @@ CREATE TABLE edu_assignment_submission (
     student_id BIGINT NOT NULL,
     attempt_no INT NOT NULL,
     content TEXT NULL,
+    answers_json TEXT NULL,
     file_id BIGINT NULL,
     file_key VARCHAR(512) NULL,
     file_url VARCHAR(1024) NULL,
@@ -905,13 +930,13 @@ VALUES
 ON DUPLICATE KEY UPDATE name = VALUES(name), summary = VALUES(summary), status = VALUES(status), review_status = VALUES(review_status), deleted = 0, updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO edu_course_teacher
-    (id, course_id, teacher_id, role, created_at, created_by, updated_at, updated_by, deleted, version)
+    (id, course_id, teacher_id, role, status, created_at, created_by, updated_at, updated_by, deleted, version)
 VALUES
-    (21101, 21001, 1002, 'OWNER', CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0),
-    (21102, 21002, 1004, 'OWNER', CURRENT_TIMESTAMP, 1004, CURRENT_TIMESTAMP, 1004, 0, 0),
-    (21103, 21003, 1004, 'OWNER', CURRENT_TIMESTAMP, 1004, CURRENT_TIMESTAMP, 1004, 0, 0),
-    (21104, 21004, 1002, 'OWNER', CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0)
-ON DUPLICATE KEY UPDATE role = VALUES(role), deleted = 0, updated_at = CURRENT_TIMESTAMP;
+    (21101, 21001, 1002, 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0),
+    (21102, 21002, 1004, 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, 1004, CURRENT_TIMESTAMP, 1004, 0, 0),
+    (21103, 21003, 1004, 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, 1004, CURRENT_TIMESTAMP, 1004, 0, 0),
+    (21104, 21004, 1002, 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, 1002, CURRENT_TIMESTAMP, 1002, 0, 0)
+ON DUPLICATE KEY UPDATE role = VALUES(role), status = VALUES(status), deleted = 0, updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO edu_course_enrollment
     (id, course_id, student_id, status, enrolled_at, withdrawn_at, created_at, created_by, updated_at, updated_by, deleted, version)

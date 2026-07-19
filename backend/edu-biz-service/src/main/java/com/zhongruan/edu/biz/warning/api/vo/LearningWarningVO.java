@@ -6,6 +6,8 @@ import java.util.List;
 public record LearningWarningVO(
         String warningId,
         String courseId,
+        String courseName,
+        String teacherName,
         String studentId,
         String studentName,
         CodeLabelVO warningType,

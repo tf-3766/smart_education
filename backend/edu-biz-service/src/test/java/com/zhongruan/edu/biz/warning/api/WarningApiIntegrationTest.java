@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -29,6 +30,9 @@ class WarningApiIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void teacherGeneratesWarningsAndHandlesCourseStudentWarning() throws Exception {
@@ -114,6 +118,7 @@ class WarningApiIntegrationTest {
     void progressWarningIgnoresDraftAndLockedLessons() throws Exception {
         String teacher = login("teacher", "t123456");
         String student = login("student", "123456");
+        jdbcTemplate.update("UPDATE edu_course_lesson SET estimated_minutes = 0 WHERE id = 23001");
 
         mockMvc.perform(post("/api/v1/student/lessons/23001/complete")
                         .header("Authorization", bearer(student)))

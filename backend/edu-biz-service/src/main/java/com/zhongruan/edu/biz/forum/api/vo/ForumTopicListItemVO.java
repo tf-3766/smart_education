@@ -8,6 +8,7 @@ public record ForumTopicListItemVO(
         String title,
         String authorId,
         String authorName,
+        String authorAvatarFileId,
         CodeLabelVO status,
         boolean pinned,
         int replyCount,

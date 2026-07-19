@@ -1,8 +1,9 @@
 // 前后端联调 harness：通过 Vite SSR 加载前端契约 API 层（real 模式），
 // 直接驱动其公开出口打真实网关，记录 PASS/FAIL/WARN 与契约差异。
 import { writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
-const FRONTEND = '/workspace/lms/smart-education-frontend'
+const FRONTEND = fileURLToPath(new URL('../../frontend', import.meta.url))
 const GATEWAY = 'http://host.docker.internal:18080'
 
 process.env.VITE_API_MODE = 'real'

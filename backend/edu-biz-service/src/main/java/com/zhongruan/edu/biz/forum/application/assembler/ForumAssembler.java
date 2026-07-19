@@ -14,13 +14,14 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ForumAssembler {
-    public ForumTopicListItemVO toListItem(ForumTopicEntity topic, String authorName) {
+    public ForumTopicListItemVO toListItem(ForumTopicEntity topic, String authorName, String authorAvatarFileId) {
         return new ForumTopicListItemVO(
                 id(topic.getId()),
                 id(topic.getCourseId()),
                 topic.getTitle(),
                 id(topic.getAuthorId()),
                 authorName,
+                authorAvatarFileId,
                 CodeLabelVO.of(ForumContentStatus.valueOf(topic.getStatus())),
                 Integer.valueOf(1).equals(topic.getPinned()),
                 topic.getReplyCount() == null ? 0 : topic.getReplyCount(),
@@ -29,7 +30,7 @@ public class ForumAssembler {
                 topic.getVersion());
     }
 
-    public ForumTopicDetailVO toDetail(ForumTopicEntity topic, String authorName) {
+    public ForumTopicDetailVO toDetail(ForumTopicEntity topic, String authorName, String authorAvatarFileId) {
         return new ForumTopicDetailVO(
                 id(topic.getId()),
                 id(topic.getCourseId()),
@@ -37,6 +38,7 @@ public class ForumAssembler {
                 topic.getContent(),
                 id(topic.getAuthorId()),
                 authorName,
+                authorAvatarFileId,
                 CodeLabelVO.of(ForumContentStatus.valueOf(topic.getStatus())),
                 topic.getModerationReason(),
                 id(topic.getModeratedBy()),
@@ -45,13 +47,14 @@ public class ForumAssembler {
                 topic.getVersion());
     }
 
-    public ForumReplyVO toReply(ForumReplyEntity reply, String authorName) {
+    public ForumReplyVO toReply(ForumReplyEntity reply, String authorName, String authorAvatarFileId) {
         return new ForumReplyVO(
                 id(reply.getId()),
                 id(reply.getTopicId()),
                 id(reply.getCourseId()),
                 id(reply.getAuthorId()),
                 authorName,
+                authorAvatarFileId,
                 id(reply.getParentReplyId()),
                 reply.getContent(),
                 CodeLabelVO.of(ForumContentStatus.valueOf(reply.getStatus())),

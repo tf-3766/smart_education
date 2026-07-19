@@ -158,6 +158,17 @@ class ForumApiIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("FORUM_TOPIC_HIDDEN"));
 
+        mockMvc.perform(get("/api/v1/admin/forum/topics")
+                        .header("Authorization", bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].topicId", hasItem(topicId)));
+        mockMvc.perform(get("/api/v1/admin/forum/replies")
+                        .header("Authorization", bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].replyId", hasItem(replyId)));
+        mockMvc.perform(get("/api/v1/admin/forum/topics")
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isForbidden());
         int hiddenTopicVersion = body(hiddenTopic).path("data").path("version").asInt();
         mockMvc.perform(patch("/api/v1/admin/forum/topics/{topicId}/visibility", topicId)
                         .header("Authorization", bearer(admin))
