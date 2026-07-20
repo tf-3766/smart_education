@@ -18,10 +18,12 @@ declare module 'vue' {
     AppModal: typeof import('./src/components/AppModal.vue')['default']
     AsyncState: typeof import('./src/components/AsyncState.vue')['default']
     FChart: typeof import('./src/components/FChart.vue')['default']
+    GlobalAiAssistant: typeof import('./src/components/GlobalAiAssistant.vue')['default']
     LiquidGlass: typeof import('./src/components/LiquidGlass.vue')['default']
     NotificationDrawer: typeof import('./src/components/NotificationDrawer.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     StatusBadge: typeof import('./src/components/StatusBadge.vue')['default']
+    UserAvatar: typeof import('./src/components/UserAvatar.vue')['default']
   }
 }
