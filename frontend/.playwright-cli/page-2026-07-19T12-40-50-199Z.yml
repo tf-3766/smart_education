@@ -1,0 +1,70 @@
+- generic [ref=f3e2]:
+  - generic [ref=f3e3]:
+    - banner [ref=f3e4]:
+      - generic [ref=f3e5]:
+        - generic [ref=f3e6]: 知
+        - generic [ref=f3e7]: 知行教学云
+      - generic [ref=f3e8]:
+        - generic [ref=f3e9]: 学生
+        - button "打开站内信" [ref=f3e11] [cursor=pointer]:
+          - generic [ref=f3e15]: "6"
+        - generic [ref=f3e16]: 王
+        - button "切换账号" [ref=f3e18] [cursor=pointer]
+    - generic [ref=f3e19]:
+      - complementary "学习中心导航" [ref=f3e20]:
+        - generic [ref=f3e21]:
+          - paragraph [ref=f3e22]: 学习中心
+          - navigation "学习中心导航" [ref=f3e23]:
+            - link "学习首页" [ref=f3e24] [cursor=pointer]:
+              - /url: /student/dashboard
+            - link "我的课程" [ref=f3e29] [cursor=pointer]:
+              - /url: /student/courses
+            - link "选课中心" [ref=f3e34] [cursor=pointer]:
+              - /url: /student/enroll
+            - link "学习任务" [ref=f3e41] [cursor=pointer]:
+              - /url: /student/assignments
+            - link "考试安排" [ref=f3e47] [cursor=pointer]:
+              - /url: /student/exams
+            - link "成绩进度" [ref=f3e52] [cursor=pointer]:
+              - /url: /student/grades
+            - link "课程互动" [ref=f3e56] [cursor=pointer]:
+              - /url: /student/forum
+          - button "背景透明调整" [ref=f3e60] [cursor=pointer]
+      - main [ref=f3e63]:
+        - generic [ref=f3e98]:
+          - generic [ref=f3e99]:
+            - generic [ref=f3e100]:
+              - paragraph [ref=f3e101]:
+                - link "← 返回考试安排" [ref=f3e102] [cursor=pointer]:
+                  - /url: /student/exams
+              - heading "Python 期中测验" [level=1] [ref=f3e103]
+              - paragraph [ref=f3e104]: 共 3 题 · 答题截止 2026/07/19 21:40
+            - generic [ref=f3e105]: 答题中
+          - generic [ref=f3e106]:
+            - paragraph [ref=f3e107]: 1. 下列哪种类型在 Python 中是不可变的？（单选 · 5 分）
+            - generic [ref=f3e108]:
+              - radio "A. 列表" [ref=f3e109]
+              - generic [ref=f3e110]: A. 列表
+            - generic [ref=f3e111]:
+              - radio "B. 元组" [ref=f3e112]
+              - generic [ref=f3e113]: B. 元组
+            - generic [ref=f3e114]:
+              - radio "C. 字典" [ref=f3e115]
+              - generic [ref=f3e116]: C. 字典
+            - generic [ref=f3e117]:
+              - radio "D. 集合" [ref=f3e118]
+              - generic [ref=f3e119]: D. 集合
+          - generic [ref=f3e120]:
+            - paragraph [ref=f3e121]: 2. 函数默认参数在每次调用时重新求值。（判断 · 5 分）
+            - generic [ref=f3e122]:
+              - radio "A. 正确" [ref=f3e123]
+              - generic [ref=f3e124]: A. 正确
+            - generic [ref=f3e125]:
+              - radio "B. 错误" [ref=f3e126]
+              - generic [ref=f3e127]: B. 错误
+          - generic [ref=f3e128]:
+            - paragraph [ref=f3e129]: 3. 简述列表推导式的优点与需要注意的场景。（简答 · 10 分）
+            - textbox "填写你的回答" [ref=f3e130]
+          - button "交卷" [ref=f3e132] [cursor=pointer]
+  - region "Notifications alt+T":
+    - list

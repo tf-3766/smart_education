@@ -1,0 +1,68 @@
+- generic [ref=e2]:
+  - generic [ref=e35]:
+    - banner [ref=e36]:
+      - generic [ref=e37]:
+        - generic [ref=e38]: 知
+        - generic [ref=e39]: 知行教学云
+      - generic [ref=e40]:
+        - generic [ref=e41]: 学生
+        - button "打开站内信" [ref=e43] [cursor=pointer]:
+          - generic [ref=e47]: "6"
+        - generic [ref=e48]: 王
+        - button "切换账号" [ref=e50] [cursor=pointer]
+    - generic [ref=e51]:
+      - complementary "学习中心导航" [ref=e52]:
+        - paragraph [ref=e53]: 学习中心
+        - navigation "学习中心导航" [ref=e54]:
+          - link "学习首页" [ref=e55] [cursor=pointer]:
+            - /url: /student/dashboard
+          - link "我的课程" [ref=e60] [cursor=pointer]:
+            - /url: /student/courses
+          - link "选课中心" [ref=e65] [cursor=pointer]:
+            - /url: /student/enroll
+          - link "学习任务" [ref=e72] [cursor=pointer]:
+            - /url: /student/assignments
+          - link "考试安排" [ref=e78] [cursor=pointer]:
+            - /url: /student/exams
+          - link "成绩进度" [ref=e83] [cursor=pointer]:
+            - /url: /student/grades
+          - link "课程互动" [ref=e87] [cursor=pointer]:
+            - /url: /student/forum
+      - main [ref=e91]:
+        - generic [ref=e199]:
+          - complementary [ref=e200]:
+            - paragraph [ref=e201]: Python 程序设计
+            - paragraph [ref=e202]: 课程目录
+            - paragraph [ref=e203]: 第一章 Python 基础语法
+            - button "变量与数据类型 30 分钟 · 已完成" [ref=e204] [cursor=pointer]:
+              - generic [ref=e205]: 变量与数据类型
+              - generic [ref=e206]: 30 分钟 · 已完成
+            - button "控制流程 45 分钟 · 进行中" [ref=e207] [cursor=pointer]:
+              - generic [ref=e208]: 控制流程
+              - generic [ref=e209]: 45 分钟 · 进行中
+            - paragraph [ref=e210]: 第二章 函数与模块
+            - button "函数定义与作用域 40 分钟 · 进行中" [ref=e211] [cursor=pointer]:
+              - generic [ref=e212]: 函数定义与作用域
+              - generic [ref=e213]: 40 分钟 · 进行中
+          - main [ref=e214]:
+            - generic [ref=e215]:
+              - generic [ref=e216]:
+                - heading "函数定义与作用域" [level=1] [ref=e217]
+                - paragraph [ref=e218]: 第二章 函数与模块 · 预计 40 分钟
+              - generic [ref=e219]: 学习中
+            - generic [ref=e220]: 图文 / 课件内容
+            - generic [ref=e222]:
+              - strong [ref=e223]: 本节内容
+              - paragraph [ref=e224]: 使用 def 定义函数；理解 LEGB 作用域规则与默认参数的求值时机。
+            - generic [ref=e225]:
+              - generic [ref=e226]: 完成后将更新课程学习进度
+              - button "标记完成" [ref=e227] [cursor=pointer]
+          - complementary [ref=e229]:
+            - paragraph [ref=e231]:
+              - generic [ref=e232]: AI
+              - text: 课程答疑
+            - paragraph [ref=e233]: 当前范围：Python 程序设计 / 函数定义与作用域 / 已发布资料
+            - textbox "结合本节内容提问" [ref=e234]
+            - button "发送问题" [disabled] [ref=e236]
+  - region "Notifications alt+T":
+    - list

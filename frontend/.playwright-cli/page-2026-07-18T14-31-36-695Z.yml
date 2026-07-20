@@ -1,0 +1,100 @@
+- generic [ref=e2]:
+  - generic [ref=e35]:
+    - banner [ref=e36]:
+      - generic [ref=e37]:
+        - generic [ref=e38]: 知
+        - generic [ref=e39]: 知行教学云
+      - generic [ref=e40]:
+        - generic [ref=e41]: 学生
+        - button "打开站内信" [ref=e43] [cursor=pointer]:
+          - generic [ref=e47]: "6"
+        - generic [ref=e48]: 王
+        - button "切换账号" [ref=e50] [cursor=pointer]
+    - generic [ref=e51]:
+      - complementary "学习中心导航" [ref=e52]:
+        - generic [ref=e53]:
+          - paragraph [ref=e54]: 学习中心
+          - navigation "学习中心导航" [ref=e55]:
+            - link "学习首页" [ref=e56] [cursor=pointer]:
+              - /url: /student/dashboard
+            - link "我的课程" [ref=e61] [cursor=pointer]:
+              - /url: /student/courses
+            - link "选课中心" [ref=e66] [cursor=pointer]:
+              - /url: /student/enroll
+            - link "学习任务" [ref=e73] [cursor=pointer]:
+              - /url: /student/assignments
+            - link "考试安排" [ref=e79] [cursor=pointer]:
+              - /url: /student/exams
+            - link "成绩进度" [ref=e84] [cursor=pointer]:
+              - /url: /student/grades
+            - link "课程互动" [ref=e88] [cursor=pointer]:
+              - /url: /student/forum
+          - button "背景透明调整" [ref=e92] [cursor=pointer]
+      - main [ref=e95]:
+        - generic [ref=e97]:
+          - generic [ref=e99]:
+            - generic [ref=e100]:
+              - paragraph [ref=e101]: 7月18日星期六
+              - heading "晚上好，王一诺" [level=1] [ref=e104]
+              - paragraph [ref=e105]: 今天还有 1 项任务，先完成最接近截止时间的一项。
+            - button "下一步 Python 程序设计 已完成 33%" [ref=e106] [cursor=pointer]:
+              - generic [ref=e111]:
+                - generic [ref=e112]: 下一步
+                - strong [ref=e113]: Python 程序设计
+                - emphasis [ref=e114]: 已完成 33%
+          - generic "学习概览" [ref=e117]:
+            - generic [ref=e118]:
+              - article [ref=e119]:
+                - generic [ref=e124]:
+                  - strong [ref=e125]: "2"
+                  - generic [ref=e126]: 门在学课程
+              - article [ref=e127]:
+                - generic [ref=e132]:
+                  - strong [ref=e133]: "1"
+                  - generic [ref=e134]: 项待完成
+              - article [ref=e135]:
+                - generic [ref=e140]:
+                  - strong [ref=e141]: "1"
+                  - generic [ref=e142]: 场近期考试
+              - article [ref=e143]:
+                - generic [ref=e148]:
+                  - strong [ref=e149]: 17%
+                  - generic [ref=e150]: 平均进度
+          - generic [ref=e151]:
+            - generic [ref=e153]:
+              - generic [ref=e154]:
+                - generic [ref=e155]:
+                  - paragraph [ref=e156]: 继续学习
+                  - heading "保持你的学习节奏" [level=2] [ref=e157]
+                - button "全部课程" [ref=e158] [cursor=pointer]
+              - generic [ref=e161]:
+                - button "PY101 · 李明 Python 程序设计 课程进度 33%" [ref=e162] [cursor=pointer]:
+                  - generic [ref=e163]: P
+                  - generic [ref=e164]:
+                    - generic [ref=e165]: PY101 · 李明
+                    - strong [ref=e166]: Python 程序设计
+                    - generic [ref=e167]:
+                      - generic [ref=e168]: 课程进度
+                      - generic [ref=e169]: 33%
+                - button "AI201 · 李明 人工智能导论 课程进度 0%" [ref=e175] [cursor=pointer]:
+                  - generic [ref=e176]: 人
+                  - generic [ref=e177]:
+                    - generic [ref=e178]: AI201 · 李明
+                    - strong [ref=e179]: 人工智能导论
+                    - generic [ref=e180]:
+                      - generic [ref=e181]: 课程进度
+                      - generic [ref=e182]: 0%
+            - generic [ref=e188]:
+              - generic [ref=e189]:
+                - generic [ref=e190]:
+                  - paragraph [ref=e191]: 今日节奏
+                  - heading "待办任务" [level=2] [ref=e192]
+                - generic [ref=e193]: "1"
+              - button "第二章编程作业 Python 程序设计 8/1 22:30" [ref=e195] [cursor=pointer]:
+                - generic [ref=e200]:
+                  - strong [ref=e201]: 第二章编程作业
+                  - generic [ref=e202]: Python 程序设计
+                - time [ref=e203]: 8/1 22:30
+              - button "查看全部学习任务" [ref=e204] [cursor=pointer]
+  - region "Notifications alt+T":
+    - list

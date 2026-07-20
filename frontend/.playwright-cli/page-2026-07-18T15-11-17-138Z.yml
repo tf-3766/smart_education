@@ -1,0 +1,42 @@
+- generic [ref=f34e2]:
+  - generic [ref=f34e3]:
+    - banner [ref=f34e4]:
+      - generic [ref=f34e5]:
+        - generic [ref=f34e6]: 知
+        - generic [ref=f34e7]: 知行教学云
+      - generic [ref=f34e8]:
+        - generic [ref=f34e9]: 学生
+        - button "打开站内信" [ref=f34e11] [cursor=pointer]:
+          - generic [ref=f34e15]: "6"
+        - generic [ref=f34e16]: 王
+        - button "切换账号" [ref=f34e18] [cursor=pointer]
+    - generic [ref=f34e19]:
+      - complementary "学习中心导航" [ref=f34e20]:
+        - generic [ref=f34e21]:
+          - paragraph [ref=f34e22]: 学习中心
+          - navigation "学习中心导航" [ref=f34e23]:
+            - link "学习首页" [ref=f34e24] [cursor=pointer]:
+              - /url: /student/dashboard
+            - link "我的课程" [ref=f34e29] [cursor=pointer]:
+              - /url: /student/courses
+            - link "选课中心" [ref=f34e34] [cursor=pointer]:
+              - /url: /student/enroll
+            - link "学习任务" [ref=f34e41] [cursor=pointer]:
+              - /url: /student/assignments
+            - link "考试安排" [ref=f34e47] [cursor=pointer]:
+              - /url: /student/exams
+            - link "成绩进度" [ref=f34e52] [cursor=pointer]:
+              - /url: /student/grades
+            - link "课程互动" [ref=f34e56] [cursor=pointer]:
+              - /url: /student/forum
+          - button "背景透明调整" [ref=f34e60] [cursor=pointer]
+      - main [ref=f34e63]:
+        - generic [ref=f34e66]:
+          - generic [ref=f34e67]:
+            - generic [ref=f34e68]:
+              - heading "我的课程" [level=1] [ref=f34e69]
+              - paragraph [ref=f34e70]: 进入已选修课程学习；如需加入新课程请前往选课中心。
+            - button "去选课中心" [ref=f34e71] [cursor=pointer]
+          - status [ref=f34e73]: 正在加载…
+  - region "Notifications alt+T":
+    - list

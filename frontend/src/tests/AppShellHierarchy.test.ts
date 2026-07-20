@@ -1,0 +1,25 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const source = () => readFileSync(resolve(process.cwd(), 'src/layouts/AppShell.vue'), 'utf8')
+
+describe('workspace sidebar (flat per-role nav)', () => {
+  it('renders a flat nav of role route links', () => {
+    expect(source()).toMatch(/<nav class="workspace-nav"[\s\S]*<RouterLink[\s\S]*v-for="item in navItems"/s)
+  })
+
+  it('drops the confusing multi-state drawer (secondary menu / collapse / route-synced detail)', () => {
+    const s = source()
+    expect(s).not.toContain('workspace-secondary-menu')
+    expect(s).not.toContain('syncSidebarRoute')
+    expect(s).not.toContain('collapseDetailSidebar')
+    expect(s).not.toContain('收起')
+  })
+
+  it('highlights the active item, including matched sub-routes', () => {
+    const s = source()
+    expect(s).toMatch(/function isActive/)
+    expect(s).toContain('matchPrefixes')
+  })
+})

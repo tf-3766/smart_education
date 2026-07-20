@@ -1,0 +1,138 @@
+- generic [ref=f3e1]:
+  - generic [ref=f3e2]:
+    - generic [ref=f3e3]:
+      - banner [ref=f3e4]:
+        - generic [ref=f3e5]:
+          - generic [ref=f3e6]: 知
+          - generic [ref=f3e7]: 知行教学云
+        - generic [ref=f3e8]:
+          - generic [ref=f3e9]: 学生
+          - button "打开站内信" [ref=f3e11] [cursor=pointer]:
+            - generic [ref=f3e15]: "6"
+          - generic [ref=f3e16]: 王
+          - button "切换账号" [ref=f3e18] [cursor=pointer]
+      - generic [ref=f3e19]:
+        - complementary "学习中心导航" [ref=f3e20]:
+          - generic [ref=f3e21]:
+            - paragraph [ref=f3e22]: 学习中心
+            - navigation "学习中心导航" [ref=f3e23]:
+              - link "学习首页" [ref=f3e24] [cursor=pointer]:
+                - /url: /student/dashboard
+              - link "我的课程" [ref=f3e29] [cursor=pointer]:
+                - /url: /student/courses
+              - link "选课中心" [ref=f3e34] [cursor=pointer]:
+                - /url: /student/enroll
+              - link "学习任务" [ref=f3e41] [cursor=pointer]:
+                - /url: /student/assignments
+              - link "考试安排" [ref=f3e47] [cursor=pointer]:
+                - /url: /student/exams
+              - link "成绩进度" [ref=f3e52] [cursor=pointer]:
+                - /url: /student/grades
+              - link "课程互动" [ref=f3e56] [cursor=pointer]:
+                - /url: /student/forum
+            - button "背景透明调整" [expanded] [ref=f3e60] [cursor=pointer]
+        - main [ref=f3e63]:
+          - generic [ref=f3e65]:
+            - generic [ref=f3e67]:
+              - generic [ref=f3e68]:
+                - paragraph [ref=f3e69]: 7月18日星期六
+                - heading "下午好，王一诺" [level=1] [ref=f3e72]
+                - paragraph [ref=f3e73]: 今天还有 1 项任务，先完成最接近截止时间的一项。
+              - button "下一步 Python 程序设计 已完成 33%" [ref=f3e74] [cursor=pointer]:
+                - generic [ref=f3e79]:
+                  - generic [ref=f3e80]: 下一步
+                  - strong [ref=f3e81]: Python 程序设计
+                  - emphasis [ref=f3e82]: 已完成 33%
+            - generic "学习概览" [ref=f3e85]:
+              - generic [ref=f3e86]:
+                - article [ref=f3e87]:
+                  - generic [ref=f3e92]:
+                    - strong [ref=f3e93]: "2"
+                    - generic [ref=f3e94]: 门在学课程
+                - article [ref=f3e95]:
+                  - generic [ref=f3e100]:
+                    - strong [ref=f3e101]: "1"
+                    - generic [ref=f3e102]: 项待完成
+                - article [ref=f3e103]:
+                  - generic [ref=f3e108]:
+                    - strong [ref=f3e109]: "1"
+                    - generic [ref=f3e110]: 场近期考试
+                - article [ref=f3e111]:
+                  - generic [ref=f3e116]:
+                    - strong [ref=f3e117]: 17%
+                    - generic [ref=f3e118]: 平均进度
+            - generic [ref=f3e119]:
+              - generic [ref=f3e121]:
+                - generic [ref=f3e122]:
+                  - generic [ref=f3e123]:
+                    - paragraph [ref=f3e124]: 继续学习
+                    - heading "保持你的学习节奏" [level=2] [ref=f3e125]
+                  - button "全部课程" [ref=f3e126] [cursor=pointer]
+                - generic [ref=f3e129]:
+                  - button "PY101 · 李明 Python 程序设计 课程进度 33%" [ref=f3e130] [cursor=pointer]:
+                    - generic [ref=f3e131]: P
+                    - generic [ref=f3e132]:
+                      - generic [ref=f3e133]: PY101 · 李明
+                      - strong [ref=f3e134]: Python 程序设计
+                      - generic [ref=f3e135]:
+                        - generic [ref=f3e136]: 课程进度
+                        - generic [ref=f3e137]: 33%
+                  - button "AI201 · 李明 人工智能导论 课程进度 0%" [ref=f3e143] [cursor=pointer]:
+                    - generic [ref=f3e144]: 人
+                    - generic [ref=f3e145]:
+                      - generic [ref=f3e146]: AI201 · 李明
+                      - strong [ref=f3e147]: 人工智能导论
+                      - generic [ref=f3e148]:
+                        - generic [ref=f3e149]: 课程进度
+                        - generic [ref=f3e150]: 0%
+              - generic [ref=f3e156]:
+                - generic [ref=f3e157]:
+                  - generic [ref=f3e158]:
+                    - paragraph [ref=f3e159]: 今日节奏
+                    - heading "待办任务" [level=2] [ref=f3e160]
+                  - generic [ref=f3e161]: "1"
+                - button "第二章编程作业 Python 程序设计 8/1 13:49" [ref=f3e163] [cursor=pointer]:
+                  - generic [ref=f3e168]:
+                    - strong [ref=f3e169]: 第二章编程作业
+                    - generic [ref=f3e170]: Python 程序设计
+                  - time [ref=f3e171]: 8/1 13:49
+                - button "查看全部学习任务" [ref=f3e172] [cursor=pointer]
+    - region "Notifications alt+T":
+      - list
+  - generic:
+    - button "关闭玻璃材质设置" [ref=f3e175]
+    - dialog [ref=f3e176]:
+      - banner [ref=f3e177]:
+        - generic [ref=f3e178]:
+          - strong [ref=f3e179]: 玻璃材质
+          - generic [ref=f3e180]: 所有板块即时同步
+        - button "关闭玻璃材质设置" [ref=f3e181] [cursor=pointer]
+      - generic [ref=f3e185]:
+        - generic [ref=f3e186]:
+          - generic [ref=f3e187]:
+            - generic [ref=f3e188]: 折射强度
+            - status "折射强度 22" [ref=f3e189]: "22"
+          - slider [active] [ref=f3e190]: "22"
+        - generic [ref=f3e191]:
+          - generic [ref=f3e192]:
+            - generic [ref=f3e193]: 模糊
+            - status "模糊 18" [ref=f3e194]: 18px
+          - slider [ref=f3e195]: "18"
+        - generic [ref=f3e196]:
+          - generic [ref=f3e197]:
+            - generic [ref=f3e198]: 饱和度
+            - status "饱和度 175" [ref=f3e199]: 175%
+          - slider [ref=f3e200]: "175"
+        - generic [ref=f3e201]:
+          - generic [ref=f3e202]:
+            - generic [ref=f3e203]: 白色表面透明度
+            - status "白色表面透明度 14" [ref=f3e204]: 14%
+          - slider [ref=f3e205]: "14"
+        - generic [ref=f3e206]:
+          - generic [ref=f3e207]:
+            - generic [ref=f3e208]: 折射层透明度
+            - status "折射层透明度 8" [ref=f3e209]: 8%
+          - slider [ref=f3e210]: "8"
+      - contentinfo [ref=f3e211]:
+        - button "恢复默认" [ref=f3e212] [cursor=pointer]
+        - generic [ref=f3e216]: 自动保存在此浏览器

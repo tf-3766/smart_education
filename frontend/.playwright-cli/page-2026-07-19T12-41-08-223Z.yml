@@ -1,0 +1,58 @@
+- generic [ref=f3e2]:
+  - generic [ref=f3e3]:
+    - banner [ref=f3e4]:
+      - generic [ref=f3e5]:
+        - generic [ref=f3e6]: 知
+        - generic [ref=f3e7]: 知行教学云
+      - generic [ref=f3e8]:
+        - generic [ref=f3e9]: 学生
+        - button "打开站内信" [ref=f3e11] [cursor=pointer]:
+          - generic [ref=f3e15]: "6"
+        - generic [ref=f3e16]: 王
+        - button "切换账号" [ref=f3e18] [cursor=pointer]
+    - generic [ref=f3e19]:
+      - complementary "学习中心导航" [ref=f3e20]:
+        - generic [ref=f3e21]:
+          - paragraph [ref=f3e22]: 学习中心
+          - navigation "学习中心导航" [ref=f3e23]:
+            - link "学习首页" [ref=f3e24] [cursor=pointer]:
+              - /url: /student/dashboard
+            - link "我的课程" [ref=f3e29] [cursor=pointer]:
+              - /url: /student/courses
+            - link "选课中心" [ref=f3e34] [cursor=pointer]:
+              - /url: /student/enroll
+            - link "学习任务" [ref=f3e41] [cursor=pointer]:
+              - /url: /student/assignments
+            - link "考试安排" [ref=f3e47] [cursor=pointer]:
+              - /url: /student/exams
+            - link "成绩进度" [ref=f3e52] [cursor=pointer]:
+              - /url: /student/grades
+            - link "课程互动" [ref=f3e56] [cursor=pointer]:
+              - /url: /student/forum
+          - button "背景透明调整" [ref=f3e60] [cursor=pointer]
+      - main [ref=f3e63]:
+        - generic [ref=f3e134]:
+          - generic [ref=f3e135]:
+            - heading "考试安排" [level=1] [ref=f3e136]
+            - paragraph [ref=f3e137]: 在这里查看您已报名考试的时间与详细安排，并在开放时间内开始答题。
+          - status [ref=f3e138]: 正在加载…
+          - region [ref=f3e139]:
+            - generic [ref=f3e140]:
+              - generic [ref=f3e141]:
+                - heading "近期考试" [level=2] [ref=f3e142]
+                - generic [ref=f3e143]: 共 0 场
+              - table [ref=f3e146]:
+                - rowgroup [ref=f3e147]:
+                  - row [ref=f3e148]:
+                    - columnheader "考试名称" [ref=f3e149]
+                    - columnheader "课程" [ref=f3e150]
+                    - columnheader "开始时间" [ref=f3e151]
+                    - columnheader "结束时间" [ref=f3e152]
+                    - columnheader "时长" [ref=f3e153]
+                    - columnheader "总分" [ref=f3e154]
+                    - columnheader "操作" [ref=f3e155]
+                - rowgroup [ref=f3e156]:
+                  - row [ref=f3e157]:
+                    - cell "暂无考试安排" [ref=f3e158]
+  - region "Notifications alt+T":
+    - list

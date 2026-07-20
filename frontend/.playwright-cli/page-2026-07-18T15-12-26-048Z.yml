@@ -1,0 +1,74 @@
+- generic [ref=f35e2]:
+  - generic [ref=f35e3]:
+    - banner [ref=f35e4]:
+      - generic [ref=f35e5]:
+        - generic [ref=f35e6]: 知
+        - generic [ref=f35e7]: 知行教学云
+      - generic [ref=f35e8]:
+        - generic [ref=f35e9]: 学生
+        - button "打开站内信" [ref=f35e11] [cursor=pointer]:
+          - generic [ref=f35e15]: "6"
+        - generic [ref=f35e16]: 王
+        - button "切换账号" [ref=f35e18] [cursor=pointer]
+    - generic [ref=f35e19]:
+      - complementary "学习中心导航" [ref=f35e20]:
+        - generic [ref=f35e21]:
+          - paragraph [ref=f35e22]: 学习中心
+          - navigation "学习中心导航" [ref=f35e23]:
+            - link "学习首页" [ref=f35e24] [cursor=pointer]:
+              - /url: /student/dashboard
+            - link "我的课程" [ref=f35e29] [cursor=pointer]:
+              - /url: /student/courses
+            - link "选课中心" [ref=f35e34] [cursor=pointer]:
+              - /url: /student/enroll
+            - link "学习任务" [ref=f35e41] [cursor=pointer]:
+              - /url: /student/assignments
+            - link "考试安排" [ref=f35e47] [cursor=pointer]:
+              - /url: /student/exams
+            - link "成绩进度" [ref=f35e52] [cursor=pointer]:
+              - /url: /student/grades
+            - link "课程互动" [ref=f35e56] [cursor=pointer]:
+              - /url: /student/forum
+          - button "背景透明调整" [ref=f35e60] [cursor=pointer]
+      - main [ref=f35e63]:
+        - generic [ref=f35e66]:
+          - generic [ref=f35e67]:
+            - generic [ref=f35e68]:
+              - heading "我的课程" [level=1] [ref=f35e69]
+              - paragraph [ref=f35e70]: 进入已选修课程学习；如需加入新课程请前往选课中心。
+            - button "去选课中心" [ref=f35e71] [cursor=pointer]
+          - generic [ref=f35e73]:
+            - generic [ref=f35e74]:
+              - heading "在学课程" [level=2] [ref=f35e75]
+              - generic [ref=f35e76]: 共 2 门
+            - table [ref=f35e78]:
+              - rowgroup [ref=f35e79]:
+                - row [ref=f35e80]:
+                  - columnheader "课程" [ref=f35e81]
+                  - columnheader "教师" [ref=f35e82]
+                  - columnheader "学期" [ref=f35e83]
+                  - columnheader "课程状态" [ref=f35e84]
+                  - columnheader "操作" [ref=f35e85]
+              - rowgroup [ref=f35e86]:
+                - row [ref=f35e87]:
+                  - cell "Python 程序设计 PY101 · 面向零基础的 Python 入门课程，覆盖语法、函数与常用库。" [ref=f35e88]:
+                    - strong [ref=f35e89]: Python 程序设计
+                    - generic [ref=f35e90]: PY101 · 面向零基础的 Python 入门课程，覆盖语法、函数与常用库。
+                  - cell "李明" [ref=f35e91]
+                  - cell "2026 春" [ref=f35e92]
+                  - cell "已发布" [ref=f35e93]
+                  - cell [ref=f35e95]:
+                    - button "进入学习" [ref=f35e96] [cursor=pointer]
+                    - button "退课" [ref=f35e98] [cursor=pointer]
+                - row [ref=f35e99]:
+                  - cell "人工智能导论 AI201 · 介绍人工智能的核心范式与典型应用。" [ref=f35e100]:
+                    - strong [ref=f35e101]: 人工智能导论
+                    - generic [ref=f35e102]: AI201 · 介绍人工智能的核心范式与典型应用。
+                  - cell "李明" [ref=f35e103]
+                  - cell "2026 春" [ref=f35e104]
+                  - cell "已发布" [ref=f35e105]
+                  - cell [ref=f35e107]:
+                    - button "进入学习" [ref=f35e108] [cursor=pointer]
+                    - button "退课" [ref=f35e110] [cursor=pointer]
+  - region "Notifications alt+T":
+    - list

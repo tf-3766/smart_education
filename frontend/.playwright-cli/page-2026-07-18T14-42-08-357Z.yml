@@ -1,0 +1,85 @@
+- generic [ref=f5e2]:
+  - generic [ref=f5e3]:
+    - banner [ref=f5e4]:
+      - button "打开管理控制台导航" [expanded] [active] [ref=f5e5] [cursor=pointer]
+      - generic [ref=f5e7]:
+        - generic [ref=f5e8]: 知
+        - generic [ref=f5e9]: 知行教学云
+      - button "打开站内信" [ref=f5e11] [cursor=pointer]:
+        - generic [ref=f5e67]: "2"
+    - generic [ref=f5e15]:
+      - complementary "管理控制台导航" [ref=f5e16]:
+        - generic [ref=f5e17]:
+          - paragraph [ref=f5e18]: 管理控制台
+          - navigation "管理控制台导航" [ref=f5e19]:
+            - link "数据看板" [ref=f5e20] [cursor=pointer]:
+              - /url: /admin/dashboard
+            - link "用户管理" [ref=f5e25] [cursor=pointer]:
+              - /url: /admin/users
+            - link "课程治理" [ref=f5e32] [cursor=pointer]:
+              - /url: /admin/course-reviews
+            - link "学期选课时间" [ref=f5e37] [cursor=pointer]:
+              - /url: /admin/term-enrollment
+            - link "内容治理" [ref=f5e43] [cursor=pointer]:
+              - /url: /admin/content
+            - link "数据统计" [ref=f5e47] [cursor=pointer]:
+              - /url: /admin/statistics
+            - link "AI 设置" [ref=f5e51] [cursor=pointer]:
+              - /url: /admin/ai
+          - button "背景透明调整" [ref=f5e55] [cursor=pointer]
+      - button "关闭管理控制台导航" [ref=f5e138] [cursor=pointer]
+      - main [ref=f5e58]:
+        - generic [ref=f5e61]:
+          - generic [ref=f5e63]:
+            - heading "数据统计" [level=1] [ref=f5e64]
+            - paragraph [ref=f5e65]: 课程、用户、作业、考试与预警的业务统计。
+          - generic [ref=f5e68]:
+            - generic [ref=f5e70]:
+              - generic [ref=f5e71]: 课程数量
+              - generic [ref=f5e72]: "4"
+              - generic [ref=f5e73]: 全部课程
+            - generic [ref=f5e79]:
+              - generic [ref=f5e80]: 活跃选课
+              - generic [ref=f5e81]: "4"
+              - generic [ref=f5e82]: 有效选课人次
+            - generic [ref=f5e90]:
+              - generic [ref=f5e91]: 已发布作业
+              - generic [ref=f5e92]: "2"
+              - generic [ref=f5e93]: 教学任务
+            - generic [ref=f5e99]:
+              - generic [ref=f5e100]: 开放预警
+              - generic [ref=f5e101]: "2"
+              - generic [ref=f5e102]: 需干预
+          - generic [ref=f5e106]:
+            - generic [ref=f5e107]:
+              - heading "统计明细" [level=2] [ref=f5e108]
+              - generic [ref=f5e109]: 实时数据
+            - table [ref=f5e111]:
+              - rowgroup [ref=f5e112]:
+                - row [ref=f5e113]:
+                  - columnheader "指标" [ref=f5e114]
+                  - columnheader "数量" [ref=f5e115]
+                  - columnheader "说明" [ref=f5e116]
+              - rowgroup [ref=f5e117]:
+                - row [ref=f5e118]:
+                  - cell "启用用户" [ref=f5e119]
+                  - cell "6" [ref=f5e120]
+                  - cell "当前可登录账号" [ref=f5e121]
+                - row [ref=f5e122]:
+                  - cell "学生" [ref=f5e123]
+                  - cell "3" [ref=f5e124]
+                  - cell "学生角色用户" [ref=f5e125]
+                - row [ref=f5e126]:
+                  - cell "教师" [ref=f5e127]
+                  - cell "3" [ref=f5e128]
+                  - cell "教师角色用户" [ref=f5e129]
+                - row [ref=f5e130]:
+                  - cell "已提交作业" [ref=f5e131]
+                  - cell "2" [ref=f5e132]
+                  - cell "学生正式提交" [ref=f5e133]
+                - row [ref=f5e134]:
+                  - cell "已发布公告" [ref=f5e135]
+                  - cell "3" [ref=f5e136]
+                  - cell "系统公告" [ref=f5e137]
+  - region "Notifications alt+T":
+    - list
