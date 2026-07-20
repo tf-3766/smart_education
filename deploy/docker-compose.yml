@@ -15,7 +15,7 @@ services:
       - --collation-server=utf8mb4_0900_ai_ci
       - --default-time-zone=+00:00
     ports:
-      - "3307:3306"
+      - "${MYSQL_HOST_PORT:-3307}:3306"
     volumes:
       - smart-education-mysql-data:/var/lib/mysql
       - ../backend/edu-biz-service/src/main/resources/db/online_education_bootstrap.sql:/docker-entrypoint-initdb.d/01-online-education-bootstrap.sql:ro
