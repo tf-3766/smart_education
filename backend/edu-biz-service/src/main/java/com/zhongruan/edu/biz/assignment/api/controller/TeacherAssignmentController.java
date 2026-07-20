@@ -6,6 +6,7 @@ import com.zhongruan.edu.biz.assignment.api.dto.request.AssignmentUpdateRequest;
 import com.zhongruan.edu.biz.assignment.api.vo.AssignmentDetailVO;
 import com.zhongruan.edu.biz.assignment.application.service.AssignmentApplicationService;
 import com.zhongruan.edu.biz.grade.api.vo.TeacherSubmissionGradeVO;
+import com.zhongruan.edu.biz.grade.api.vo.TeacherSubmissionRosterVO;
 import com.zhongruan.edu.biz.grade.application.service.GradeApplicationService;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestContextFactory;
@@ -13,6 +14,7 @@ import com.zhongruan.edu.common.api.ApiResponse;
 import com.zhongruan.edu.common.api.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -96,6 +98,13 @@ public class TeacherAssignmentController {
         return ApiResponse.success(gradeService.listSubmissions(user.userId(), assignmentId, query), trace(request));
     }
 
+    @GetMapping("/assignments/{assignmentId}/submission-roster")
+    public ApiResponse<List<TeacherSubmissionRosterVO>> submissionRoster(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long assignmentId,
+            HttpServletRequest request) {
+        return ApiResponse.success(gradeService.submissionRoster(user.userId(), assignmentId), trace(request));
+    }
     private String trace(HttpServletRequest request) {
         return contextFactory.current(request).traceId();
     }

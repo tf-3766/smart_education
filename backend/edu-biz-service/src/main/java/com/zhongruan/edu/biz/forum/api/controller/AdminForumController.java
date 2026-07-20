@@ -1,16 +1,20 @@
 package com.zhongruan.edu.biz.forum.api.controller;
 
+import com.zhongruan.edu.biz.forum.api.dto.query.ForumListQuery;
 import com.zhongruan.edu.biz.forum.api.dto.request.ForumVisibilityRequest;
 import com.zhongruan.edu.biz.forum.api.vo.ForumReplyVO;
 import com.zhongruan.edu.biz.forum.api.vo.ForumTopicDetailVO;
+import com.zhongruan.edu.biz.forum.api.vo.ForumTopicListItemVO;
 import com.zhongruan.edu.biz.forum.application.service.ForumApplicationService;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestContextFactory;
 import com.zhongruan.edu.common.api.ApiResponse;
+import com.zhongruan.edu.common.api.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,6 +34,17 @@ public class AdminForumController {
         this.contextFactory = contextFactory;
     }
 
+    @GetMapping("/forum/topics")
+    public ApiResponse<PageResponse<ForumTopicListItemVO>> topics(
+            @Valid ForumListQuery query, HttpServletRequest request) {
+        return ApiResponse.success(service.listAdminTopics(query), trace(request));
+    }
+
+    @GetMapping("/forum/replies")
+    public ApiResponse<PageResponse<ForumReplyVO>> replies(
+            @Valid ForumListQuery query, HttpServletRequest request) {
+        return ApiResponse.success(service.listAdminReplies(query), trace(request));
+    }
     @PatchMapping("/forum/topics/{topicId}/visibility")
     public ApiResponse<ForumTopicDetailVO> topicVisibility(
             @AuthenticationPrincipal AuthenticatedUser user,

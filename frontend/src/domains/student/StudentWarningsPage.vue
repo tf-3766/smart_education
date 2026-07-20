@@ -25,6 +25,7 @@
             <StatusBadge :tone="warning.warningStatus.code === 'OPEN' ? 'amber' : 'green'" :label="warning.warningStatus.label" />
           </div>
         </div>
+        <p class="warning-context"><BookOpen :size="15" /> {{ warning.courseName }}<span>授课教师：{{ warning.teacherName || '待确认' }}</span></p>
         <div class="notice push-top">
           <div>
             <strong>{{ warning.summary }}</strong>
@@ -42,7 +43,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { TriangleAlert } from 'lucide-vue-next'
+import { BookOpen, TriangleAlert } from 'lucide-vue-next'
 import AsyncState from '@/components/AsyncState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { warningsApi } from '@/services/api'
@@ -65,3 +66,8 @@ function formatTime(value: string) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.warning-context { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; color: var(--ink); font-weight: 600; }
+.warning-context span { margin-left: auto; color: var(--muted); font-size: 12.5px; font-weight: 400; }
+</style>

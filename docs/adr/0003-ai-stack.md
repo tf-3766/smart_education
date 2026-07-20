@@ -1,6 +1,6 @@
 # AI stack uses Fake Adapter first, then Spring AI and Qdrant
 
-> Current implementation: Spring AI 1.1.8 and the fallback adapter now share the `AiTextGenerator` boundary; Qdrant/RAG remains the next phase.
+> Current implementation (2026-07-18): Spring AI 1.1.8 and the fallback adapter share the `AiTextGenerator` boundary. Optional Qdrant RAG, per-conversation memory, and in-process `@Tool` course tools are implemented; external MCP remains a later integration boundary.
 
 We decided to freeze AI contracts with a Fake Adapter first, while treating Spring AI and Qdrant as the default real implementation path. The current GitHub repository will not be migrated to GitLab during the MVP; member B will add a `.gitlab-ci.yml` delivery artifact so the project can demonstrate GitLab CI/CD compatibility without disrupting the existing remote and branch workflow.
 

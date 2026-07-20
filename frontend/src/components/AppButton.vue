@@ -1,18 +1,19 @@
 <template>
-  <Button
+  <button
     :type="type"
-    :variant="variant === 'primary' ? 'solid' : 'subtle'"
-    theme="gray"
-    :loading="loading"
-    :disabled="disabled"
-    :class="['app-button', variant === 'primary' ? 'app-btn-primary' : 'app-btn-secondary']"
+    :disabled="disabled || loading"
+    :aria-busy="loading || undefined"
+    :class="[
+      'app-button',
+      variant === 'primary' ? 'app-btn-primary' : 'app-btn-secondary',
+      { 'pointer-events-none': loading },
+    ]"
   >
     <slot />
-  </Button>
+  </button>
 </template>
 
 <script setup lang="ts">
-import { Button } from 'frappe-ui'
 withDefaults(
   defineProps<{
     variant?: 'primary' | 'secondary'

@@ -49,6 +49,12 @@ public class StudentLearningController {
         return ApiResponse.success(service.start(user.userId(), lessonId), trace(request));
     }
 
+    @PostMapping("/lessons/{lessonId}/heartbeat")
+    public ApiResponse<LearningRecordVO> heartbeat(
+            @AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long lessonId, HttpServletRequest request) {
+        return ApiResponse.success(service.heartbeat(user.userId(), lessonId), trace(request));
+    }
+
     @PostMapping("/lessons/{lessonId}/complete")
     public ApiResponse<LearningRecordVO> complete(
             @AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long lessonId, HttpServletRequest request) {

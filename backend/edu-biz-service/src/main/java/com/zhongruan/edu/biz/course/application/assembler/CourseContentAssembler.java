@@ -53,7 +53,8 @@ public class CourseContentAssembler {
     public LearningRecordVO toLearningRecord(LessonLearningRecordEntity record) {
         return new LearningRecordVO(id(record.getId()), id(record.getCourseId()), id(record.getChapterId()),
                 id(record.getLessonId()), id(record.getStudentId()),
-                CodeLabelVO.of(LearningStatus.valueOf(record.getStatus())), time(record.getStartedAt()),
+                CodeLabelVO.of(LearningStatus.valueOf(record.getStatus())), record.getStudySeconds(),
+                time(record.getStartedAt()),
                 time(record.getCompletedAt()), time(record.getLastStudiedAt()));
     }
 

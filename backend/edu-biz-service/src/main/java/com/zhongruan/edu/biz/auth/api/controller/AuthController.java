@@ -1,5 +1,6 @@
 package com.zhongruan.edu.biz.auth.api.controller;
 
+import com.zhongruan.edu.biz.auth.api.dto.request.ChangePasswordRequest;
 import com.zhongruan.edu.biz.auth.api.dto.request.LoginRequest;
 import com.zhongruan.edu.biz.auth.api.dto.request.RegisterRequest;
 import com.zhongruan.edu.biz.auth.api.dto.request.UpdateAvatarRequest;
@@ -15,13 +16,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -52,6 +56,18 @@ public class AuthController {
                         requestContextFactory.current(servletRequest).traceId()));
     }
 
+    @PostMapping(value = "/register-with-avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<RegistrationVO>> registerWithAvatar(
+            @Valid @RequestPart("data") RegisterRequest request,
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar,
+            HttpServletRequest servletRequest) {
+        RegistrationVO registration = authApplicationService.register(request, avatar);
+        HttpStatus status = registration.approvalRequired() ? HttpStatus.ACCEPTED : HttpStatus.CREATED;
+        return ResponseEntity.status(status)
+                .body(ApiResponse.success(
+                        registration,
+                        requestContextFactory.current(servletRequest).traceId()));
+    }
     @GetMapping("/me")
     public ApiResponse<CurrentUserVO> me(
             @AuthenticationPrincipal AuthenticatedUser principal, HttpServletRequest servletRequest) {
@@ -67,6 +83,15 @@ public class AuthController {
         return ApiResponse.success(
                 authApplicationService.updateAvatar(principal, request),
                 requestContextFactory.current(servletRequest).traceId());
+    }
+
+    @PostMapping("/me/password")
+    public ApiResponse<Void> changePassword(
+            @AuthenticationPrincipal AuthenticatedUser principal,
+            @Valid @RequestBody ChangePasswordRequest request,
+            HttpServletRequest servletRequest) {
+        authApplicationService.changePassword(principal, request);
+        return ApiResponse.success(requestContextFactory.current(servletRequest).traceId());
     }
 
     @PostMapping("/logout")

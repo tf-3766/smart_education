@@ -17,7 +17,7 @@ describe('教师课程互动页 · 主题可见性', () => {
     freshDemo()
     const { wrapper } = await mountForum()
 
-    const row = wrapper.findAll('tbody tr').find((r) => r.text().includes('列表和元组的区别'))!
+    const row = wrapper.findAll('[data-test="topic-row"]').find((r) => r.text().includes('列表和元组的区别'))!
     expect(row.text()).toContain('可见')
     expect(row.text()).not.toContain('已隐藏')
     expect(row.findAll('button').some((b) => b.text() === '隐藏')).toBe(true)
@@ -27,13 +27,13 @@ describe('教师课程互动页 · 主题可见性', () => {
     freshDemo()
     const { wrapper } = await mountForum()
 
-    const row = wrapper.findAll('tbody tr').find((r) => r.text().includes('列表和元组的区别'))!
+    const row = wrapper.findAll('[data-test="topic-row"]').find((r) => r.text().includes('列表和元组的区别'))!
     await row.findAll('button').find((b) => b.text() === '隐藏')!.trigger('click')
     await settle(800)
 
     const topic = db.forumTopics.find((item) => item.topicId === '41001')!
     expect(topic.status).toBe('HIDDEN')
-    const updatedRow = wrapper.findAll('tbody tr').find((r) => r.text().includes('列表和元组的区别'))!
+    const updatedRow = wrapper.findAll('[data-test="topic-row"]').find((r) => r.text().includes('列表和元组的区别'))!
     expect(updatedRow.text()).toContain('已隐藏')
     expect(updatedRow.findAll('button').some((b) => b.text() === '恢复')).toBe(true)
   })
@@ -43,7 +43,7 @@ describe('教师课程互动页 · 主题可见性', () => {
     const { wrapper } = await mountForum()
 
     const row = wrapper.findAll('[data-test="topic-row"]').find((r) => r.text().includes('列表和元组的区别'))!
-    await row.findAll('button').find((b) => b.text() === '回复管理')!.trigger('click')
+    await row.findAll('button')[0].trigger('click')
     await settle(700)
 
     // 主题内容与既有回复渲染。

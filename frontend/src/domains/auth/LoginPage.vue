@@ -40,6 +40,21 @@
           </div>
 
           <form v-else class="login-form" @submit.prevent="register">
+            <div class="register-avatar-field">
+              <div class="register-avatar-preview">
+                <img v-if="avatarPreview" :src="avatarPreview" alt="注册头像预览" />
+                <UserRound v-else :size="30" />
+              </div>
+              <div>
+                <span class="field-label">头像（可选）</span>
+                <p class="login-rule">支持 JPG、PNG、WebP 或 GIF，最大 5MB。</p>
+                <div class="row wrap avatar-actions">
+                  <label class="avatar-picker" for="register-avatar">选择头像</label>
+                  <button v-if="avatarFile" type="button" class="text-link" @click="clearAvatar">移除</button>
+                </div>
+                <input id="register-avatar" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="onAvatarChange" />
+              </div>
+            </div>
             <label class="login-field">
               <span class="field-label">姓名</span>
               <input v-model.trim="reg.displayName" class="input" autocomplete="name" placeholder="请输入姓名" required />
@@ -47,6 +62,7 @@
             <label class="login-field">
               <span class="field-label">账号</span>
               <input v-model.trim="reg.username" class="input" autocomplete="username" placeholder="3-64 位字母、数字或 ._-" required />
+              <small class="login-rule">账号至少 3 位；密码至少 8 位且须同时包含字母和数字，两者是不同规则。</small>
             </label>
             <label class="login-field">
               <span class="field-label">密码</span>
@@ -106,9 +122,9 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronRight, Eye, EyeOff } from 'lucide-vue-next'
+import { ChevronRight, Eye, EyeOff, UserRound } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'
 import { authApi } from '@/services/api'
 import { demoAccounts, roleHome, roleLabels, useSessionStore } from '@/stores/session'
@@ -130,7 +146,33 @@ const reg = reactive({ displayName: '', username: '', password: '', confirmPassw
 const regSubmitting = ref(false)
 const regError = ref('')
 const registered = ref('')
+const avatarFile = ref<File | null>(null)
+const avatarPreview = ref('')
 
+function clearAvatar() {
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+  avatarPreview.value = ''
+  avatarFile.value = null
+}
+function onAvatarChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+    regError.value = '头像仅支持 JPG、PNG、WebP 或 GIF。'
+    input.value = ''
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    regError.value = '头像大小不能超过 5MB。'
+    input.value = ''
+    return
+  }
+  clearAvatar()
+  avatarFile.value = file
+  avatarPreview.value = URL.createObjectURL(file)
+  regError.value = ''
+}
 function switchMode(next: 'login' | 'register') {
   mode.value = next
   error.value = ''
@@ -163,7 +205,7 @@ async function register() {
 
   regSubmitting.value = true
   try {
-    const vo = await authApi.register({ username: account, password: reg.password, displayName: reg.displayName.trim(), role: reg.role })
+    const vo = await authApi.register({ username: account, password: reg.password, displayName: reg.displayName.trim(), role: reg.role }, avatarFile.value)
     username.value = vo.username
     registered.value = vo.approvalRequired
       ? '教师账号已提交，待管理员审核通过后即可登录。'
@@ -178,11 +220,23 @@ async function register() {
 function backToLogin() {
   registered.value = ''
   Object.assign(reg, { displayName: '', username: '', password: '', confirmPassword: '', role: 'STUDENT' })
+  clearAvatar()
   switchMode('login')
 }
+
+onBeforeUnmount(clearAvatar)
 
 function enter(role: Role) {
   session.login(role)
   router.push(roleHome[role])
 }
 </script>
+
+<style scoped>
+.login-rule { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.register-avatar-field { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 14px; align-items: center; padding: 12px; border: 1px solid var(--line); background: #f8fafc; }
+.register-avatar-preview { display: grid; place-items: center; width: 64px; height: 64px; overflow: hidden; border-radius: 50%; color: var(--primary); background: #e8f1ff; border: 1px solid #c8dcff; }
+.register-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+.register-avatar-field p { margin: 3px 0 7px; }
+.avatar-actions { gap: 12px; }
+.avatar-picker { padding: 5px 10px; border: 1px solid #b8c6da; color: var(--primary); background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }</style>

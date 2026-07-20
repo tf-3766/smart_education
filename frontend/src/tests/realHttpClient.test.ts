@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TOKEN_STORAGE_KEY, request } from '@/services/httpClient'
+import { TOKEN_STORAGE_KEY, request, tolerant } from '@/services/httpClient'
 import { RuntimeError } from '@/services/runtime'
 
 describe('real HTTP client', () => {
@@ -52,6 +52,20 @@ describe('real HTTP client', () => {
 
     await expect(request('/api/v1/admin/users')).rejects.toBeInstanceOf(RuntimeError)
     expect(listener).toHaveBeenCalledOnce()
+    window.removeEventListener('smart-education:forbidden', listener)
+  })
+
+  it('tolerant() 包裹的 403 不广播 forbidden，且返回兜底值（不把整页跳飞）', async () => {
+    const listener = vi.fn()
+    window.addEventListener('smart-education:forbidden', listener)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 'FORBIDDEN', message: '无权访问', traceId: 'trace-tolerant',
+    }), { status: 403, headers: { 'Content-Type': 'application/json' } })))
+
+    // 就地创建请求再交给 tolerant——与适配器里 settled(api.x(), fb) 的用法一致
+    const value = await tolerant(request('/api/v1/student/courses/9/progress'), { fallback: true })
+    expect(value).toEqual({ fallback: true })
+    expect(listener).not.toHaveBeenCalled()
     window.removeEventListener('smart-education:forbidden', listener)
   })
 

@@ -11,11 +11,18 @@ const mountGrading = async () => {
   return mounted
 }
 
+async function openRoster(wrapper: Awaited<ReturnType<typeof mountGrading>>['wrapper']) {
+  const assignmentRow = wrapper.findAll('[data-test="assignment-row"]').find((row) => row.text().includes('第一章课后练习'))!
+  await assignmentRow.findAll('button').find((button) => button.text() === '查看提交')!.trigger('click')
+  await settle(700)
+}
+
 describe('作业批改工作台', () => {
   it('渲染课程作业与提交列表', async () => {
     freshDemo()
     const { wrapper } = await mountGrading()
     expect(wrapper.text()).toContain('第一章课后练习')
+    await openRoster(wrapper)
     expect(wrapper.text()).toContain('王一诺')
   })
 
@@ -57,14 +64,15 @@ describe('作业批改工作台', () => {
   it('批改提交并发布成绩', async () => {
     freshDemo()
     const { wrapper } = await mountGrading()
-    const row = wrapper.findAll('tbody tr').find((tr) => tr.text().includes('王一诺'))!
-    await row.findAll('button').find((b) => b.text() === '批改')!.trigger('click')
+    await openRoster(wrapper)
+    const row = wrapper.findAll('[data-test="roster-item"]').find((item) => item.text().includes('王一诺'))!
+    await row.findAll('button').find((b) => b.text().includes('批改'))!.trigger('click')
     await settle()
     await wrapper.find('input[type="number"]').setValue(95)
     await wrapper.find('textarea').setValue('完成质量很好')
     await clickByText(wrapper, 'button', '评分并发布')
     await settle(900)
-    const graded = wrapper.findAll('tbody tr').find((tr) => tr.text().includes('王一诺'))!
+    const graded = wrapper.findAll('[data-test="roster-item"]').find((item) => item.text().includes('王一诺'))!
     expect(graded.text()).toContain('95')
     expect(graded.text()).toContain('已发布')
   })
@@ -72,8 +80,9 @@ describe('作业批改工作台', () => {
   it('批改弹窗可生成 AI 评语草稿并采用到评语', async () => {
     freshDemo()
     const { wrapper } = await mountGrading()
-    const row = wrapper.findAll('tbody tr').find((tr) => tr.text().includes('王一诺'))!
-    await row.findAll('button').find((b) => b.text() === '批改')!.trigger('click')
+    await openRoster(wrapper)
+    const row = wrapper.findAll('[data-test="roster-item"]').find((item) => item.text().includes('王一诺'))!
+    await row.findAll('button').find((b) => b.text().includes('批改'))!.trigger('click')
     await settle()
 
     await clickByText(wrapper, 'button', 'AI 评语草稿')

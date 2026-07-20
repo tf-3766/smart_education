@@ -61,7 +61,7 @@ function questionInPublishedPaper(questionId: string): boolean {
 function validateQuestion(body: CreateQuestionRequest | UpdateQuestionRequest): void {
   const options = body.options ?? []
   const correctCount = options.filter((option) => option.correct).length
-  if (body.questionType === 'SHORT_ANSWER') {
+  if (body.questionType === 'SHORT_ANSWER' || body.questionType === 'FILL_BLANK') {
     if (options.length) badRequest('简答题不得携带选项。')
     return
   }
@@ -69,7 +69,7 @@ function validateQuestion(body: CreateQuestionRequest | UpdateQuestionRequest): 
   if ((body.questionType === 'SINGLE_CHOICE' || body.questionType === 'TRUE_FALSE') && correctCount !== 1) {
     badRequest('单选题和判断题必须恰好有一个正确选项。')
   }
-  if (body.questionType === 'MULTI_CHOICE' && correctCount < 2) badRequest('多选题至少需要两个正确选项。')
+  if (body.questionType === 'MULTIPLE_CHOICE' && correctCount < 2) badRequest('多选题至少需要两个正确选项。')
 }
 
 function correctAnswerOf(question: QuestionRow): string {
@@ -390,7 +390,7 @@ export const examsApi = {
       const paperQuestion = paper.questions.find((item) => item.questionId === answer.questionId)
       const question = db.questions.find((item) => item.questionId === answer.questionId)
       if (!paperQuestion || !question) badRequest('答案包含不属于该试卷的题目。')
-      if (question.questionType === 'SHORT_ANSWER') {
+      if (question.questionType === 'SHORT_ANSWER' || question.questionType === 'FILL_BLANK') {
         hasShortAnswer = true
         return { questionId: answer.questionId, answerContent: answer.answerContent }
       }

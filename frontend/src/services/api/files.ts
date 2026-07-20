@@ -1,8 +1,8 @@
 // 3.2 文件上传与访问接口
 import { demoDelay } from '../runtime'
-import { del, fileContentUrl, get, isRealMode, upload } from './client'
+import { del, fileContentUrl, get, isRealMode, TOKEN_STORAGE_KEY, upload } from './client'
 import { conflict, currentUser, db, nextId, notFound, nowIso, persist } from './demo/db'
-import type { FilePurpose, StoredFileVO } from './types'
+import type { FilePurpose, FileTextPreviewVO, StoredFileVO } from './types'
 
 function toVO(row: typeof db.files[number]): StoredFileVO {
   const { ownerId: _ownerId, ...vo } = row
@@ -49,6 +49,41 @@ export const filesApi = {
   contentUrl(fileId: string): string {
     if (isRealMode()) return fileContentUrl(fileId)
     return db.files.find((item) => item.fileId === fileId)?.accessUrl ?? `/api/v1/files/${fileId}/content`
+  },
+
+  /**
+   * 以带鉴权的方式拉取文件内容并返回可直接用于 <img>/下载 的对象 URL。
+   * 文件内容接口需 Authorization 头，<img src> 无法携带，故用 fetch+blob。
+   * 用完请 URL.revokeObjectURL 释放。演示模式回退占位地址。
+   */
+  async contentObjectUrl(fileId: string): Promise<string> {
+    if (!isRealMode()) return this.contentUrl(fileId)
+    const token = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    const response = await fetch(fileContentUrl(fileId), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!response.ok) throw new Error(`文件加载失败（HTTP ${response.status}）`)
+    return URL.createObjectURL(await response.blob())
+  },
+
+  async previewObjectUrl(fileId: string, page = 0): Promise<{ url: string; pageCount: number }> {
+    if (!isRealMode()) return { url: this.contentUrl(fileId), pageCount: 1 }
+    const token = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    const endpoint = fileContentUrl(fileId).replace(/\/content$/, `/preview?page=${page}`)
+    const response = await fetch(endpoint, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cache: 'no-store',
+    })
+    if (!response.ok) throw new Error(`资料预览生成失败（HTTP ${response.status}）`)
+    return {
+      url: URL.createObjectURL(await response.blob()),
+      pageCount: Number(response.headers.get('X-Preview-Page-Count') || '1'),
+    }
+  },
+  async textPreview(fileId: string): Promise<FileTextPreviewVO> {
+    if (isRealMode()) return get<FileTextPreviewVO>(`/api/v1/files/${fileId}/text-preview`)
+    const file = db.files.find((item) => item.fileId === fileId) ?? notFound('文件不存在。')
+    return demoDelay({ text: `演示资料：${file.originalName}`, status: 'EXTRACTED', message: '演示模式正文', truncated: false })
   },
 
   async remove(fileId: string): Promise<void> {

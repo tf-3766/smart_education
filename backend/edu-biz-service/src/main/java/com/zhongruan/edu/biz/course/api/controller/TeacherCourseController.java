@@ -4,10 +4,15 @@ import com.zhongruan.edu.biz.course.api.dto.query.CourseListQuery;
 import com.zhongruan.edu.biz.course.api.dto.request.AddCourseTeacherRequest;
 import com.zhongruan.edu.biz.course.api.dto.request.CreateCourseRequest;
 import com.zhongruan.edu.biz.course.api.dto.request.UpdateCourseRequest;
+import com.zhongruan.edu.biz.course.api.vo.CollabInvitationVO;
 import com.zhongruan.edu.biz.course.api.vo.CourseDetailVO;
+import com.zhongruan.edu.biz.course.api.vo.CourseTemplateVO;
 import com.zhongruan.edu.biz.course.api.vo.CourseTeacherVO;
 import com.zhongruan.edu.biz.course.api.vo.TeacherCourseListItemVO;
+import com.zhongruan.edu.biz.course.api.vo.TeacherOptionVO;
 import com.zhongruan.edu.biz.course.application.service.CourseManagementService;
+import com.zhongruan.edu.biz.platform.api.vo.TermEnrollmentWindowVO;
+import com.zhongruan.edu.biz.platform.application.service.TermEnrollmentWindowService;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestContextFactory;
 import com.zhongruan.edu.common.api.ApiResponse;
@@ -34,11 +39,55 @@ import org.springframework.web.bind.annotation.RestController;
         + " and hasAuthority(T(com.zhongruan.edu.biz.auth.domain.enums.SystemPermission).TEACHER_ACCESS.code())")
 public class TeacherCourseController {
     private final CourseManagementService service;
+    private final TermEnrollmentWindowService termWindowService;
     private final RequestContextFactory contextFactory;
 
-    public TeacherCourseController(CourseManagementService service, RequestContextFactory contextFactory) {
+    public TeacherCourseController(
+            CourseManagementService service,
+            TermEnrollmentWindowService termWindowService,
+            RequestContextFactory contextFactory) {
         this.service = service;
+        this.termWindowService = termWindowService;
         this.contextFactory = contextFactory;
+    }
+
+    @GetMapping("/templates")
+    public ApiResponse<List<CourseTemplateVO>> templates(HttpServletRequest request) {
+        return ApiResponse.success(service.listTemplates(), trace(request));
+    }
+
+    @GetMapping("/term-windows")
+    public ApiResponse<List<TermEnrollmentWindowVO>> termWindows(HttpServletRequest request) {
+        return ApiResponse.success(termWindowService.list(), trace(request));
+    }
+
+    @GetMapping("/teacher-directory")
+    public ApiResponse<List<TeacherOptionVO>> teacherDirectory(HttpServletRequest request) {
+        return ApiResponse.success(service.listTeacherDirectory(), trace(request));
+    }
+
+    @GetMapping("/collab-invitations")
+    public ApiResponse<List<CollabInvitationVO>> invitations(
+            @AuthenticationPrincipal AuthenticatedUser user, HttpServletRequest request) {
+        return ApiResponse.success(service.listInvitations(user.userId()), trace(request));
+    }
+
+    @PostMapping("/collab-invitations/{courseId}/accept")
+    public ApiResponse<Void> acceptInvitation(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long courseId,
+            HttpServletRequest request) {
+        service.acceptInvitation(user.userId(), courseId);
+        return ApiResponse.success(trace(request));
+    }
+
+    @PostMapping("/collab-invitations/{courseId}/reject")
+    public ApiResponse<Void> rejectInvitation(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long courseId,
+            HttpServletRequest request) {
+        service.rejectInvitation(user.userId(), courseId);
+        return ApiResponse.success(trace(request));
     }
 
     @PostMapping

@@ -23,6 +23,7 @@ import com.zhongruan.edu.biz.grade.api.vo.AssignmentStatisticsVO;
 import com.zhongruan.edu.biz.grade.api.vo.CourseGradeStatisticsVO;
 import com.zhongruan.edu.biz.grade.api.vo.StudentGradeVO;
 import com.zhongruan.edu.biz.grade.api.vo.TeacherSubmissionGradeVO;
+import com.zhongruan.edu.biz.grade.api.vo.TeacherSubmissionRosterVO;
 import com.zhongruan.edu.biz.grade.application.assembler.GradeAssembler;
 import com.zhongruan.edu.biz.grade.domain.GradeErrorCode;
 import com.zhongruan.edu.biz.grade.domain.enums.GradeSourceType;
@@ -106,6 +107,46 @@ public class GradeApplicationService {
         return PageResponse.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
 
+    @Transactional(readOnly = true)
+    public List<TeacherSubmissionRosterVO> submissionRoster(Long teacherId, Long assignmentId) {
+        AssignmentEntity assignment = requireAssignment(assignmentId);
+        courseManagementService.requireEditor(teacherId, assignment.getCourseId());
+        List<CourseEnrollmentEntity> enrollments = enrollmentMapper.selectList(
+                Wrappers.<CourseEnrollmentEntity>lambdaQuery()
+                        .eq(CourseEnrollmentEntity::getCourseId, assignment.getCourseId())
+                        .in(CourseEnrollmentEntity::getStatus,
+                                EnrollmentStatus.ENROLLED.name(), EnrollmentStatus.COMPLETED.name())
+                        .orderByAsc(CourseEnrollmentEntity::getStudentId));
+        List<AssignmentSubmissionEntity> submissions = submissionMapper.selectList(
+                Wrappers.<AssignmentSubmissionEntity>lambdaQuery()
+                        .eq(AssignmentSubmissionEntity::getAssignmentId, assignmentId)
+                        .ne(AssignmentSubmissionEntity::getStatus, SubmissionStatus.DRAFT.name())
+                        .orderByDesc(AssignmentSubmissionEntity::getAttemptNo)
+                        .orderByDesc(AssignmentSubmissionEntity::getId));
+        Map<Long, AssignmentSubmissionEntity> latest = submissions.stream()
+                .collect(Collectors.toMap(
+                        AssignmentSubmissionEntity::getStudentId,
+                        Function.identity(),
+                        (left, right) -> left));
+        Map<Long, GradeRecordEntity> grades = gradeMap(assignmentId);
+        Map<Long, String> names = studentNames(enrollments.stream()
+                .map(CourseEnrollmentEntity::getStudentId)
+                .distinct()
+                .toList());
+        return enrollments.stream()
+                .map(enrollment -> {
+                    AssignmentSubmissionEntity submission = latest.get(enrollment.getStudentId());
+                    TeacherSubmissionGradeVO detail = submission == null ? null : assembler.toTeacherSubmission(
+                            submission, assignment, grades.get(enrollment.getStudentId()),
+                            names.get(enrollment.getStudentId()));
+                    return new TeacherSubmissionRosterVO(
+                            String.valueOf(enrollment.getStudentId()),
+                            names.get(enrollment.getStudentId()),
+                            submission != null,
+                            detail);
+                })
+                .toList();
+    }
     @Transactional
     public TeacherSubmissionGradeVO gradeSubmission(
             Long teacherId, Long submissionId, GradeSubmissionRequest request) {

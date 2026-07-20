@@ -76,13 +76,13 @@
 
     <AppModal :open="questionForm.open" :title="questionForm.questionId ? '编辑题目' : '新建题目'" @close="questionForm.open = false">
       <div class="form-grid">
-        <div><label class="field-label" for="qb-q-type">题型</label><select id="qb-q-type" v-model="questionForm.questionType" class="select" @change="onTypeChange"><option value="SINGLE_CHOICE">单选题</option><option value="MULTI_CHOICE">多选题</option><option value="TRUE_FALSE">判断题</option><option value="SHORT_ANSWER">简答题</option></select></div>
+        <div><label class="field-label" for="qb-q-type">题型</label><select id="qb-q-type" v-model="questionForm.questionType" class="select" @change="onTypeChange"><option value="SINGLE_CHOICE">单选题</option><option value="MULTIPLE_CHOICE">多选题</option><option value="TRUE_FALSE">判断题</option><option value="FILL_BLANK">填空题</option><option value="SHORT_ANSWER">简答题</option></select></div>
         <div><label class="field-label" for="qb-q-difficulty">难度</label><select id="qb-q-difficulty" v-model="questionForm.difficulty" class="select"><option value="EASY">易</option><option value="MEDIUM">中</option><option value="HARD">难</option></select></div>
       </div>
       <label class="field-label push-top" for="qb-q-stem">题干</label><textarea id="qb-q-stem" v-model="questionForm.stem" data-test="question-stem" class="textarea" placeholder="题目内容" />
       <label class="field-label push-top" for="qb-q-score">分值</label><input id="qb-q-score" v-model.number="questionForm.score" class="input" type="number" min="1" />
-      <template v-if="questionForm.questionType !== 'SHORT_ANSWER'">
-        <p class="field-label push-top">选项（勾选正确项{{ questionForm.questionType === 'MULTI_CHOICE' ? '，可多个' : '，恰一个' }}）</p>
+      <template v-if="!manualQuestionType(questionForm.questionType)">
+        <p class="field-label push-top">选项（勾选正确项{{ questionForm.questionType === 'MULTIPLE_CHOICE' ? '，可多个' : '，恰一个' }}）</p>
         <div v-for="(option, index) in questionForm.options" :key="index" class="row push-top" style="gap: 8px; align-items: center">
           <strong>{{ letter(index) }}</strong>
           <input v-model="option.content" data-test="option-content" class="input" style="flex: 1" placeholder="选项内容" />
@@ -129,7 +129,7 @@
         <div v-for="question in grading.questions" :key="question.questionId" class="notice push-top"><div>
           <strong>{{ question.questionOrder }}. {{ question.stem }}（{{ question.score }} 分）</strong>
           <p class="pre-line">答：{{ answerOf(question.questionId)?.answerContent || '未作答' }}</p>
-          <p v-if="question.questionType !== 'SHORT_ANSWER'" class="muted">系统判分：{{ answerOf(question.questionId)?.score ?? 0 }} 分</p>
+          <p v-if="!manualQuestionType(question.questionType)" class="muted">系统判分：{{ answerOf(question.questionId)?.score ?? 0 }} 分</p>
           <template v-else>
             <label class="row" style="gap: 8px">人工评分 <input v-model.number="manualScores[question.questionId]" data-test="grade-score" class="input" type="number" min="0" :max="question.score" style="width: 90px" /></label>
             <label class="field-label push-top" :for="`qb-grade-comment-${question.questionId}`">评语（可选，随成绩展示给学生）</label>
@@ -167,8 +167,9 @@ const paperForm = reactive({ open: false, examId: '', examTitle: '', totalScore:
 
 const formatTime = formatDateTime
 const letter = (index: number) => String.fromCharCode(65 + index)
-const typeLabel = (code: string) => ({ SINGLE_CHOICE: '单选题', MULTI_CHOICE: '多选题', TRUE_FALSE: '判断题', SHORT_ANSWER: '简答题' }[code] ?? code)
+const typeLabel = (code: string) => ({ SINGLE_CHOICE: '单选题', MULTIPLE_CHOICE: '多选题', TRUE_FALSE: '判断题', FILL_BLANK: '填空题', SHORT_ANSWER: '简答题' }[code] ?? code)
 const difficultyLabel = (code: string) => ({ EASY: '易', MEDIUM: '中', HARD: '难' }[code] ?? code)
+const manualQuestionType = (type: string) => ['FILL_BLANK', 'SHORT_ANSWER'].includes(type)
 const studentName = (id: string) => ({ '4': '王一诺', '5': '刘子涵', '6': '赵晨' }[id] ?? id)
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
 
@@ -186,11 +187,11 @@ async function draftPaperSuggestion() {
 }
 const questionValid = computed(() => {
   if (!questionForm.stem.trim() || questionForm.score < 1) return false
-  if (questionForm.questionType === 'SHORT_ANSWER') return true
+  if (manualQuestionType(questionForm.questionType)) return true
   const options = questionForm.options
   if (options.length < 2 || options.some((option) => !option.content.trim())) return false
   const correct = options.filter((option) => option.correct).length
-  return questionForm.questionType === 'MULTI_CHOICE' ? correct >= 1 : correct === 1
+  return questionForm.questionType === 'MULTIPLE_CHOICE' ? correct >= 2 : correct === 1
 })
 
 async function load() { const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 })); if (page) { courses.value = page.records; courseId.value ||= page.records[0]?.courseId ?? ''; await loadResources() } }
@@ -232,7 +233,7 @@ function openQuestionForm(question?: QuestionVO) {
 async function saveQuestion() {
   const body = {
     questionType: questionForm.questionType, stem: questionForm.stem.trim(), difficulty: questionForm.difficulty, score: questionForm.score,
-    options: questionForm.questionType === 'SHORT_ANSWER' ? [] : questionForm.options.map((option, index) => ({ label: letter(index), content: option.content.trim(), correct: option.correct, sortOrder: (index + 1) * 10 })),
+    options: manualQuestionType(questionForm.questionType) ? [] : questionForm.options.map((option, index) => ({ label: letter(index), content: option.content.trim(), correct: option.correct, sortOrder: (index + 1) * 10 })),
   }
   const saved = await state.run(() => questionForm.questionId
     ? examsApi.updateQuestion(questionForm.questionId, { ...body, status: questionForm.status || null, version: questionForm.version })
@@ -285,7 +286,7 @@ async function openAttempts(exam: ExamVO) {
 function openGrading(attempt: ExamAttemptVO) {
   grading.value = attempt
   for (const question of attempt.questions) {
-    if (question.questionType === 'SHORT_ANSWER') {
+    if (manualQuestionType(question.questionType)) {
       const answer = attempt.answers.find((item) => item.questionId === question.questionId)
       manualScores[question.questionId] = answer?.score ?? 0
       manualComments[question.questionId] = answer?.teacherComment ?? ''
@@ -297,7 +298,7 @@ async function submitGrading() {
   if (!grading.value) return
   const target = grading.value
   const graded = await state.run(() => examsApi.gradeAttempt(target.attemptId, {
-    answers: target.questions.filter((question) => question.questionType === 'SHORT_ANSWER').map((question) => ({ questionId: question.questionId, score: manualScores[question.questionId] ?? 0, teacherComment: manualComments[question.questionId]?.trim() || null })),
+    answers: target.questions.filter((question) => manualQuestionType(question.questionType)).map((question) => ({ questionId: question.questionId, score: manualScores[question.questionId] ?? 0, teacherComment: manualComments[question.questionId]?.trim() || null })),
     version: target.version,
   }))
   if (graded) { grading.value = null; flash('评分已提交'); await openAttempts(attemptExam.value!) }

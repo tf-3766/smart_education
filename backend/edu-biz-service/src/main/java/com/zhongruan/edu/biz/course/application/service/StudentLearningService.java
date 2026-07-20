@@ -29,6 +29,7 @@ import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
@@ -86,7 +87,7 @@ public class StudentLearningService {
                         byChapter.getOrDefault(chapter.getId(), List.of()).stream()
                                 .sorted(Comparator.comparing(CourseLessonEntity::getSortOrder)
                                         .thenComparing(CourseLessonEntity::getId))
-                                .map(lesson -> toOutlineLesson(lesson, records.get(lesson.getId())))
+                                .map(lesson -> toOutlineLesson(studentId, lesson, records.get(lesson.getId())))
                                 .toList()))
                 .toList();
         return new CourseOutlineVO(assembler.id(course.getId()), course.getName(),
@@ -97,7 +98,7 @@ public class StudentLearningService {
     public StudentLessonDetailVO lesson(Long studentId, Long lessonId) {
         CourseLessonEntity lesson = requireAccessibleLesson(studentId, lessonId);
         LessonLearningRecordEntity record = findRecord(studentId, lessonId);
-        return toStudentLesson(lesson, record);
+        return toStudentLesson(studentId, lesson, record);
     }
 
     @Transactional
@@ -120,6 +121,28 @@ public class StudentLearningService {
     }
 
     @Transactional
+    public LearningRecordVO heartbeat(Long studentId, Long lessonId) {
+        CourseLessonEntity lesson = requireAccessibleLesson(studentId, lessonId);
+        LessonLearningRecordEntity record = findRecord(studentId, lessonId);
+        LocalDateTime now = now();
+        if (record == null) {
+            record = newRecord(studentId, lesson, LearningStatus.IN_PROGRESS, now);
+            insertIdempotently(record, studentId, lessonId);
+            return assembler.toLearningRecord(record);
+        }
+        if (LearningStatus.COMPLETED.name().equals(record.getStatus())) {
+            return assembler.toLearningRecord(record);
+        }
+        long delta = record.getLastStudiedAt() == null ? 0L
+                : Math.max(0L, Math.min(30L, Duration.between(record.getLastStudiedAt(), now).getSeconds()));
+        record.setStatus(LearningStatus.IN_PROGRESS.name());
+        record.setStudySeconds(Math.max(0L, record.getStudySeconds() == null ? 0L : record.getStudySeconds()) + delta);
+        record.setLastStudiedAt(now);
+        updateRecordOrConflict(record);
+        return assembler.toLearningRecord(record);
+    }
+
+    @Transactional
     public LearningRecordVO complete(Long studentId, Long lessonId) {
         CourseLessonEntity lesson = requireAccessibleLesson(studentId, lessonId);
         LessonLearningRecordEntity record = findRecord(studentId, lessonId);
@@ -128,16 +151,11 @@ public class StudentLearningService {
         }
         LocalDateTime now = now();
         if (record == null) {
-            record = newRecord(studentId, lesson, LearningStatus.COMPLETED, now);
-            record.setCompletedAt(now);
+            record = newRecord(studentId, lesson, LearningStatus.IN_PROGRESS, now);
             insertIdempotently(record, studentId, lessonId);
-            if (!LearningStatus.COMPLETED.name().equals(record.getStatus())) {
-                return completeExisting(record, now);
-            }
-        } else {
-            return completeExisting(record, now);
         }
-        return assembler.toLearningRecord(record);
+        enforceMinimumStudyTime(lesson, record, now);
+        return completeExisting(record, now);
     }
 
     @Transactional(readOnly = true)
@@ -198,7 +216,7 @@ public class StudentLearningService {
         return new MaterialAccessVO(assembler.id(material.getId()), material.getName(), CodeLabelVO.of(type),
                 material.getFileSize(), material.getMimeType(),
                 managedFile ? "MANAGED_FILE" : externalLink ? "EXTERNAL_LINK" : "MOCK_METADATA_ONLY",
-                managedFile || externalLink ? material.getFileUrl() : null);
+                managedFile ? "/api/v1/files/" + material.getFileId() + "/content" : externalLink ? material.getFileUrl() : null);
     }
 
     private LearningRecordVO completeExisting(LessonLearningRecordEntity record, LocalDateTime now) {
@@ -240,21 +258,62 @@ public class StudentLearningService {
     }
 
     private StudentLessonDetailVO toStudentLesson(
-            CourseLessonEntity lesson, LessonLearningRecordEntity record) {
+            Long studentId, CourseLessonEntity lesson, LessonLearningRecordEntity record) {
         return new StudentLessonDetailVO(assembler.id(lesson.getId()), assembler.id(lesson.getCourseId()),
                 assembler.id(lesson.getChapterId()), lesson.getTitle(),
                 CodeLabelVO.of(LessonContentType.valueOf(lesson.getContentType())), lesson.getContent(),
                 lesson.getVideoUrl(), lesson.getEstimatedMinutes(),
                 CodeLabelVO.of(LessonStatus.valueOf(lesson.getStatus())), assembler.time(lesson.getUnlockAt()),
+                accessibleMaterials(studentId, lesson),
                 record == null ? null : assembler.toLearningRecord(record));
     }
 
+    private List<MaterialAccessVO> accessibleMaterials(Long studentId, CourseLessonEntity lesson) {
+        return materialMapper.selectList(Wrappers.<CourseMaterialEntity>lambdaQuery()
+                        .eq(CourseMaterialEntity::getCourseId, lesson.getCourseId())
+                        .eq(CourseMaterialEntity::getStatus, "PUBLISHED")
+                        .orderByAsc(CourseMaterialEntity::getSortOrder)
+                        .orderByAsc(CourseMaterialEntity::getId))
+                .stream()
+                .filter(material -> material.getChapterId() == null
+                        || material.getChapterId().equals(lesson.getChapterId()))
+                .filter(material -> material.getLessonId() == null
+                        || material.getLessonId().equals(lesson.getId()))
+                .filter(material -> permissionService.canAccessMaterial(studentId, material.getId()))
+                .map(this::toMaterialAccess)
+                .toList();
+    }
+
+    private MaterialAccessVO toMaterialAccess(CourseMaterialEntity material) {
+        MaterialType type = MaterialType.valueOf(material.getMaterialType());
+        boolean externalLink = type == MaterialType.LINK && material.getFileUrl() != null;
+        boolean managedFile = material.getFileId() != null;
+        return new MaterialAccessVO(assembler.id(material.getId()), material.getName(), CodeLabelVO.of(type),
+                material.getFileSize(), material.getMimeType(),
+                managedFile ? "MANAGED_FILE" : externalLink ? "EXTERNAL_LINK" : "MOCK_METADATA_ONLY",
+                managedFile ? "/api/v1/files/" + material.getFileId() + "/content" : externalLink ? material.getFileUrl() : null);
+    }
+
+    private void enforceMinimumStudyTime(
+            CourseLessonEntity lesson, LessonLearningRecordEntity record, LocalDateTime now) {
+        long requiredSeconds = Math.max(0, lesson.getEstimatedMinutes() == null ? 0L
+                : lesson.getEstimatedMinutes().longValue() * 60L);
+        long studiedSeconds = Math.max(0L, record.getStudySeconds() == null ? 0L : record.getStudySeconds());
+        if (studiedSeconds < requiredSeconds) {
+            long remainingSeconds = requiredSeconds - studiedSeconds;
+            long remainingMinutes = Math.max(1L, (remainingSeconds + 59L) / 60L);
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED,
+                    "本课时要求有效学习 " + lesson.getEstimatedMinutes() + " 分钟，还需学习约 " + remainingMinutes + " 分钟");
+        }
+    }
+
     private LessonOutlineVO toOutlineLesson(
-            CourseLessonEntity lesson, LessonLearningRecordEntity record) {
+            Long studentId, CourseLessonEntity lesson, LessonLearningRecordEntity record) {
         LearningStatus status = record == null ? LearningStatus.NOT_STARTED : LearningStatus.valueOf(record.getStatus());
         return new LessonOutlineVO(assembler.id(lesson.getId()), lesson.getTitle(), lesson.getSortOrder(),
                 CodeLabelVO.of(LessonContentType.valueOf(lesson.getContentType())), lesson.getEstimatedMinutes(),
-                true, status == LearningStatus.COMPLETED, CodeLabelVO.of(status));
+                true, status == LearningStatus.COMPLETED, CodeLabelVO.of(status),
+                accessibleMaterials(studentId, lesson));
     }
 
     private CourseEntity requireStudentCourse(Long studentId, Long courseId) {

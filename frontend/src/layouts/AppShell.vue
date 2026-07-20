@@ -18,10 +18,10 @@
           <Bell :size="20" />
           <b v-if="notifications.unreadCount">{{ notifications.unreadCount }}</b>
         </button>
-        <span class="user-chip">
-          <span class="user-avatar">{{ session.currentUser.name.slice(0, 1) }}</span>
-        </span>
-        <button class="text-link" @click="onLogout">切换账号</button>
+        <RouterLink class="account-center-link" to="/account/profile" aria-label="个人中心（含退出登录）" title="个人中心">
+          <UserAvatar :file-id="session.backendUser?.avatarFileId" :name="session.currentUser.name" :size="28" />
+          <span>个人中心</span>
+        </RouterLink>
       </div>
     </header>
 
@@ -111,15 +111,18 @@
       </Transition>
     </Teleport>
     <NotificationDrawer :open="notificationOpen" @close="notificationOpen = false" />
+    <GlobalAiAssistant />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { Bell, Menu, RotateCcw, SlidersHorizontal, X } from 'lucide-vue-next'
 import NotificationDrawer from '@/components/NotificationDrawer.vue'
+import GlobalAiAssistant from '@/components/GlobalAiAssistant.vue'
 import LiquidGlass from '@/components/LiquidGlass.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { useGlassMaterial, type GlassMaterialSettings } from '@/composables/useGlassMaterial'
 import { getRoleSidebar } from '@/layouts/roleSidebar'
 import type { RoleSidebarItem } from '@/layouts/roleSidebar'
@@ -127,7 +130,6 @@ import { roleLabels, useSessionStore } from '@/stores/session'
 import { useNotificationStore } from '@/stores/notifications'
 import type { Role } from '@/types/domain'
 
-const router = useRouter()
 const route = useRoute()
 const session = useSessionStore()
 const notifications = useNotificationStore()
@@ -175,10 +177,10 @@ async function openGlassSettings() {
   glassSettingsPanel.value?.querySelector<HTMLInputElement>('input')?.focus()
 }
 
-async function closeGlassSettings(restoreFocus = true) {
+async function closeGlassSettings() {
   glassSettingsOpen.value = false
   await nextTick()
-  if (restoreFocus && window.innerWidth > 820) glassSettingsTrigger.value?.focus()
+  if (window.innerWidth > 820) glassSettingsTrigger.value?.focus()
 }
 
 function updateGlassSetting(key: keyof GlassMaterialSettings, event: Event) {
@@ -213,8 +215,4 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onWindowKeydown)
 })
 
-async function onLogout() {
-  await session.logoutRemote()
-  await router.push('/login')
-}
 </script>

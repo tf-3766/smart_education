@@ -5,7 +5,7 @@
 import { demoDelay } from '../runtime'
 import { get, isRealMode, post, postEventStream } from './client'
 import { db, nextId, notFound, nowIso } from './demo/db'
-import type { AiCitationVO, AiDraftVO, AiServiceStatusVO, AiStreamEvent, CourseQaRequest, LessonSummaryRequest, PaperSuggestionRequest } from './types'
+import type { AiCitationVO, AiDraftVO, AssistantChatRequest, AiKnowledgeBaseStatusVO, AiServiceStatusVO, AiStreamEvent, CourseQaRequest, LessonSummaryRequest, PaperSuggestionRequest } from './types'
 
 function draft(draftType: string, businessId: string, content: string, citations: AiCitationVO[] = []): AiDraftVO {
   return {
@@ -29,7 +29,8 @@ function lessonCitations(courseId: string, lessonId?: string | null): AiCitation
 
 async function emitDemoStream(requestId: string, chunks: string[], citations: AiCitationVO[], onEvent: (event: AiStreamEvent) => void): Promise<void> {
   const emit = (type: AiStreamEvent['type'], data: unknown) => onEvent({ type, requestId, data, timestamp: nowIso() })
-  emit('meta', { provider: 'demo', model: null })
+  emit('meta', { provider: 'demo', model: null, vectorStoreConfigured: true, toolCallingConfigured: true })
+  emit('tool', { toolName: 'courseKnowledgeSearch', status: 'COMPLETED', input: null, summary: '已检索演示课程知识', result: citations })
   for (const chunk of chunks) {
     await demoDelay(undefined, 60)
     emit('delta', chunk)
@@ -39,6 +40,24 @@ async function emitDemoStream(requestId: string, chunks: string[], citations: Ai
 }
 
 export const aiApi = {
+  async assistantStream(body: AssistantChatRequest, onEvent: (event: AiStreamEvent) => void): Promise<void> {
+    if (isRealMode()) return postEventStream('/api/v1/ai/assistant/stream', body, onEvent)
+    const role = db.users.find((item) => item.userId === db.session.userId)?.roles[0] ?? 'STUDENT'
+    const roleHint = role === 'TEACHER' ? '教师可从课程管理、作业批改、考试题库和课程互动完成教学闭环。' : role === 'ADMIN' ? '管理员可处理教师审核、平台统计和 AI 服务状态。' : '学生可从我的课程进入课时资料，并在学习任务和考试安排中完成待办。'
+    const answer = `${roleHint} 你当前的问题是“${body.question}”。${body.courseId ? '我会优先结合当前课程知识库与课时上下文回答。' : '如需查询具体课程事实，请先进入对应课程页面。'}`
+    return emitDemoStream(nextId(), answer.match(/.{1,24}/g) ?? [answer], [], onEvent)
+  },
+  async knowledgeBaseStatus(courseId: string): Promise<AiKnowledgeBaseStatusVO> {
+    if (isRealMode()) return get<AiKnowledgeBaseStatusVO>(`/api/v1/ai/courses/${courseId}/knowledge-base/status`)
+    const lessons = db.lessons.filter((item) => item.courseId === courseId && item.content)
+    return demoDelay({ courseId, vectorStoreConfigured: true, indexedChunks: lessons.length, lastSyncedAt: null })
+  },
+
+  async syncKnowledgeBase(courseId: string): Promise<AiKnowledgeBaseStatusVO> {
+    if (isRealMode()) return post<AiKnowledgeBaseStatusVO>(`/api/v1/ai/courses/${courseId}/knowledge-base/sync`)
+    const lessons = db.lessons.filter((item) => item.courseId === courseId && item.content)
+    return demoDelay({ courseId, vectorStoreConfigured: true, indexedChunks: lessons.length, lastSyncedAt: nowIso() })
+  },
   /** 课程问答（SSE 流式）。演示模式基于课时内容合成回答并附引用。 */
   async qaStream(courseId: string, body: CourseQaRequest, onEvent: (event: AiStreamEvent) => void): Promise<void> {
     if (isRealMode()) return postEventStream(`/api/v1/ai/courses/${courseId}/qa/stream`, body, onEvent)
@@ -65,12 +84,20 @@ export const aiApi = {
     ))
   },
 
-  /** AI 服务状态（管理员）。 */
+  /** AI 服务状态（管理员）。配置来自后端环境变量，前端只读取状态。 */
   async adminStatus(): Promise<AiServiceStatusVO> {
     if (isRealMode()) return get<AiServiceStatusVO>('/api/v1/ai/admin/status')
-    return demoDelay({ provider: 'fallback', model: null, available: true, mode: 'FRAMEWORK_ONLY', checkedAt: nowIso() })
+    return demoDelay({
+      serviceStatus: 'UP',
+      framework: 'Spring AI',
+      frameworkVersion: '1.1.8',
+      provider: 'fallback',
+      model: 'none',
+      modelConfigured: false,
+      vectorStoreConfigured: false,
+      checkedAt: nowIso(),
+    })
   },
-
   /** 批改评语草稿（教师）。真实模式请求后端；仅返回草稿，须人工确认后再写入。 */
   async commentDraft(submissionId: string, instruction?: string): Promise<AiDraftVO> {
     if (isRealMode()) return post<AiDraftVO>(`/api/v1/ai/submissions/${submissionId}/comment-draft`, { instruction: instruction ?? null })

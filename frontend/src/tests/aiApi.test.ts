@@ -42,4 +42,13 @@ describe('教师端 AI 草稿接口 · 真实模式切换', () => {
     // 雪花 ID 不能因转数字丢精度
     expect(fetchMock.mock.calls[0][1].body).toContain('2076677237032816641')
   })
+  it('知识库状态与同步分别使用 GET 和 POST 真实端点', async () => {
+    const fetchMock = stub()
+    await aiApi.knowledgeBaseStatus('21001')
+    await aiApi.syncKnowledgeBase('21001')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/ai/courses/21001/knowledge-base/status')
+    expect(fetchMock.mock.calls[0][1].method ?? 'GET').toBe('GET')
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/api/v1/ai/courses/21001/knowledge-base/sync')
+    expect(fetchMock.mock.calls[1][1].method).toBe('POST')
+  })
 })

@@ -1,7 +1,6 @@
 // 契约 API 的请求助手：查询串拼接、JSON 动词、multipart 与 SSE。
 // 真实模式经 httpClient 走网关；演示模式由各域模块直接落到本地演示库。
 import { TOKEN_STORAGE_KEY, gateway, request } from '../httpClient'
-import { aiKeyHeader } from '../aiKey'
 import { RuntimeError, createTraceId, getApiMode } from '../runtime'
 import type { AiStreamEvent } from './types'
 
@@ -23,8 +22,8 @@ export function buildQuery(params?: Record<string, unknown>): string {
   return query ? `?${query}` : ''
 }
 
-export function get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
-  return request<T>(`${path}${buildQuery(params)}`)
+export function get<T>(path: string, params?: Record<string, unknown>, headers?: Record<string, string>): Promise<T> {
+  return request<T>(`${path}${buildQuery(params)}`, headers ? { headers } : undefined)
 }
 
 export function post<T>(path: string, body?: unknown): Promise<T> {
@@ -66,7 +65,6 @@ export async function postEventStream(path: string, body: unknown, onEvent: (eve
       Accept: 'text/event-stream',
       'X-Trace-Id': traceId,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...aiKeyHeader(path),
     },
     body: JSON.stringify(body),
   }).catch(() => { throw new RuntimeError('服务连接失败，请确认网关正在运行。', traceId, 'NETWORK_ERROR') })

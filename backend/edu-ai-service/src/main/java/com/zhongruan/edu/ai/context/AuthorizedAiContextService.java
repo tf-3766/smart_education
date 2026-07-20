@@ -3,6 +3,8 @@ package com.zhongruan.edu.ai.context;
 import com.zhongruan.edu.common.api.ApiResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
+import com.zhongruan.edu.feign.ai.AiAssistantContextRequest;
+import com.zhongruan.edu.feign.ai.AiAssistantContextResponse;
 import com.zhongruan.edu.feign.ai.AiContextPurpose;
 import com.zhongruan.edu.feign.ai.AiCourseContextRequest;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
@@ -13,14 +15,28 @@ import com.zhongruan.edu.feign.ai.AiSubmissionContextResponse;
 import com.zhongruan.edu.feign.ai.AiWarningContextResponse;
 import com.zhongruan.edu.feign.ai.BizAiContextFeignClient;
 import feign.FeignException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AuthorizedAiContextService {
+    private static final Logger log = LoggerFactory.getLogger(AuthorizedAiContextService.class);
     private final BizAiContextFeignClient contextClient;
 
     public AuthorizedAiContextService(BizAiContextFeignClient contextClient) {
         this.contextClient = contextClient;
+    }
+
+    public AiAssistantContextResponse assistantContext(
+            String authorization, Long userId, String role, String traceId) {
+        try {
+            ApiResponse<AiAssistantContextResponse> response = contextClient.getAssistantContext(
+                    authorization, new AiAssistantContextRequest(userId, role, traceId));
+            return requireData(response);
+        } catch (FeignException exception) {
+            throw translate(exception);
+        }
     }
 
     public AiCourseContextResponse courseContext(
@@ -90,6 +106,10 @@ public class AuthorizedAiContextService {
     }
 
     private BusinessException translate(FeignException exception) {
+        log.warn("Authorized Biz context request failed. status={} url={} response={}",
+                exception.status(), exception.request() == null ? null : exception.request().url(),
+                exception.contentUTF8());
+        log.warn("Authorized Biz context stack", exception);
         CommonErrorCode errorCode = switch (exception.status()) {
             case 400 -> CommonErrorCode.PARAM_VALIDATION_ERROR;
             case 401 -> CommonErrorCode.UNAUTHORIZED;

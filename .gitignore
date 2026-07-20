@@ -1,7 +1,24 @@
+# OS
+.DS_Store
+
+# Workspace-local scratch / nested checkouts
+.pnpm-store/
+.tutor/
+jinshanHomework/
+openedx-platform/
+lms/
+smart_education/
+.superpowers/
+
 # Frontend
 node_modules/
 dist/
 *.tsbuildinfo
+tests/integration/results.json
+
+# Python
+__pycache__/
+*.py[cod]
 
 # Java / Maven
 target/
@@ -34,6 +51,7 @@ backend/**/application-dev.properties
 *.log
 logs/
 data/
+backups/
 
 # Microsoft Office lock files
 ~$*.docx

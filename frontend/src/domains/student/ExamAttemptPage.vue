@@ -7,10 +7,10 @@
     <template v-if="attempt && attempt.status === 'IN_PROGRESS'">
       <section v-for="question in orderedQuestions" :key="question.questionId" class="panel">
         <p class="cell-strong">{{ question.questionOrder }}. {{ question.stem }}<span class="muted">（{{ typeLabel(question.questionType) }} · {{ question.score }} 分）</span></p>
-        <template v-if="question.questionType === 'MULTI_CHOICE'">
+        <template v-if="question.questionType === 'MULTIPLE_CHOICE'">
           <label v-for="option in question.options" :key="option.label" class="row push-top" style="gap: 8px"><input v-model="multiAnswers[question.questionId]" type="checkbox" :value="option.label" /><span>{{ option.label }}. {{ option.content }}</span></label>
         </template>
-        <template v-else-if="question.questionType === 'SHORT_ANSWER'">
+        <template v-else-if="['FILL_BLANK', 'SHORT_ANSWER'].includes(question.questionType)">
           <textarea v-model="textAnswers[question.questionId]" class="textarea push-top" rows="4" placeholder="填写你的回答" />
         </template>
         <template v-else>
@@ -48,7 +48,7 @@ const examTitle = computed(() => String(route.query.title ?? '在线考试'))
 const orderedQuestions = computed(() => [...(attempt.value?.questions ?? [])].sort((a, b) => a.questionOrder - b.questionOrder))
 const objectiveScore = computed(() => (attempt.value?.answers ?? []).reduce((sum, answer) => sum + (answer.score ?? 0), 0))
 const statusLabel = computed(() => ({ IN_PROGRESS: '答题中', SUBMITTED: '已提交', GRADED: '已评分' }[attempt.value?.status ?? 'IN_PROGRESS']))
-const typeLabel = (code: string) => ({ SINGLE_CHOICE: '单选', MULTI_CHOICE: '多选', TRUE_FALSE: '判断', SHORT_ANSWER: '简答' }[code] ?? code)
+const typeLabel = (code: string) => ({ SINGLE_CHOICE: '单选', MULTIPLE_CHOICE: '多选', TRUE_FALSE: '判断', FILL_BLANK: '填空', SHORT_ANSWER: '简答' }[code] ?? code)
 const formatTime = formatDateTime
 const answerOf = (questionId: string) => attempt.value?.answers.find((answer) => answer.questionId === questionId)
 
@@ -58,7 +58,7 @@ async function load() {
     attempt.value = started
     for (const question of started.questions) {
       const existing = started.answers.find((answer) => answer.questionId === question.questionId)?.answerContent ?? ''
-      if (question.questionType === 'MULTI_CHOICE') multiAnswers[question.questionId] = existing ? existing.split(',') : []
+      if (question.questionType === 'MULTIPLE_CHOICE') multiAnswers[question.questionId] = existing ? existing.split(',') : []
       else textAnswers[question.questionId] = existing
     }
   }
@@ -69,7 +69,7 @@ async function submit() {
   if (!window.confirm('确认交卷？交卷后不能修改答案。')) return
   const answers = attempt.value.questions.map((question) => ({
     questionId: question.questionId,
-    answerContent: question.questionType === 'MULTI_CHOICE' ? [...(multiAnswers[question.questionId] ?? [])].sort().join(',') : textAnswers[question.questionId] ?? '',
+    answerContent: question.questionType === 'MULTIPLE_CHOICE' ? [...(multiAnswers[question.questionId] ?? [])].sort().join(',') : textAnswers[question.questionId] ?? '',
   }))
   const submitted = await state.run(() => examsApi.submitAttempt(attempt.value!.attemptId, { answers, version: attempt.value!.version }))
   if (submitted) { attempt.value = submitted; message.value = '交卷成功'; window.setTimeout(() => (message.value = ''), 2200) }

@@ -22,6 +22,7 @@ import type {
   SubmissionSaveRequest,
   SubmissionSubmitRequest,
   TeacherSubmissionGradeVO,
+  TeacherSubmissionRosterVO,
 } from './types'
 
 function availabilityOf(row: AssignmentRow): string {
@@ -40,6 +41,8 @@ function toAssignmentVO(row: AssignmentRow): AssignmentDetailVO {
     lessonId: row.lessonId ?? null,
     title: row.title,
     description: row.description ?? null,
+    responseMode: (row.responseMode ?? 'MIXED') as AssignmentDetailVO['responseMode'],
+    questions: row.questions ?? [],
     maxScore: row.maxScore,
     assignmentStatus: cl(row.assignmentStatus),
     availabilityStatus: cl(availabilityOf(row)),
@@ -59,6 +62,7 @@ function toSubmissionVO(row: SubmissionRow): SubmissionDetailVO {
     studentId: row.studentId,
     attemptNo: row.attemptNo,
     content: row.content ?? null,
+    answers: row.answers ?? {},
     fileId: row.fileId ?? null,
     fileKey: row.fileKey ?? null,
     fileUrl: row.fileUrl ?? null,
@@ -85,6 +89,8 @@ function toTeacherGradeVO(row: SubmissionRow, assignment: AssignmentRow): Teache
     submissionStatus: cl(row.submissionStatus),
     submittedAt: row.submittedAt ?? null,
     content: row.content ?? null,
+    answers: row.answers ?? {},
+    fileId: row.fileId ?? null,
     fileKey: row.fileKey ?? null,
     fileUrl: row.fileUrl ?? null,
     score: row.score ?? null,
@@ -125,6 +131,8 @@ function applyAssignmentFields(row: AssignmentRow, body: AssignmentCreateRequest
     lessonId: body.lessonId ?? null,
     title: body.title,
     description: body.description ?? null,
+    responseMode: body.responseMode ?? 'MIXED',
+    questions: body.questions ?? [],
     maxScore: body.maxScore,
     openAt: body.openAt ?? null,
     dueAt: body.dueAt,
@@ -242,6 +250,7 @@ export const assignmentsApi = {
     }
     Object.assign(submission, {
       content: body.content ?? null,
+      answers: body.answers ?? {},
       fileId: body.fileId == null ? null : String(body.fileId),
       fileKey: body.fileKey ?? null,
       fileUrl: body.fileUrl ?? null,
@@ -254,8 +263,8 @@ export const assignmentsApi = {
     if (isRealMode()) return post<SubmissionDetailVO>(`/api/v1/student/assignments/${assignmentId}/submissions`, body)
     const row = requireStudentAssignment(assignmentId)
     if (availabilityOf(row) !== 'OPEN') conflict('作业不在开放提交时间内。', 'OPERATION_NOT_ALLOWED')
-    if (!body.content?.trim() && body.fileId == null && !body.fileKey && !body.fileUrl) {
-      badRequest('正式提交必须有文本内容或附件。')
+    if (!body.content?.trim() && !Object.keys(body.answers ?? {}).length && body.fileId == null && !body.fileKey && !body.fileUrl) {
+      badRequest('正式提交必须有在线回答、题目答案或附件。')
     }
     const student = currentUser('STUDENT')
     let submission = submissionOf(assignmentId, student.userId)
@@ -272,6 +281,7 @@ export const assignmentsApi = {
     }
     Object.assign(submission, {
       content: body.content ?? null,
+      answers: body.answers ?? {},
       fileId: body.fileId == null ? null : String(body.fileId),
       fileKey: body.fileKey ?? null,
       fileUrl: body.fileUrl ?? null,
@@ -293,6 +303,27 @@ export const assignmentsApi = {
     return demoDelay(paginate(rows.map((row) => toTeacherGradeVO(row, assignment)), query))
   },
 
+  async submissionRoster(assignmentId: string): Promise<TeacherSubmissionRosterVO[]> {
+    if (isRealMode()) return get<TeacherSubmissionRosterVO[]>('/api/v1/teacher/assignments/' + assignmentId + '/submission-roster')
+    const assignment = requireTeacherAssignment(assignmentId)
+    const submitted = new Map(
+      db.submissions
+        .filter((row) => row.assignmentId === assignmentId && row.submissionStatus !== 'DRAFT')
+        .sort((a, b) => (b.attemptNo ?? 0) - (a.attemptNo ?? 0))
+        .map((row) => [row.studentId, row] as const),
+    )
+    return demoDelay(db.enrollments
+      .filter((item) => item.courseId === assignment.courseId && ['ENROLLED', 'COMPLETED'].includes(item.status))
+      .map((enrollment) => {
+        const row = submitted.get(enrollment.studentId)
+        return {
+          studentId: enrollment.studentId,
+          studentName: userName(enrollment.studentId),
+          submitted: Boolean(row),
+          submission: row ? toTeacherGradeVO(row, assignment) : null,
+        }
+      }))
+  },
   async grade(submissionId: string, body: GradeSubmissionRequest): Promise<TeacherSubmissionGradeVO> {
     if (isRealMode()) return post<TeacherSubmissionGradeVO>(`/api/v1/teacher/submissions/${submissionId}/grade`, body)
     const submission = db.submissions.find((item) => item.submissionId === submissionId) ?? notFound('提交不存在。')

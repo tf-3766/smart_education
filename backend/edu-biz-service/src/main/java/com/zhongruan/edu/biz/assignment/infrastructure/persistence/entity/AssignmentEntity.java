@@ -11,6 +11,8 @@ public class AssignmentEntity extends BaseAuditEntity {
     private Long lessonId;
     private String title;
     private String description;
+    private String responseMode;
+    private String questionsJson;
     private BigDecimal maxScore;
     private String status;
     private LocalDateTime openAt;
@@ -25,6 +27,10 @@ public class AssignmentEntity extends BaseAuditEntity {
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getResponseMode() { return responseMode; }
+    public void setResponseMode(String responseMode) { this.responseMode = responseMode; }
+    public String getQuestionsJson() { return questionsJson; }
+    public void setQuestionsJson(String questionsJson) { this.questionsJson = questionsJson; }
     public BigDecimal getMaxScore() { return maxScore; }
     public void setMaxScore(BigDecimal maxScore) { this.maxScore = maxScore; }
     public String getStatus() { return status; }

@@ -52,6 +52,36 @@ class AiContextApiIntegrationTest {
     }
 
     @Test
+    void assistantContextGroundsStudentInOwnWarningsAndLearningTasks() throws Exception {
+        String token = login("student", "123456");
+
+        mockMvc.perform(post("/_internal/v1/ai-context/assistant")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assistantContextRequest(1001, "STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roleCode").value("STUDENT"))
+                .andExpect(jsonPath("$.data.courses[*]", hasItem(org.hamcrest.Matchers.containsString("已发布测试课程"))))
+                .andExpect(jsonPath("$.data.warnings[*]", hasItem(org.hamcrest.Matchers.containsString("学习进度低于课程节奏"))))
+                .andExpect(jsonPath("$.data.assignments[*]", hasItem(org.hamcrest.Matchers.containsString("第一章课后练习"))))
+                .andExpect(jsonPath("$.data.enrollmentWindows[*]", hasItem(org.hamcrest.Matchers.containsString("2026 秋季"))));
+    }
+
+    @Test
+    void assistantContextLetsAdminReadTermWindowsWithoutStudentWarningDetails() throws Exception {
+        String token = login("admin", "admin123");
+
+        mockMvc.perform(post("/_internal/v1/ai-context/assistant")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assistantContextRequest(1003, "SUPER_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.enrollmentWindows[*]", hasItem(org.hamcrest.Matchers.containsString("2026 秋季"))))
+                .andExpect(jsonPath("$.data.platformMetrics[*]", hasItem(org.hamcrest.Matchers.containsString("课程总数"))))
+                .andExpect(jsonPath("$.data.warnings").isEmpty());
+    }
+
+    @Test
     void internalContextRejectsForgedIdentityAndLockedLesson() throws Exception {
         String token = login("student", "123456");
 
@@ -143,6 +173,11 @@ class AiContextApiIntegrationTest {
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
+    private String assistantContextRequest(long userId, String roleCode) throws Exception {
+        return objectMapper.writeValueAsString(
+                new AssistantContextRequest(userId, roleCode, "ai-assistant-context-test-trace"));
+    }
+
     private String contextRequest(long userId, String roleCode, Integer lessonId) throws Exception {
         return objectMapper.writeValueAsString(new ContextRequest(
                 userId, roleCode, 21001, lessonId, null, "COURSE_QA", "ai-context-test-trace"));
@@ -174,6 +209,8 @@ class AiContextApiIntegrationTest {
     }
 
     private record Credentials(String username, String password) {}
+
+    private record AssistantContextRequest(long userId, String roleCode, String traceId) {}
 
     private record ContextRequest(
             long userId,

@@ -37,6 +37,59 @@ class AssignmentApiIntegrationTest {
     private NotificationDeadlineScheduler deadlineScheduler;
 
     @Test
+    void quizAssignmentKeepsCorrectAnswersPrivateAndStoresStudentAnswers() throws Exception {
+        String teacher = login("teacher", "t123456");
+        String student = login("student", "123456");
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/teacher/courses/21001/assignments")
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"结构化题目作业",
+                                  "description":"完成选择与填空题",
+                                  "responseMode":"QUIZ",
+                                  "questions":[
+                                    {"questionId":"q1","questionType":"SINGLE_CHOICE","stem":"2+2 等于？","options":["3","4"],"score":5,"correctAnswers":["1"]},
+                                    {"questionId":"q2","questionType":"FILL_BLANK","stem":"Java 的入口方法是？","options":[],"score":5,"correctAnswers":["main"]}
+                                  ],
+                                  "maxScore":10,
+                                  "dueAt":"2099-12-31T23:59:59+08:00"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.responseMode").value("QUIZ"))
+                .andExpect(jsonPath("$.data.questions[0].correctAnswers[0]").value("1"))
+                .andReturn();
+        String assignmentId = body(createResult).path("data").path("assignmentId").asText();
+
+        mockMvc.perform(post("/api/v1/teacher/assignments/{assignmentId}/publish", assignmentId)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/student/assignments/{assignmentId}", assignmentId)
+                        .header("Authorization", bearer(student)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.assignment.responseMode").value("QUIZ"))
+                .andExpect(jsonPath("$.data.assignment.questions[0].correctAnswers", hasSize(0)));
+
+        mockMvc.perform(post("/api/v1/student/assignments/{assignmentId}/submissions", assignmentId)
+                        .header("Authorization", bearer(student))
+                        .header("Idempotency-Key", "quiz-submit-" + assignmentId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"answers":{"q1":["1"],"q2":["main"]}}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.answers.q1[0]").value("1"));
+
+        mockMvc.perform(get("/api/v1/teacher/assignments/{assignmentId}/submissions", assignmentId)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].answers.q2[0]").value("main"));
+    }
+
+    @Test
     void teacherPublishesAssignmentAndEnrolledStudentSubmitsIt() throws Exception {
         String teacher = login("teacher", "t123456");
         String student = login("student", "123456");

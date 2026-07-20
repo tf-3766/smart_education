@@ -7,8 +7,8 @@ describe('AppButton', () => {
     const wrapper = mount(AppButton, { props: { variant: 'primary', loading: true }, slots: { default: '保存' } })
     const button = wrapper.get('button')
     expect(button.attributes('aria-busy')).toBe('true')
-    // frappe-ui treats a loading button as disabled for interaction purposes
     expect(button.classes().join(' ')).toContain('pointer-events-none')
+    expect(button.attributes('disabled')).toBeDefined()
   })
 
   it('forwards disabled', () => {

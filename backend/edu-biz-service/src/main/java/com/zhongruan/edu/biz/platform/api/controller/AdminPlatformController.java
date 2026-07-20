@@ -4,13 +4,16 @@ import com.zhongruan.edu.biz.platform.api.dto.query.AnnouncementListQuery;
 import com.zhongruan.edu.biz.platform.api.dto.request.CreateAnnouncementRequest;
 import com.zhongruan.edu.biz.platform.api.dto.request.CreateCourseCategoryRequest;
 import com.zhongruan.edu.biz.platform.api.dto.request.UpdateCourseCategoryRequest;
+import com.zhongruan.edu.biz.platform.api.dto.request.UpsertTermEnrollmentWindowRequest;
 import com.zhongruan.edu.biz.platform.api.dto.request.WithdrawAnnouncementRequest;
 import com.zhongruan.edu.biz.platform.api.vo.AdminStatisticsVO;
 import com.zhongruan.edu.biz.platform.api.vo.AnnouncementVO;
 import com.zhongruan.edu.biz.platform.api.vo.CourseCategoryVO;
+import com.zhongruan.edu.biz.platform.api.vo.TermEnrollmentWindowVO;
 import com.zhongruan.edu.biz.platform.application.service.AdminStatisticsService;
 import com.zhongruan.edu.biz.platform.application.service.AnnouncementApplicationService;
 import com.zhongruan.edu.biz.platform.application.service.CourseCategoryService;
+import com.zhongruan.edu.biz.platform.application.service.TermEnrollmentWindowService;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestContextFactory;
 import com.zhongruan.edu.common.api.ApiResponse;
@@ -39,19 +42,32 @@ public class AdminPlatformController {
     private final CourseCategoryService categoryService;
     private final AnnouncementApplicationService announcementService;
     private final AdminStatisticsService statisticsService;
+    private final TermEnrollmentWindowService termWindowService;
     private final RequestContextFactory contextFactory;
 
     public AdminPlatformController(
             CourseCategoryService categoryService,
             AnnouncementApplicationService announcementService,
             AdminStatisticsService statisticsService,
+            TermEnrollmentWindowService termWindowService,
             RequestContextFactory contextFactory) {
         this.categoryService = categoryService;
         this.announcementService = announcementService;
         this.statisticsService = statisticsService;
+        this.termWindowService = termWindowService;
         this.contextFactory = contextFactory;
     }
 
+    @GetMapping("/term-enrollment-windows")
+    public ApiResponse<List<TermEnrollmentWindowVO>> listTermEnrollmentWindows(HttpServletRequest request) {
+        return ApiResponse.success(termWindowService.list(), trace(request));
+    }
+
+    @PutMapping("/term-enrollment-windows")
+    public ApiResponse<TermEnrollmentWindowVO> upsertTermEnrollmentWindow(
+            @Valid @RequestBody UpsertTermEnrollmentWindowRequest body, HttpServletRequest request) {
+        return ApiResponse.success(termWindowService.upsert(body), trace(request));
+    }
     @GetMapping("/course-categories")
     public ApiResponse<List<CourseCategoryVO>> listCategories(HttpServletRequest request) {
         return ApiResponse.success(categoryService.listForAdministration(), trace(request));

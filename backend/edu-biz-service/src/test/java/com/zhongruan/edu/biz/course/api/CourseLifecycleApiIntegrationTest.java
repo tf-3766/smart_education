@@ -121,6 +121,63 @@ class CourseLifecycleApiIntegrationTest {
     }
 
     @Test
+    void collaborationInvitationMustBeAcceptedBeforeCourseAccessAndCanBeReissued() throws Exception {
+        String owner = login("teacher", "t123456");
+        String invitee = login("teacher2", "t123456");
+        String courseId = createCourse(owner, "COLLAB-INVITE-001");
+
+        mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/teachers", courseId)
+                        .header("Authorization", bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"teacherId\":\"1004\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status.code").value("PENDING"));
+
+        mockMvc.perform(get("/api/v1/teacher/courses/{courseId}", courseId)
+                        .header("Authorization", bearer(invitee)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/teacher/courses/collab-invitations")
+                        .header("Authorization", bearer(invitee)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].courseId", hasItem(courseId)));
+
+        mockMvc.perform(post("/api/v1/teacher/courses/collab-invitations/{courseId}/reject", courseId)
+                        .header("Authorization", bearer(invitee)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/teachers", courseId)
+                        .header("Authorization", bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"teacherId\":\"1004\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status.code").value("PENDING"));
+
+        mockMvc.perform(post("/api/v1/teacher/courses/collab-invitations/{courseId}/accept", courseId)
+                        .header("Authorization", bearer(invitee)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/teacher/courses/{courseId}", courseId)
+                        .header("Authorization", bearer(invitee)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/teacher/courses/{courseId}/teachers", courseId)
+                        .header("Authorization", bearer(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.teacherId == '1004')].status.code", hasItem("ACTIVE")));
+    }
+
+    @Test
+    void teacherCourseAuxiliaryEndpointsExposeRealBackendData() throws Exception {
+        String teacher = login("teacher", "t123456");
+
+        mockMvc.perform(get("/api/v1/teacher/courses/templates").header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].courseCode", hasItem("COURSE-PUBLISHED-001")));
+        mockMvc.perform(get("/api/v1/teacher/courses/teacher-directory").header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].teacherId", hasItem("1004")));
+        mockMvc.perform(get("/api/v1/teacher/courses/term-windows").header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].term", hasItem("2026 秋季")));
+    }
+    @Test
     void reviewApprovalAndPublicationFormAnExplicitLifecycle() throws Exception {
         String teacherToken = login("teacher", "t123456");
         String adminToken = login("admin", "admin123");

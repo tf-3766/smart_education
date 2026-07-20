@@ -9,6 +9,7 @@ public record LearningRecordVO(
         String lessonId,
         String studentId,
         CodeLabelVO status,
+        Long studySeconds,
         OffsetDateTime startedAt,
         OffsetDateTime completedAt,
         OffsetDateTime lastStudiedAt) {}

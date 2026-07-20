@@ -79,7 +79,7 @@ public class ForumApplicationService {
         topic.setPinned(0);
         topic.setReplyCount(0);
         topicMapper.insert(topic);
-        return assembler.toDetail(topic, authorName(authorId));
+        return assembler.toDetail(topic, authorProfile(authorId).name(), authorProfile(authorId).avatarFileId());
     }
 
     @Transactional(readOnly = true)
@@ -103,14 +103,14 @@ public class ForumApplicationService {
         if (!ForumContentStatus.VISIBLE.name().equals(topic.getStatus())) {
             throw new BusinessException(ForumErrorCode.FORUM_TOPIC_NOT_FOUND);
         }
-        return assembler.toDetail(topic, authorName(topic.getAuthorId()));
+        return assembler.toDetail(topic, authorProfile(topic.getAuthorId()).name(), authorProfile(topic.getAuthorId()).avatarFileId());
     }
 
     @Transactional(readOnly = true)
     public ForumTopicDetailVO teacherTopic(Long teacherId, Long topicId) {
         ForumTopicEntity topic = requireTopic(topicId);
         courseManagementService.requireEditor(teacherId, topic.getCourseId());
-        return assembler.toDetail(topic, authorName(topic.getAuthorId()));
+        return assembler.toDetail(topic, authorProfile(topic.getAuthorId()).name(), authorProfile(topic.getAuthorId()).avatarFileId());
     }
 
     @Transactional(readOnly = true)
@@ -181,7 +181,7 @@ public class ForumApplicationService {
         reply.setStatus(ForumContentStatus.VISIBLE.name());
         replyMapper.insert(reply);
         recalculateTopicReplyStats(topic.getId());
-        return assembler.toReply(reply, authorName(authorId));
+        return assembler.toReply(reply, authorProfile(authorId).name(), authorProfile(authorId).avatarFileId());
     }
 
     @Transactional(readOnly = true)
@@ -196,6 +196,41 @@ public class ForumApplicationService {
         return topicPage(query, wrapper);
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<ForumTopicListItemVO> listAdminTopics(ForumListQuery query) {
+        var wrapper = Wrappers.<ForumTopicEntity>lambdaQuery();
+        if (query.getStatus() != null) {
+            wrapper.eq(ForumTopicEntity::getStatus, query.getStatus().name());
+        }
+        applyTopicKeyword(wrapper, query.getKeyword());
+        applyTopicOrder(wrapper);
+        return topicPage(query, wrapper);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ForumReplyVO> listAdminReplies(ForumListQuery query) {
+        var wrapper = Wrappers.<ForumReplyEntity>lambdaQuery();
+        if (query.getStatus() != null) {
+            wrapper.eq(ForumReplyEntity::getStatus, query.getStatus().name());
+        }
+        if (query.getKeyword() != null && !query.getKeyword().isBlank()) {
+            wrapper.like(ForumReplyEntity::getContent, query.getKeyword().trim());
+        }
+        wrapper.orderByDesc(ForumReplyEntity::getCreatedAt)
+                .orderByDesc(ForumReplyEntity::getId);
+        return replyPage(query, wrapper);
+    }
+    @Transactional
+    public ForumTopicListItemVO setTopicPinnedByTeacher(
+            Long teacherId, Long topicId, boolean pinned, Integer version) {
+        ForumTopicEntity topic = requireTopic(topicId);
+        courseManagementService.requireEditor(teacherId, topic.getCourseId());
+        topic.setPinned(pinned ? 1 : 0);
+        topic.setVersion(version);
+        updateTopicOrConflict(topic);
+        ForumTopicEntity fresh = requireTopic(topicId);
+        return assembler.toListItem(fresh, authorProfile(fresh.getAuthorId()).name(), authorProfile(fresh.getAuthorId()).avatarFileId());
+    }
     @Transactional
     public ForumTopicDetailVO setTopicVisibilityByTeacher(
             Long teacherId, Long topicId, ForumVisibilityRequest request) {
@@ -235,7 +270,7 @@ public class ForumApplicationService {
         topic.setModeratedAt(now());
         updateTopicOrConflict(topic);
         ForumTopicEntity fresh = requireTopic(topic.getId());
-        return assembler.toDetail(fresh, authorName(fresh.getAuthorId()));
+        return assembler.toDetail(fresh, authorProfile(fresh.getAuthorId()).name(), authorProfile(fresh.getAuthorId()).avatarFileId());
     }
 
     private ForumReplyVO setReplyVisibility(
@@ -250,19 +285,19 @@ public class ForumApplicationService {
         updateReplyOrConflict(reply);
         recalculateTopicReplyStats(reply.getTopicId());
         ForumReplyEntity fresh = requireReply(reply.getId());
-        return assembler.toReply(fresh, authorName(fresh.getAuthorId()));
+        return assembler.toReply(fresh, authorProfile(fresh.getAuthorId()).name(), authorProfile(fresh.getAuthorId()).avatarFileId());
     }
 
     private PageResponse<ForumTopicListItemVO> topicPage(
             ForumListQuery query,
             com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ForumTopicEntity> wrapper) {
         IPage<ForumTopicEntity> page = topicMapper.selectPage(new Page<>(query.getPage(), query.getSize()), wrapper);
-        Map<Long, String> names = authorNames(page.getRecords().stream()
+        Map<Long, AuthorProfile> authors = authorProfiles(page.getRecords().stream()
                 .map(ForumTopicEntity::getAuthorId)
                 .distinct()
                 .toList());
         List<ForumTopicListItemVO> records = page.getRecords().stream()
-                .map(topic -> assembler.toListItem(topic, names.get(topic.getAuthorId())))
+                .map(topic -> assembler.toListItem(topic, authors.getOrDefault(topic.getAuthorId(), new AuthorProfile(null, null)).name(), authors.getOrDefault(topic.getAuthorId(), new AuthorProfile(null, null)).avatarFileId()))
                 .toList();
         return PageResponse.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
@@ -271,12 +306,12 @@ public class ForumApplicationService {
             ForumListQuery query,
             com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ForumReplyEntity> wrapper) {
         IPage<ForumReplyEntity> page = replyMapper.selectPage(new Page<>(query.getPage(), query.getSize()), wrapper);
-        Map<Long, String> names = authorNames(page.getRecords().stream()
+        Map<Long, AuthorProfile> authors = authorProfiles(page.getRecords().stream()
                 .map(ForumReplyEntity::getAuthorId)
                 .distinct()
                 .toList());
         List<ForumReplyVO> records = page.getRecords().stream()
-                .map(reply -> assembler.toReply(reply, names.get(reply.getAuthorId())))
+                .map(reply -> assembler.toReply(reply, authors.getOrDefault(reply.getAuthorId(), new AuthorProfile(null, null)).name(), authors.getOrDefault(reply.getAuthorId(), new AuthorProfile(null, null)).avatarFileId()))
                 .toList();
         return PageResponse.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
@@ -337,19 +372,25 @@ public class ForumApplicationService {
         }
     }
 
-    private Map<Long, String> authorNames(List<Long> ids) {
+    private Map<Long, AuthorProfile> authorProfiles(List<Long> ids) {
         if (ids.isEmpty()) {
             return Map.of();
         }
         return userMapper.selectByIds(ids).stream()
-                .collect(Collectors.toMap(UserEntity::getId, UserEntity::getDisplayName, (left, right) -> left));
+                .collect(Collectors.toMap(UserEntity::getId, this::toAuthorProfile, (left, right) -> left));
     }
 
-    private String authorName(Long id) {
-        UserEntity user = userMapper.selectById(id);
-        return user == null ? null : user.getDisplayName();
+    private AuthorProfile authorProfile(Long id) {
+        return toAuthorProfile(userMapper.selectById(id));
     }
 
+    private AuthorProfile toAuthorProfile(UserEntity user) {
+        return user == null
+                ? new AuthorProfile(null, null)
+                : new AuthorProfile(user.getDisplayName(), user.getAvatarFileId() == null ? null : String.valueOf(user.getAvatarFileId()));
+    }
+
+    private record AuthorProfile(String name, String avatarFileId) {}
     private void updateTopicOrConflict(ForumTopicEntity topic) {
         if (topicMapper.updateById(topic) != 1) {
             throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "Forum topic changed, refresh and retry");

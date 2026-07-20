@@ -8,6 +8,7 @@ public record ForumReplyVO(
         String courseId,
         String authorId,
         String authorName,
+        String authorAvatarFileId,
         String parentReplyId,
         String content,
         CodeLabelVO status,

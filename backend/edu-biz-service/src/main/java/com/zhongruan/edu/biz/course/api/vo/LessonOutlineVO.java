@@ -1,5 +1,7 @@
 package com.zhongruan.edu.biz.course.api.vo;
 
+import java.util.List;
+
 public record LessonOutlineVO(
         String lessonId,
         String title,
@@ -8,4 +10,5 @@ public record LessonOutlineVO(
         Integer estimatedMinutes,
         boolean unlocked,
         boolean completed,
-        CodeLabelVO learningStatus) {}
+        CodeLabelVO learningStatus,
+        List<MaterialAccessVO> materials) {}

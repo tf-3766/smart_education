@@ -67,6 +67,23 @@ describe('教师课程内容页：章节', () => {
     expect(wrapper.text()).not.toContain('参考链接')
   })
 
+  it('可编辑已发布资料并重新发布', async () => {
+    freshDemo()
+    const { wrapper } = await mountContent()
+    const publishedRow = rowContaining(wrapper, '讲义《Python 基础》')
+    await publishedRow.findAll('button').find((button) => button.text() === '编辑')!.trigger('click')
+    await settle()
+    await wrapper.find('[data-test="material-name"]').setValue('讲义《Python 基础》修订版')
+    await wrapper.find('[data-test="material-visibility"]').setValue('COURSE')
+    await clickByText(wrapper, 'button', '保存资料')
+
+    expect(rowContaining(wrapper, '讲义《Python 基础》修订版').text()).toContain('草稿')
+    const draftRow = rowContaining(wrapper, '讲义《Python 基础》修订版')
+    await draftRow.findAll('button').find((button) => button.text() === '发布')!.trigger('click')
+    await settle()
+    expect(rowContaining(wrapper, '讲义《Python 基础》修订版').text()).toContain('已发布')
+  })
+
   it('可下线已发布章节', async () => {
     freshDemo()
     const { wrapper } = await mountContent()
@@ -78,27 +95,20 @@ describe('教师课程内容页：章节', () => {
     expect(rowContaining(wrapper, '第一章 Python 基础语法').text()).toContain('已下线')
   })
 
-  it('编辑课时可生成 AI 摘要草稿并采用为课时内容；新建课时时 AI 按钮禁用', async () => {
+  it('AI 摘要位于已保存课时旁，并基于课时说明和资料生成独立草稿', async () => {
     freshDemo()
     const { wrapper } = await mountContent()
     await rowContaining(wrapper, '第一章 Python 基础语法').trigger('click')
     await settle()
 
-    // 新建课时：还没有课时 ID，AI 摘要按钮可见但禁用（保存后才可用），提升可发现性。
     await clickByText(wrapper, 'button', '新建课时')
-    const aiBtn = wrapper.findAll('button').find((b) => b.text().includes('AI 课时摘要'))
-    expect(aiBtn).toBeTruthy()
-    expect(aiBtn!.attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[role="dialog"]').text()).not.toContain('AI 摘要')
     await clickByText(wrapper, 'button', '取消')
 
-    // 编辑已有课时：可生成草稿并采用。
-    await rowContaining(wrapper, '变量与数据类型').findAll('button').find((b) => b.text() === '编辑')!.trigger('click')
-    await settle()
-    await clickByText(wrapper, 'button', 'AI 课时摘要')
+    const lessonRow = rowContaining(wrapper, '变量与数据类型')
+    await lessonRow.findAll('button').find((button) => button.text() === 'AI 摘要')!.trigger('click')
     await settle(500)
     expect(wrapper.text()).toContain('AI 课时摘要草稿')
-    await clickByText(wrapper, 'button', '采用为课时内容')
-    const content = (wrapper.find('[data-test="lesson-content"]').element as HTMLTextAreaElement).value
-    expect(content).toContain('建议总结为三点')
-  })
-})
+    expect(wrapper.text()).toContain('课时说明和已发布资料')
+    expect(wrapper.text()).not.toContain('采用为课时内容')
+  })})

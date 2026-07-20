@@ -19,8 +19,19 @@ describe('browser UI comment regressions', () => {
   })
 
   it('keeps the lesson outline anchored while the lesson content scrolls', () => {
-    expect(lessonWorkspace()).toContain('lesson-outline-panel')
-    expect(styles()).toMatch(/\.lesson-outline-panel\s*\{[^}]*position\s*:\s*sticky[^}]*top\s*:\s*80px[^}]*height\s*:\s*fit-content/s)
+    const source = lessonWorkspace()
+
+    expect(source).toContain('class="panel course-tree"')
+    expect(source).toMatch(/\.course-tree\s*\{[^}]*position\s*:\s*sticky[^}]*top\s*:\s*92px[^}]*max-height\s*:/s)
+  })
+
+  it('renders courseware as one slide at a time and constrains fullscreen height', () => {
+    const source = lessonWorkspace()
+
+    expect(source).toContain("material.materialType.code === 'COURSEWARE'")
+    expect(source).toContain("filesApi.previewObjectUrl(fileId, previewPage.value)")
+    expect(source).toMatch(/\.material-stage:fullscreen\s*\{[^}]*height\s*:\s*100vh[^}]*overflow\s*:\s*hidden/s)
+    expect(source).toMatch(/\.material-stage:fullscreen \.slide-viewer\s*\{[^}]*min-height\s*:\s*0[^}]*height\s*:\s*calc\(100vh - 96px\)/s)
   })
 
   it('lays out dashboard action buttons as a single icon-and-label row', () => {

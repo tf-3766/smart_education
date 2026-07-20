@@ -9,4 +9,7 @@ public record AiMaterialRef(
         String fileKey,
         String fileUrl,
         String visibility,
-        String status) {}
+        String status,
+        String extractedText,
+        String extractionStatus,
+        String extractionMessage) {}

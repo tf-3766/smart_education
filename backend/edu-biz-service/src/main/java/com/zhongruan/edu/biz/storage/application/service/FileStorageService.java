@@ -135,6 +135,16 @@ public class FileStorageService {
         return new StoredFileContent(toVO(file), new FileSystemResource(path));
     }
 
+    @Transactional(readOnly = true)
+    StoredFileContent internalContent(Long fileId) {
+        StoredFileEntity file = requireActive(fileId);
+        Path path = resolve(file.getObjectKey());
+        if (!Files.isRegularFile(path)) {
+            throw new BusinessException(StorageErrorCode.FILE_NOT_FOUND);
+        }
+        return new StoredFileContent(toVO(file), new FileSystemResource(path));
+    }
+
     @Transactional
     public void delete(AuthenticatedUser user, Long fileId) {
         StoredFileEntity file = requireActive(fileId);

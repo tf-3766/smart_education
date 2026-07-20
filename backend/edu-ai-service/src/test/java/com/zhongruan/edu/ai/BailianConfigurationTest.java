@@ -17,7 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     "spring.cloud.nacos.config.enabled=false",
     "spring.ai.model.chat=openai",
     "spring.ai.openai.api-key=test-dashscope-key",
-    "spring.ai.openai.base-url=http://127.0.0.1:9/compatible-mode/v1",
+    "spring.ai.openai.base-url=http://127.0.0.1:9/compatible-mode",
     "spring.ai.openai.chat.options.model=qwen-plus",
     "edu.ai.provider-name=aliyun-bailian"
 })

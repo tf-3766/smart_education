@@ -1,6 +1,7 @@
 package com.zhongruan.edu.biz.course.api.vo;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 public record StudentLessonDetailVO(
         String lessonId,
@@ -13,4 +14,5 @@ public record StudentLessonDetailVO(
         Integer estimatedMinutes,
         CodeLabelVO status,
         OffsetDateTime unlockAt,
+        List<MaterialAccessVO> materials,
         LearningRecordVO learningRecord) {}

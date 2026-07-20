@@ -94,7 +94,7 @@ describe('真实账号登录表单', () => {
     await wrapper.get('button[type="submit"]').trigger('click')
     await flushPromises()
 
-    expect(registerMock).toHaveBeenCalledWith({ username: 'newstudent', password: 'abcd1234', displayName: '新同学', role: 'STUDENT' })
+    expect(registerMock).toHaveBeenCalledWith({ username: 'newstudent', password: 'abcd1234', displayName: '新同学', role: 'STUDENT' }, null)
     expect(wrapper.find('.login-done').text()).toContain('注册成功')
   })
 })

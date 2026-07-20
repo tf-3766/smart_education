@@ -37,6 +37,27 @@ class PlatformApiIntegrationTest {
         String teacher = login("teacher", "t123456");
         String student = login("student", "123456");
 
+        mockMvc.perform(get("/api/v1/admin/term-enrollment-windows").header("Authorization", bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].term", hasItem("2026 秋季")));
+        mockMvc.perform(put("/api/v1/admin/term-enrollment-windows")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"term":"2027 春季","enrollmentOpenAt":"2027-02-20T09:00:00+08:00",
+                                 "enrollmentCloseAt":"2027-03-05T17:00:00+08:00"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.term").value("2027 春季"));
+        mockMvc.perform(put("/api/v1/admin/term-enrollment-windows")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"term":"2027 秋季","enrollmentOpenAt":"2027-09-10T09:00:00+08:00",
+                                 "enrollmentCloseAt":"2027-09-01T09:00:00+08:00"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PARAM_VALIDATION_ERROR"));
         mockMvc.perform(get("/api/v1/course-categories").header("Authorization", bearer(student)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].categoryId", hasItem("1")));

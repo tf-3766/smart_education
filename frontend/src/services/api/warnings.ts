@@ -31,8 +31,11 @@ const warningLabels: Record<string, string> = {
 const wcl = (code: string): CodeLabel => ({ code, label: warningLabels[code] ?? code })
 
 function toVO(row: WarningRow): LearningWarningVO {
+  const course = db.courses.find((item) => item.courseId === row.courseId)
   return {
     ...row,
+    courseName: course?.name ?? '未知课程',
+    teacherName: course ? userName(course.ownerTeacherId) : null,
     studentName: userName(row.studentId),
     warningType: wcl(row.warningType),
     warningLevel: wcl(row.warningLevel),

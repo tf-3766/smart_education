@@ -1,6 +1,7 @@
 package com.zhongruan.edu.biz.forum.api.controller;
 
 import com.zhongruan.edu.biz.forum.api.dto.query.ForumListQuery;
+import com.zhongruan.edu.biz.forum.api.dto.request.ForumPinRequest;
 import com.zhongruan.edu.biz.forum.api.dto.request.ForumReplyCreateRequest;
 import com.zhongruan.edu.biz.forum.api.dto.request.ForumTopicCreateRequest;
 import com.zhongruan.edu.biz.forum.api.dto.request.ForumVisibilityRequest;
@@ -85,6 +86,16 @@ public class TeacherForumController {
                 .body(ApiResponse.success(service.createTeacherReply(user.userId(), topicId, body), trace(request)));
     }
 
+    @PatchMapping("/forum/topics/{topicId}/pin")
+    public ApiResponse<ForumTopicListItemVO> topicPin(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long topicId,
+            @Valid @RequestBody ForumPinRequest body,
+            HttpServletRequest request) {
+        return ApiResponse.success(
+                service.setTopicPinnedByTeacher(user.userId(), topicId, body.pinned(), body.version()),
+                trace(request));
+    }
     @PatchMapping("/forum/topics/{topicId}/visibility")
     public ApiResponse<ForumTopicDetailVO> topicVisibility(
             @AuthenticationPrincipal AuthenticatedUser user,

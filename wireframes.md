@@ -1,8 +1,8 @@
 # 在线教育辅助教学系统文字版低保真原型
 
-> 依据文档：[`sitemap.md`](./sitemap.md)、[`ui-spec.md`](./ui-spec.md)、[`docs/api-contract-platform.md`](./docs/api-contract-platform.md)  
-> 表达方式：Markdown、ASCII 框图和文字说明  
-> 当前阶段：只描述页面骨架、模块顺序、数据与交互，不包含 Vue 代码或图片。
+> 依据文档：[`sitemap.md`](./sitemap.md)、[`ui-spec.md`](./ui-spec.md)、[`docs/api-reference.md`](./docs/api-reference.md)
+> 表达方式：Markdown、ASCII 框图和文字说明
+> 文档范围：页面骨架、模块顺序、数据与交互。
 
 ## 0. 阅读约定
 

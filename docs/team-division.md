@@ -9,7 +9,7 @@
 |---|---|---|---|
 | 后端 A | Biz 主链、权限、课程、文件、作业、成绩、论坛、预警 | `backend/edu-biz-service` 的 `auth`、`storage`、`course`、`assignment`、`grade`、`forum`、`warning`、`shared` | 已完成主链，进入联调与缺陷修复 |
 | 后端 B | 考试题库、平台治理、AI 服务边界、网关、服务间契约、部署联调 | `edu-ai-service`、`edu-gateway`、`edu-feign-api`、`edu-biz-service/exam`、`edu-biz-service/platform`、`deploy` | 维护已实现的考试/公告/分类/统计，扩展授权 AI 能力 |
-| 前端 C | Vue 页面、API Client、路由守卫、联调和演示流程 | `frontend/**`、`ui-spec.md`、`wireframes.md`、`sitemap.md` | 在空 `frontend/` 目录中独立初始化并开发 |
+| 前端 C | Vue 页面、API Client、路由守卫、联调和演示流程 | `frontend/**`、`ui-spec.md`、`wireframes.md`、`sitemap.md` | 维护现有 Vue 3 前端并完成真实接口联调 |
 
 ## 2. 后端 A：业务主链
 
@@ -62,8 +62,8 @@
 
 ### 当前优先任务
 
-1. 建立 API Client：统一注入 Token、处理 `401/403/409`、读取统一响应和 traceId。
-2. 登录与路由：登录页、角色入口、未登录跳转、错误和加载状态。
+1. 维护 API Client：统一注入 Token、处理 `401/403/409`、读取统一响应和 traceId。
+2. 认证与路由：维护登录、个人中心、角色入口、未登录跳转、错误和加载状态。
 3. 课程主链：学生课程目录、我的课程、学习大纲、课时学习；教师课程创建和内容维护；管理员课程审核。
 4. 作业、考试与治理主链：接入学生提交、教师批改、考试答题、公告和管理统计。
 

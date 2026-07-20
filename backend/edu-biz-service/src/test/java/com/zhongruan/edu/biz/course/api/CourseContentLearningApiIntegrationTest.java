@@ -130,6 +130,7 @@ class CourseContentLearningApiIntegrationTest {
     @Test
     void completingLessonIsIdempotentAndProgressIsAggregated() throws Exception {
         String student = login("student", "123456");
+        jdbcTemplate.update("UPDATE edu_course_lesson SET estimated_minutes = 0 WHERE id = 23001");
 
         mockMvc.perform(get("/api/v1/student/courses/21001/progress")
                         .header("Authorization", bearer(student)))
@@ -177,6 +178,7 @@ class CourseContentLearningApiIntegrationTest {
     void deletingChapterDoesNotDeleteHistoricalLearningRecord() throws Exception {
         String student = login("student", "123456");
         String teacher = login("teacher", "t123456");
+        jdbcTemplate.update("UPDATE edu_course_lesson SET estimated_minutes = 0 WHERE id = 23001");
         mockMvc.perform(post("/api/v1/student/lessons/23001/complete")
                         .header("Authorization", bearer(student)))
                 .andExpect(status().isOk());

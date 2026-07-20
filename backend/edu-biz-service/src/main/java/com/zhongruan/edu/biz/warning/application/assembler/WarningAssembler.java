@@ -19,10 +19,14 @@ public class WarningAssembler {
     public LearningWarningVO toVO(
             LearningWarningEntity warning,
             List<WarningEvidenceEntity> evidences,
-            String studentName) {
+            String studentName,
+            String courseName,
+            String teacherName) {
         return new LearningWarningVO(
                 id(warning.getId()),
                 id(warning.getCourseId()),
+                courseName,
+                teacherName,
                 id(warning.getStudentId()),
                 studentName,
                 CodeLabelVO.of(WarningType.valueOf(warning.getWarningType())),

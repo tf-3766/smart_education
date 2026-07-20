@@ -2,7 +2,8 @@
 
 ## 1. 当前交付范围
 
-当前已完成学生/教师注册与教师审核、JWT 与角色权限、文件与头像、课程学习、作业成绩、论坛预警、题库试卷与基础答题批阅、公告、课程分类、管理统计和统一 Gateway。AI 服务已接入 Spring AI 1.1.8，提供授权课程问答 SSE、课时摘要草稿和运行状态；默认不调用外部模型。尚未实现找回密码、刷新令牌、Token 黑名单、向量索引/RAG、AI 评语、风险解释和智能组卷建议。
+当前已完成学生/教师注册与教师审核、JWT 与角色权限、头像和修改密码、课程学习、协作教师邀请、学期选课窗口、作业成绩、论坛治理、预警、题库试卷与基础答题批阅、公告、课程分类、管理统计和统一 Gateway。AI 服务已接入 Spring AI 1.1.8，提供授权课程 RAG 问答 SSE、多轮会话记忆、课程工具调用、教师知识库同步、课时摘要、作业评语、风险解释、组卷建议和运行状态；默认不调用外部模型，未配置向量能力时自动回退到授权课时正文。尚未实现找回密码、刷新令牌、Token 黑名单和外部 MCP Server/Client。
+课程资料知识库已经接入 PDFBox、Apache Tika/POI 与可选 Tesseract OCR。默认可抽取 PDF 可选择文本以及 DOC/DOCX/PPT/PPTX 等 Office 正文；图片和扫描 PDF 可以使用本机 Tesseract，也可以使用 Compose 的 `ocr-app` profile 在 Biz 容器内安装并运行 Tesseract。外部 MCP Server/Client 仍未接入，当前 AI 工具能力来自 Spring AI 进程内 Tool Calling，接口已经按角色读取真实数据库上下文并为课程资料接入 Qdrant RAG。
 
 版本基线：JDK 21、Spring Boot 3.5.0、Spring Cloud 2025.0.0、Spring Cloud Alibaba 2025.0.0.0、Spring AI 1.1.8、MyBatis-Plus 3.5.12、MySQL 8.4。
 
@@ -65,8 +66,12 @@ Copy-Item backend\edu-ai-service\src\main\resources\application-local.yml.exampl
 | `CORS_ALLOWED_ORIGINS` | 前端允许来源 | 有本地默认值 |
 | `GATEWAY_SERVER_PORT/BIZ_SERVER_PORT/AI_SERVER_PORT` | 服务端口 | 有默认值 |
 | `AI_CHAT_PROVIDER` | `none` 或 `openai`；百炼使用 OpenAI 兼容协议，默认 `none` | 否 |
+| `AI_EMBEDDING_PROVIDER` | `none` 或 `openai`；启用课程向量检索时设为 `openai` | 启用 RAG 时是 |
+| `AI_VECTOR_STORE_TYPE` | `none` 或 `qdrant`；默认 `none`，避免无嵌入模型时误启动向量库 | 启用 RAG 时是 |
 | `DASHSCOPE_API_KEY` | 阿里云百炼 API Key；只放环境变量或配置中心 | 启用模型时是 |
 | `DASHSCOPE_BASE_URL/DASHSCOPE_CHAT_MODEL` | 默认北京地域兼容地址与 `qwen-plus`，可按业务空间/地域调整 | 有默认值 |
+| `DASHSCOPE_EMBEDDING_MODEL/AI_EMBEDDING_DIMENSIONS` | 默认 `text-embedding-v3` 与 1024 维；修改维度后需重建对应集合 | 有默认值 |
+| `QDRANT_HOST/QDRANT_GRPC_PORT/QDRANT_COLLECTION` | Qdrant gRPC 地址与课程知识集合 | 启用 RAG 时是 |
 | `AI_TEMPERATURE/AI_MAX_TOKENS` | 生成温度与单次最大输出 token | 有默认值 |
 
 `.env`、`application-local.yml`、`application-dev.yml`、日志、IDE 文件与 `target/` 已被 `.gitignore` 排除。
@@ -75,9 +80,14 @@ Copy-Item backend\edu-ai-service\src\main\resources\application-local.yml.exampl
 
 ```powershell
 $env:AI_CHAT_PROVIDER = "openai"
+$env:AI_EMBEDDING_PROVIDER = "openai"
+$env:AI_VECTOR_STORE_TYPE = "qdrant"
 $env:DASHSCOPE_API_KEY = "<your-bailian-api-key>"
-$env:DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+$env:DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode"
 $env:DASHSCOPE_CHAT_MODEL = "qwen-plus"
+$env:DASHSCOPE_EMBEDDING_MODEL = "text-embedding-v3"
+$env:QDRANT_HOST = "127.0.0.1"
+$env:QDRANT_GRPC_PORT = "16334"
 ```
 
 `DASHSCOPE_BASE_URL` 必须与 API Key 的地域和业务空间匹配；生产环境建议使用百炼业务空间专属地址。
@@ -91,6 +101,14 @@ docker compose -f ..\deploy\docker-compose.yml up -d
 .\mvnw.cmd clean package
 ```
 
+Tesseract 作为独立容器与 MySQL、RabbitMQ、Redis、Qdrant、Nacos 一起归属 smart-education Compose 项目。只构建并启动该容器不会重启其他服务：
+
+`powershell
+docker compose -f ..\deploy\docker-compose.yml up -d --build tesseract
+docker compose -f ..\deploy\docker-compose.yml exec tesseract tesseract --version
+`
+
+容器包含 	esseract-ocr、chi_sim 和 eng，并把现有的 ackend/data/uploads 只作为共享工作目录挂载到 /data。Tesseract 本身是命令行程序，因此容器使用常驻进程保持运行，并通过健康检查验证命令和中文语言包可用。
 分别在三个已加载 `.env` 的终端中按顺序启动：
 
 ```powershell
@@ -105,6 +123,9 @@ java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.
 
 - 项目只使用 `backend/edu-biz-service/src/main/resources/db/online_education_bootstrap.sql` 初始化数据库；它包含完整表结构、测试账号和演示数据。
 - Compose 仅在首次创建 `smart-education-mysql-data` 数据卷时自动执行该脚本。若需要重新初始化，先停止 Compose，再删除该项目的 MySQL 数据卷后重新启动。
+- 2026-07-18 之前创建的本地数据卷可在备份后执行 manual-upgrades/2026-07-18_front_back_alignment.sql。
+- 需要多类型作业与结构化答案时，执行 manual-upgrades/2026-07-19-assignment-modes.sql；脚本可重复运行且不会删除旧作业或提交。
+- 需要完整验收演示数据时，再执行 `manual-upgrades/2026-07-19-demo-showcase.sql`；脚本会补充多名学生、待审核教师、课程进度、各类作业、题库、考试、讨论、公告、预警与通知，可重复执行。
 - Biz 服务启动时不会修改表结构，也不会执行 Flyway。
 - 脚本不使用物理外键；关联一致性由应用服务、唯一约束和索引保证。
 - 任何表结构或演示数据变更都必须同步修改这一个脚本，并在空 MySQL 8 数据库中验证。
@@ -128,18 +149,23 @@ java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.
 POST /api/v1/auth/login
 POST /api/v1/auth/register
 GET  /api/v1/auth/me
+POST /api/v1/auth/me/password
 POST /api/v1/auth/logout
 GET  /api/v1/admin/users
 PUT/DELETE /api/v1/admin/users/{userId}/administrator
 PUT/DELETE /api/v1/admin/users/{userId}/teacher-approval
 GET  /api/v1/course-categories
 GET/POST/PUT/DELETE /api/v1/admin/course-categories[/{categoryId}]
+GET /api/v1/teacher/courses/templates|term-windows|teacher-directory|collab-invitations
+POST /api/v1/teacher/courses/collab-invitations/{courseId}/accept|reject
 GET/POST /api/v1/teacher/courses
 GET/PUT  /api/v1/teacher/courses/{courseId}
 POST /api/v1/teacher/courses/{courseId}/submit-review|publish|start|finish|offline
 GET/PUT  /api/v1/admin/courses/{courseId}
 POST /api/v1/admin/courses/{courseId}/offline
 GET/POST /api/v1/student/courses[/{courseId}]
+GET /api/v1/teacher/courses/templates|term-windows|teacher-directory|collab-invitations
+POST /api/v1/teacher/courses/collab-invitations/{courseId}/accept|reject
 GET/POST /api/v1/teacher/courses/{courseId}/assignments
 GET/PUT/POST /api/v1/student/assignments/{assignmentId}/...
 GET/POST/PUT/DELETE /api/v1/teacher/.../question-banks|questions|exams|exam-papers
@@ -148,12 +174,17 @@ GET  /api/v1/student/exam-attempts/{attemptId}
 POST /api/v1/student/exam-attempts/{attemptId}/submit
 GET  /api/v1/teacher/exams/{examId}/attempts
 POST /api/v1/teacher/exam-attempts/{attemptId}/grade
+GET /api/v1/teacher/courses/templates|term-windows|teacher-directory|collab-invitations
+POST /api/v1/teacher/courses/collab-invitations/{courseId}/accept|reject
 GET/POST /api/v1/teacher/courses/{courseId}/announcements
 GET /api/v1/teacher/announcements
 GET /api/v1/student/announcements
 GET/POST /api/v1/admin/announcements
+GET/PUT /api/v1/admin/term-enrollment-windows
+GET /api/v1/admin/forum/topics|replies
 GET /api/v1/admin/statistics
 POST /api/v1/ai/courses/{courseId}/qa/stream
+GET/POST /api/v1/ai/courses/{courseId}/knowledge-base/status|sync
 POST /api/v1/ai/lessons/{lessonId}/summary-draft
 GET /api/v1/ai/admin/status
 POST /_internal/v1/ai-context/course # 内部 Feign，不经 Gateway 对外暴露

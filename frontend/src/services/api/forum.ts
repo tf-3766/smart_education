@@ -25,6 +25,7 @@ function toTopicItem(row: TopicRow): ForumTopicListItemVO {
     title: row.title,
     authorId: row.authorId,
     authorName: userName(row.authorId),
+    authorAvatarFileId: db.users.find((user) => user.userId === row.authorId)?.avatarFileId ?? null,
     status: cl(row.status),
     pinned: row.pinned,
     replyCount: replies.length,
@@ -42,6 +43,7 @@ function toTopicDetail(row: TopicRow): ForumTopicDetailVO {
     content: row.content,
     authorId: row.authorId,
     authorName: userName(row.authorId),
+    authorAvatarFileId: db.users.find((user) => user.userId === row.authorId)?.avatarFileId ?? null,
     status: cl(row.status),
     moderationReason: row.moderationReason ?? null,
     moderatedBy: row.moderatedBy ?? null,
@@ -58,6 +60,7 @@ function toReplyVO(row: ReplyRow): ForumReplyVO {
     courseId: row.courseId,
     authorId: row.authorId,
     authorName: userName(row.authorId),
+    authorAvatarFileId: db.users.find((user) => user.userId === row.authorId)?.avatarFileId ?? null,
     parentReplyId: row.parentReplyId ?? null,
     content: row.content,
     status: cl(row.status),
@@ -184,6 +187,16 @@ export const forumApi = {
     return demoDelay(toReplyVO(row))
   },
 
+  async teacherTopicPin(topicId: string, body: { pinned: boolean; version: number }): Promise<ForumTopicListItemVO> {
+    if (isRealMode()) return patch<ForumTopicListItemVO>(`/api/v1/teacher/forum/topics/${topicId}/pin`, body)
+    const row = db.forumTopics.find((item) => item.topicId === topicId) ?? notFound('主题不存在。')
+    requireTeacherCourse(row.courseId)
+    assertVersion(row, body.version)
+    row.pinned = body.pinned
+    row.version += 1
+    persist()
+    return demoDelay(toTopicItem(row))
+  },
   async teacherTopicVisibility(topicId: string, body: ForumVisibilityRequest): Promise<ForumTopicDetailVO> {
     if (isRealMode()) return patch<ForumTopicDetailVO>(`/api/v1/teacher/forum/topics/${topicId}/visibility`, body)
     const row = db.forumTopics.find((item) => item.topicId === topicId) ?? notFound('主题不存在。')
@@ -201,6 +214,27 @@ export const forumApi = {
   },
 
   // —— 管理员端 ——
+  async adminTopics(query: ForumTopicListQuery = {}): Promise<PageResponse<ForumTopicListItemVO>> {
+    if (isRealMode()) return get<PageResponse<ForumTopicListItemVO>>('/api/v1/admin/forum/topics', { ...query })
+    const keyword = query.keyword?.trim().toLowerCase()
+    const rows = db.forumTopics
+      .filter((row) => !query.status || row.status === query.status)
+      .filter((row) => !keyword || row.title.toLowerCase().includes(keyword) || row.content.toLowerCase().includes(keyword))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(toTopicItem)
+    return demoDelay(paginate(rows, query))
+  },
+
+  async adminReplies(query: ForumTopicListQuery = {}): Promise<PageResponse<ForumReplyVO>> {
+    if (isRealMode()) return get<PageResponse<ForumReplyVO>>('/api/v1/admin/forum/replies', { ...query })
+    const keyword = query.keyword?.trim().toLowerCase()
+    const rows = db.forumReplies
+      .filter((row) => !query.status || row.status === query.status)
+      .filter((row) => !keyword || row.content.toLowerCase().includes(keyword))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(toReplyVO)
+    return demoDelay(paginate(rows, query))
+  },
   async adminTopicVisibility(topicId: string, body: ForumVisibilityRequest): Promise<ForumTopicDetailVO> {
     if (isRealMode()) return patch<ForumTopicDetailVO>(`/api/v1/admin/forum/topics/${topicId}/visibility`, body)
     const row = db.forumTopics.find((item) => item.topicId === topicId) ?? notFound('主题不存在。')

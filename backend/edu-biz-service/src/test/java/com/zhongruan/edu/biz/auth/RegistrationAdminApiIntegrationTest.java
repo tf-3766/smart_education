@@ -86,8 +86,8 @@ class RegistrationAdminApiIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"new.teacher\",\"password\":\"Teacher2026\"}"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_PENDING_APPROVAL"));
 
         String superAdminToken = token(login("admin", "admin123"));
         String teacherId = body(teacherRegistration).path("data").path("userId").asText();
@@ -184,8 +184,8 @@ class RegistrationAdminApiIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"rejected.teacher\",\"password\":\"Teacher2026\"}"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_DISABLED"));
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/teacher-approval", teacherId)
                         .header("Authorization", bearer(superAdminToken)))

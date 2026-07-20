@@ -11,9 +11,15 @@ import org.springframework.web.bind.annotation.RequestHeader;
 @FeignClient(
         name = ServiceNames.EDU_BIZ_SERVICE,
         contextId = "bizAiContextFeignClient",
+        url = "${BIZ_SERVICE_URL:http://127.0.0.1:18081}",
         path = BizAiContextFeignClient.BASE_PATH)
 public interface BizAiContextFeignClient {
     String BASE_PATH = "/_internal/v1/ai-context";
+
+    @PostMapping("/assistant")
+    ApiResponse<AiAssistantContextResponse> getAssistantContext(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiAssistantContextRequest request);
 
     @PostMapping("/course")
     ApiResponse<AiCourseContextResponse> getCourseContext(

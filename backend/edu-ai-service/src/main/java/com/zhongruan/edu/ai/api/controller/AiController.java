@@ -1,10 +1,12 @@
 package com.zhongruan.edu.ai.api.controller;
 
 import com.zhongruan.edu.ai.api.dto.CourseQaRequest;
+import com.zhongruan.edu.ai.api.dto.AssistantChatRequest;
 import com.zhongruan.edu.ai.api.dto.AiDraftInstructionRequest;
 import com.zhongruan.edu.ai.api.dto.LessonSummaryRequest;
 import com.zhongruan.edu.ai.api.dto.PaperSuggestionRequest;
 import com.zhongruan.edu.ai.api.vo.AiDraftVO;
+import com.zhongruan.edu.ai.api.vo.AiKnowledgeBaseStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiServiceStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
 import com.zhongruan.edu.ai.application.AiApplicationService;
@@ -48,13 +50,52 @@ public class AiController {
             @Valid @RequestBody CourseQaRequest body) {
         requireRole(role, QA_ROLES);
         return service.courseQa(
-                        authorization, userId, role, courseId, body.lessonId(), body.question(), traceId)
+                        authorization, userId, role, courseId, body.lessonId(), body.question(), body.conversationId(), traceId)
                 .map(event -> ServerSentEvent.<AiStreamEvent>builder(event)
                         .id(event.requestId())
                         .event(event.type())
                         .build());
     }
 
+    @PostMapping(value = "/assistant/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<AiStreamEvent>> assistant(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @Valid @RequestBody AssistantChatRequest body) {
+        requireRole(role, Set.of("STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN"));
+        return service.assistantChat(
+                        authorization, userId, role, body.courseId(), body.lessonId(), body.pagePath(),
+                        body.pageTitle(), body.question(), body.conversationId(), traceId)
+                .map(event -> ServerSentEvent.<AiStreamEvent>builder(event)
+                        .id(event.requestId())
+                        .event(event.type())
+                        .build());
+    }
+    @GetMapping("/courses/{courseId}/knowledge-base/status")
+    public Mono<ApiResponse<AiKnowledgeBaseStatusVO>> knowledgeBaseStatus(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @PathVariable Long courseId) {
+        requireRole(role, Set.of("TEACHER"));
+        return service.knowledgeBaseStatus(authorization, userId, role, courseId, traceId)
+                .map(status -> ApiResponse.success(status, traceId));
+    }
+
+    @PostMapping("/courses/{courseId}/knowledge-base/sync")
+    public Mono<ApiResponse<AiKnowledgeBaseStatusVO>> syncKnowledgeBase(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @PathVariable Long courseId) {
+        requireRole(role, Set.of("TEACHER"));
+        return service.syncKnowledgeBase(authorization, userId, role, courseId, traceId)
+                .map(status -> ApiResponse.success(status, traceId));
+    }
     @PostMapping("/lessons/{lessonId}/summary-draft")
     public Mono<ApiResponse<AiDraftVO>> lessonSummary(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,

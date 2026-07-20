@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import ContentGovernancePage from '@/domains/admin/ContentGovernancePage.vue'
 import CourseReviewPage from '@/domains/admin/CourseReviewPage.vue'
 import UserManagementPage from '@/domains/admin/UserManagementPage.vue'
+import { db } from '@/services/api/demo/db'
 import { clickByText, freshDemo, mountPage, settle } from './pageTestUtils'
 
 describe('管理员治理', () => {
@@ -52,6 +53,22 @@ describe('管理员治理', () => {
     expect(wrapper.findAll('tbody tr').find((tr) => tr.text().includes('李明'))!.text()).toContain('ADMIN')
   })
 
+  it('论坛治理：可查看全局主题与回复，并记录原因后隐藏内容', async () => {
+    freshDemo()
+    const { wrapper } = await mountPage(ContentGovernancePage, { path: '/admin/content' })
+    await settle(700)
+    expect(wrapper.text()).toContain('列表和元组的区别是什么？')
+    expect(wrapper.text()).toContain('关键区别是可变性')
+
+    const topicRow = wrapper.findAll('tbody tr').find((tr) => tr.text().includes('列表和元组的区别是什么？'))!
+    await topicRow.findAll('button').find((button) => button.text() === '隐藏')!.trigger('click')
+    await wrapper.get('#cg-mod-reason').setValue('偏离课程讨论范围')
+    await clickByText(wrapper, 'button', '确认处理')
+    await settle(700)
+
+    expect(db.forumTopics.find((item) => item.topicId === '41001')!.status).toBe('HIDDEN')
+    expect(db.forumTopics.find((item) => item.topicId === '41001')!.moderationReason).toBe('偏离课程讨论范围')
+  })
   it('公告管理：发布教师公告并撤回', async () => {
     freshDemo()
     const { wrapper } = await mountPage(ContentGovernancePage, { path: '/admin/content' })

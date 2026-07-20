@@ -437,7 +437,7 @@ public class ExamManagementService {
             case SINGLE_CHOICE -> values.size() >= 2 && correctCount == 1;
             case MULTIPLE_CHOICE -> values.size() >= 2 && correctCount >= 2;
             case TRUE_FALSE -> values.size() == 2 && correctCount == 1;
-            case SHORT_ANSWER -> values.isEmpty();
+            case FILL_BLANK, SHORT_ANSWER -> values.isEmpty();
         };
         if (!valid) {
             throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "题型与选项、正确答案数量不匹配");

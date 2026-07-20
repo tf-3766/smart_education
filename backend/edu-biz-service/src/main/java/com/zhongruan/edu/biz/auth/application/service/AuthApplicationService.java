@@ -1,6 +1,7 @@
 package com.zhongruan.edu.biz.auth.application.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.zhongruan.edu.biz.auth.api.dto.request.ChangePasswordRequest;
 import com.zhongruan.edu.biz.auth.api.dto.request.LoginRequest;
 import com.zhongruan.edu.biz.auth.api.dto.request.RegisterRequest;
 import com.zhongruan.edu.biz.auth.api.dto.request.UpdateAvatarRequest;
@@ -32,6 +33,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class AuthApplicationService {
@@ -66,10 +68,15 @@ public class AuthApplicationService {
     @Transactional(readOnly = true)
     public LoginVO login(LoginRequest request) {
         UserEntity user = userMapper.selectOne(Wrappers.<UserEntity>lambdaQuery()
-                .eq(UserEntity::getUsername, normalizeUsername(request.username()))
-                .eq(UserEntity::getUserStatus, UserStatus.ENABLED.name()));
+                .eq(UserEntity::getUsername, normalizeUsername(request.username())));
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BusinessException(CommonErrorCode.INVALID_CREDENTIALS);
+        }
+        if (UserStatus.PENDING.name().equals(user.getUserStatus())) {
+            throw new BusinessException(AuthErrorCode.ACCOUNT_PENDING_APPROVAL);
+        }
+        if (!UserStatus.ENABLED.name().equals(user.getUserStatus())) {
+            throw new BusinessException(AuthErrorCode.ACCOUNT_DISABLED);
         }
 
         return issueLogin(user, null);
@@ -77,6 +84,11 @@ public class AuthApplicationService {
 
     @Transactional
     public RegistrationVO register(RegisterRequest request) {
+        return register(request, null);
+    }
+
+    @Transactional
+    public RegistrationVO register(RegisterRequest request, MultipartFile avatar) {
         String username = normalizeUsername(request.username());
         if (userMapper.selectCount(Wrappers.<UserEntity>lambdaQuery().eq(UserEntity::getUsername, username)) > 0) {
             throw new BusinessException(AuthErrorCode.USERNAME_ALREADY_EXISTS);
@@ -104,6 +116,13 @@ public class AuthApplicationService {
         relation.setUserId(user.getId());
         relation.setRoleId(role.getId());
         userRoleMapper.insert(relation);
+        if (avatar != null && !avatar.isEmpty()) {
+            var storedAvatar = fileStorageService.upload(user.getId(), avatar, FilePurpose.AVATAR);
+            user.setAvatarFileId(Long.valueOf(storedAvatar.fileId()));
+            if (userMapper.updateById(user) != 1) {
+                throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT);
+            }
+        }
         LoginVO login = approvalRequired ? null : issueLogin(user, request.role().name());
         return new RegistrationVO(
                 String.valueOf(user.getId()),
@@ -164,6 +183,24 @@ public class AuthApplicationService {
             throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT);
         }
         return currentUser(principal);
+    }
+
+    @Transactional
+    public void changePassword(AuthenticatedUser principal, ChangePasswordRequest request) {
+        UserEntity user = userMapper.selectById(principal.userId());
+        if (user == null || !UserStatus.ENABLED.name().equals(user.getUserStatus())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
+        }
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new BusinessException(AuthErrorCode.CURRENT_PASSWORD_INCORRECT);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new BusinessException(AuthErrorCode.PASSWORD_UNCHANGED);
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        if (userMapper.updateById(user) != 1) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT);
+        }
     }
 
     private CurrentUserVO toCurrentUser(

@@ -2,7 +2,7 @@
 import { demoDelay } from '../runtime'
 import { get, isRealMode, post } from './client'
 import { cl, conflict, currentUser, db, nextId, notFound, nowIso, paginate, persist, userName } from './demo/db'
-import type { CourseRow, LessonRow } from './demo/db'
+import type { CourseRow, LessonRow, MaterialRow } from './demo/db'
 import { toCourseDetailVO } from './teacherCourses'
 import type {
   CourseDetailVO,
@@ -62,9 +62,29 @@ function recordOf(lessonId: string, studentId: string) {
 }
 
 function toRecordVO(row: NonNullable<ReturnType<typeof recordOf>>): LearningRecordVO {
-  return { ...row, status: cl(row.status), startedAt: row.startedAt ?? null, completedAt: row.completedAt ?? null, lastStudiedAt: row.lastStudiedAt ?? null }
+  return { ...row, status: cl(row.status), studySeconds: row.studySeconds ?? 0, startedAt: row.startedAt ?? null, completedAt: row.completedAt ?? null, lastStudiedAt: row.lastStudiedAt ?? null }
 }
 
+function toMaterialAccess(row: MaterialRow): MaterialAccessVO {
+  return {
+    materialId: row.materialId,
+    name: row.name,
+    materialType: cl(row.materialType),
+    fileSize: row.fileSize ?? null,
+    mimeType: row.mimeType ?? null,
+    accessMode: row.fileId ? 'MANAGED_FILE' : row.materialType === 'LINK' ? 'EXTERNAL_LINK' : 'MOCK_METADATA_ONLY',
+    accessUrl: row.fileUrl ?? (row.fileId ? `/api/v1/files/${row.fileId}/content` : ''),
+  }
+}
+
+function lessonMaterials(lesson: LessonRow): MaterialAccessVO[] {
+  return db.materials
+    .filter((item) => item.courseId === lesson.courseId && item.status === 'PUBLISHED')
+    .filter((item) => !item.chapterId || item.chapterId === lesson.chapterId)
+    .filter((item) => !item.lessonId || item.lessonId === lesson.lessonId)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(toMaterialAccess)
+}
 function publishedLessons(courseId: string): LessonRow[] {
   const publishedChapters = new Set(db.chapters.filter((item) => item.courseId === courseId && item.status === 'PUBLISHED').map((item) => item.chapterId))
   return db.lessons
@@ -157,6 +177,7 @@ export const studentLearningApi = {
               unlocked: lessonUnlocked(lesson),
               completed: record?.status === 'COMPLETED',
               learningStatus: cl(record?.status ?? 'NOT_STARTED'),
+              materials: lessonMaterials(lesson),
             }
           }),
       }))
@@ -181,6 +202,7 @@ export const studentLearningApi = {
       estimatedMinutes: lesson.estimatedMinutes ?? null,
       status: cl(lesson.status),
       unlockAt: lesson.unlockAt ?? null,
+      materials: lessonMaterials(lesson),
       learningRecord: record ? toRecordVO(record) : null,
     })
   },
@@ -203,19 +225,40 @@ export const studentLearningApi = {
     return demoDelay(toRecordVO(record))
   },
 
+  async heartbeatLesson(lessonId: string): Promise<LearningRecordVO> {
+    if (isRealMode()) return post<LearningRecordVO>(`/api/v1/student/lessons/${lessonId}/heartbeat`)
+    const student = currentUser('STUDENT')
+    const lesson = db.lessons.find((item) => item.lessonId === lessonId && item.status === 'PUBLISHED') ?? notFound('课时不存在或未发布。')
+    requireEnrolledCourse(lesson.courseId, student.userId)
+    let record = recordOf(lessonId, student.userId)
+    const now = Date.now()
+    if (!record) {
+      record = { recordId: nextId(), courseId: lesson.courseId, chapterId: lesson.chapterId, lessonId, studentId: student.userId, status: 'IN_PROGRESS', studySeconds: 0, startedAt: nowIso(), lastStudiedAt: nowIso() }
+      db.learningRecords.push(record)
+    } else if (record.status !== 'COMPLETED') {
+      const last = record.lastStudiedAt ? new Date(record.lastStudiedAt).getTime() : now
+      const delta = Math.max(0, Math.min(30, Math.floor((now - last) / 1000)))
+      record.studySeconds = (record.studySeconds ?? 0) + delta
+      record.lastStudiedAt = new Date(now).toISOString()
+      record.status = 'IN_PROGRESS'
+    }
+    persist()
+    return demoDelay(toRecordVO(record))
+  },
+
   async completeLesson(lessonId: string): Promise<LearningRecordVO> {
     if (isRealMode()) return post<LearningRecordVO>(`/api/v1/student/lessons/${lessonId}/complete`)
     const student = currentUser('STUDENT')
     const lesson = db.lessons.find((item) => item.lessonId === lessonId && item.status === 'PUBLISHED') ?? notFound('课时不存在或未发布。')
     requireEnrolledCourse(lesson.courseId, student.userId)
-    let record = recordOf(lessonId, student.userId)
-    if (!record) {
-      record = { recordId: nextId(), courseId: lesson.courseId, chapterId: lesson.chapterId, lessonId, studentId: student.userId, status: 'COMPLETED', startedAt: nowIso(), completedAt: nowIso(), lastStudiedAt: nowIso() }
-      db.learningRecords.push(record)
-    } else {
+    const record = recordOf(lessonId, student.userId)
+    if (!record) conflict('请先进入课时开始学习。', 'OPERATION_NOT_ALLOWED')
+    if (record.status !== 'COMPLETED') {
+      const required = Math.max(0, (lesson.estimatedMinutes ?? 0) * 60)
+      if ((record.studySeconds ?? 0) < required) conflict(`还需有效学习 ${required - (record.studySeconds ?? 0)} 秒。`, 'OPERATION_NOT_ALLOWED')
       Object.assign(record, { status: 'COMPLETED', completedAt: record.completedAt ?? nowIso(), lastStudiedAt: nowIso() })
+      persist()
     }
-    persist()
     return demoDelay(toRecordVO(record))
   },
 

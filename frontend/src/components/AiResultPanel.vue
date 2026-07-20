@@ -8,7 +8,7 @@
       <StatusBadge v-if="result.confidence != null" tone="green" :label="`置信度 ${Math.round(result.confidence * 100)}%`" />
     </div>
 
-    <p class="pre-line push-top">{{ result.content }}</p>
+    <p class="pre-line push-top">{{ cleanAiText(result.content) }}</p>
 
     <div v-if="result.citations?.length" class="push-top">
       <span class="muted" style="font-size: 12.5px">引用来源</span>
@@ -19,8 +19,8 @@
     <p v-else class="muted push-top" style="font-size: 12.5px">未找到可引用资料，请结合课程内容人工确认。</p>
 
     <div class="row push-top">
-      <AppButton v-if="adoptLabel" variant="primary" @click="onAdopt">{{ confirmed ? '已采用' : adoptLabel }}</AppButton>
-      <AppButton v-else variant="primary" @click="confirmed = true">{{ confirmed ? '已确认采用' : '确认采用' }}</AppButton>
+      <AppButton v-if="allowAdopt && adoptLabel" variant="primary" @click="onAdopt">{{ confirmed ? '已采用' : adoptLabel }}</AppButton>
+      <AppButton v-else-if="allowAdopt" variant="primary" @click="confirmed = true">{{ confirmed ? '已确认采用' : '确认采用' }}</AppButton>
       <AppButton variant="secondary" @click="$emit('regenerate')">重新生成</AppButton>
     </div>
   </div>
@@ -31,8 +31,9 @@ import { ref } from 'vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import AppButton from '@/components/AppButton.vue'
 import type { AiResult } from '@/types/domain'
+import { cleanAiText } from '@/utils/aiText'
 
-const props = defineProps<{ result: AiResult; adoptLabel?: string }>()
+const props = withDefaults(defineProps<{ result: AiResult; adoptLabel?: string; allowAdopt?: boolean }>(), { allowAdopt: true })
 const emit = defineEmits<{ regenerate: []; adopt: [content: string] }>()
 const confirmed = ref(false)
 function onAdopt() { confirmed.value = true; emit('adopt', props.result.content) }

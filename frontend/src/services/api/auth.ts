@@ -1,9 +1,9 @@
 // 3.1 认证接口
 import { demoDelay } from '../runtime'
-import { TOKEN_STORAGE_KEY, get, isRealMode, post, put } from './client'
+import { TOKEN_STORAGE_KEY, get, isRealMode, post, put, upload } from './client'
 import { badRequest, conflict, currentUser, db, nextId, nowIso, persist } from './demo/db'
 import type { UserRow } from './demo/db'
-import type { CurrentUserVO, LoginRequest, LoginVO, LogoutVO, RegisterRequest, RegistrationVO, UpdateAvatarRequest } from './types'
+import type { ChangePasswordRequest, CurrentUserVO, LoginRequest, LoginVO, LogoutVO, RegisterRequest, RegistrationVO, UpdateAvatarRequest } from './types'
 
 function toCurrentUserVO(user: UserRow): CurrentUserVO {
   return {
@@ -50,7 +50,13 @@ export const authApi = {
     return demoDelay(vo)
   },
 
-  async register(body: RegisterRequest): Promise<RegistrationVO> {
+  async register(body: RegisterRequest, avatar?: File | null): Promise<RegistrationVO> {
+    if (isRealMode() && avatar) {
+      const form = new FormData()
+      form.append('data', new Blob([JSON.stringify(body)], { type: 'application/json' }))
+      form.append('avatar', avatar)
+      return upload<RegistrationVO>('/api/v1/auth/register-with-avatar', form)
+    }
     if (isRealMode()) return post<RegistrationVO>('/api/v1/auth/register', body)
     const username = body.username.trim().toLowerCase()
     if (!/^[A-Za-z0-9._-]{3,64}$/.test(username)) badRequest('用户名需为 3-64 位字母、数字或 ._- 组合。')
@@ -69,6 +75,11 @@ export const authApi = {
       superAdministrator: false,
       createdAt: nowIso(),
       version: 0,
+    }
+    if (avatar) {
+      const fileId = nextId()
+      db.files.push({ fileId, originalName: avatar.name, objectKey: `avatar/${fileId}/${avatar.name}`, accessUrl: `/api/v1/files/${fileId}/content`, fileSize: avatar.size, mimeType: avatar.type || 'image/png', sha256: `demo-avatar-${fileId}`, purpose: 'AVATAR', ownerId: user.userId, uploadedAt: nowIso(), version: 0 })
+      user.avatarFileId = fileId
     }
     db.users.push(user)
     persist()
@@ -110,5 +121,22 @@ export const authApi = {
     user.version += 1
     persist()
     return demoDelay(toCurrentUserVO(user))
+  },
+
+  /** 修改密码：校验当前密码后设置新密码。演示模式仅本地校验，不落库持久口令。 */
+  async changePassword(body: ChangePasswordRequest): Promise<void> {
+    if (isRealMode()) {
+      await post<null>('/api/v1/auth/me/password', body)
+      return
+    }
+    const user = db.users.find((item) => item.userId === db.session.userId) ?? currentUser('STUDENT')
+    if (user.password !== body.currentPassword) badRequest('当前密码不正确。')
+    if (user.password === body.newPassword) badRequest('新密码不能与当前密码相同。')
+    if (!(body.newPassword.length >= 8 && body.newPassword.length <= 128 && /[A-Za-z]/.test(body.newPassword) && /\d/.test(body.newPassword))) {
+      badRequest('密码需为 8-128 位并同时包含字母和数字。')
+    }
+    user.password = body.newPassword
+    persist()
+    await demoDelay(undefined)
   },
 }

@@ -9,6 +9,7 @@ public record ForumTopicDetailVO(
         String content,
         String authorId,
         String authorName,
+        String authorAvatarFileId,
         CodeLabelVO status,
         String moderationReason,
         String moderatedBy,

@@ -3,7 +3,7 @@
     <div v-if="open" class="modal-backdrop" @click.self="$emit('close')">
       <section
         ref="panel"
-        class="modal-panel"
+        :class="['modal-panel', { 'modal-panel-wide': wide }]"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="titleId"
@@ -27,7 +27,7 @@
 <script setup lang="ts">
 import { nextTick, ref, useId, watch } from 'vue'
 
-const props = defineProps<{ open: boolean; title: string; description?: string }>()
+const props = defineProps<{ open: boolean; title: string; description?: string; wide?: boolean }>()
 defineEmits<{ close: [] }>()
 
 const titleId = useId()

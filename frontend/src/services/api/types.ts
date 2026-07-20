@@ -81,13 +81,26 @@ export interface LogoutVO {
 }
 
 export interface UpdateAvatarRequest {
-  fileId?: number | null
+  // 文件 ID 为雪花号，字符串直传避免精度丢失（后端 Jackson 可将字符串强转 Long）。
+  fileId?: string | number | null
   version: number
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
 }
 
 // —— 3.2 文件 ——
 
 export type FilePurpose = 'AVATAR' | 'COURSE_MATERIAL' | 'ASSIGNMENT_ATTACHMENT' | 'SUBMISSION' | 'GENERAL'
+
+export interface FileTextPreviewVO {
+  text: string
+  status: 'EXTRACTED' | 'TRUNCATED' | 'EMPTY' | 'OCR_UNAVAILABLE' | 'FAILED' | 'NO_FILE' | string
+  message: string
+  truncated: boolean
+}
 
 export interface StoredFileVO {
   fileId: string
@@ -316,6 +329,7 @@ export interface LessonOutlineVO {
   unlocked: boolean
   completed: boolean
   learningStatus: CodeLabel
+  materials: MaterialAccessVO[]
 }
 
 export interface ChapterOutlineVO {
@@ -339,6 +353,7 @@ export interface LearningRecordVO {
   lessonId: string
   studentId: string
   status: CodeLabel
+  studySeconds: number
   startedAt?: string | null
   completedAt?: string | null
   lastStudiedAt?: string | null
@@ -355,6 +370,7 @@ export interface StudentLessonDetailVO {
   estimatedMinutes?: number | null
   status: CodeLabel
   unlockAt?: string | null
+  materials: MaterialAccessVO[]
   learningRecord: LearningRecordVO | null
 }
 
@@ -469,10 +485,25 @@ export interface AssignmentAttachmentRequest {
   sortOrder: number
 }
 
+export type AssignmentResponseMode = 'MIXED' | 'TEXT' | 'CODE' | 'QUIZ'
+
+export type AssignmentQuestionType = 'SINGLE_CHOICE' | 'MULTI_CHOICE' | 'TRUE_FALSE' | 'FILL_BLANK' | 'SHORT_ANSWER'
+
+export interface AssignmentQuestion {
+  questionId: string
+  questionType: AssignmentQuestionType
+  stem: string
+  options: string[]
+  score: number
+  correctAnswers: string[]
+}
+
 export interface AssignmentCreateRequest {
   lessonId?: string | null
   title: string
   description?: string | null
+  responseMode?: AssignmentResponseMode
+  questions?: AssignmentQuestion[]
   maxScore: number
   openAt?: string | null
   dueAt: string
@@ -500,6 +531,8 @@ export interface AssignmentDetailVO {
   lessonId?: string | null
   title: string
   description?: string | null
+  responseMode?: AssignmentResponseMode
+  questions?: AssignmentQuestion[]
   maxScore: number
   assignmentStatus: CodeLabel
   availabilityStatus: CodeLabel
@@ -525,7 +558,8 @@ export interface StudentAssignmentListItemVO {
 
 export interface SubmissionSaveRequest {
   content?: string | null
-  fileId?: number | null
+  answers?: Record<string, string[]>
+  fileId?: string | number | null
   fileKey?: string | null
   fileUrl?: string | null
   version?: number | null
@@ -540,6 +574,7 @@ export interface SubmissionDetailVO {
   studentId: string
   attemptNo: number
   content?: string | null
+  answers: Record<string, string[]>
   fileId?: string | null
   fileKey?: string | null
   fileUrl?: string | null
@@ -581,6 +616,8 @@ export interface TeacherSubmissionGradeVO {
   submissionStatus: CodeLabel
   submittedAt?: string | null
   content?: string | null
+  answers: Record<string, string[]>
+  fileId?: string | null
   fileKey?: string | null
   fileUrl?: string | null
   score?: number | null
@@ -596,6 +633,12 @@ export interface TeacherSubmissionGradeVO {
   gradeVersion?: number | null
 }
 
+export interface TeacherSubmissionRosterVO {
+  studentId: string
+  studentName?: string | null
+  submitted: boolean
+  submission?: TeacherSubmissionGradeVO | null
+}
 export interface StudentGradeVO {
   gradeId: string
   courseId: string
@@ -662,6 +705,7 @@ export interface ForumTopicListItemVO {
   title: string
   authorId: string
   authorName?: string | null
+  authorAvatarFileId?: string | null
   status: CodeLabel
   pinned: boolean
   replyCount: number
@@ -677,6 +721,7 @@ export interface ForumTopicDetailVO {
   content: string
   authorId: string
   authorName?: string | null
+  authorAvatarFileId?: string | null
   status: CodeLabel
   moderationReason?: string | null
   moderatedBy?: string | null
@@ -691,6 +736,7 @@ export interface ForumReplyVO {
   courseId: string
   authorId: string
   authorName?: string | null
+  authorAvatarFileId?: string | null
   parentReplyId?: string | null
   content: string
   status: CodeLabel
@@ -740,6 +786,8 @@ export interface WarningEvidenceVO {
 export interface LearningWarningVO {
   warningId: string
   courseId: string
+  courseName: string
+  teacherName?: string | null
   studentId: string
   studentName?: string | null
   warningType: CodeLabel
@@ -1065,9 +1113,19 @@ export interface AdminStatisticsVO {
 
 // —— 4.4 AI ——
 
+export interface AssistantChatRequest {
+  question: string
+  courseId?: string | null
+  lessonId?: string | null
+  pagePath?: string | null
+  pageTitle?: string | null
+  conversationId?: string | null
+}
 export interface CourseQaRequest {
   question: string
   lessonId?: string | null
+  /** 会话 ID：同一会话内连续提问以启用后端「对话记忆」多轮上下文。字符串直传，避免精度问题。 */
+  conversationId?: string | null
 }
 
 export interface LessonSummaryRequest {
@@ -1094,12 +1152,28 @@ export interface AiDraftVO {
 }
 
 export interface AiStreamEvent {
-  type: 'meta' | 'delta' | 'citation' | 'done' | 'error'
+  // tool：RAG 检索/工具调用进度；meta 携带能力元信息；delta 增量正文；citation 引用；done/error 终止。
+  type: 'meta' | 'tool' | 'delta' | 'citation' | 'done' | 'error'
   requestId: string
   data: unknown
   timestamp: string
 }
 
+/** tool 事件 data 结构：AI 进入模型前/中的检索与工具调用进度。 */
+export interface AiToolEvent {
+  toolName: string
+  status: string
+  input?: string | null
+  summary?: string | null
+  result?: AiCitationVO[] | null
+}
+
+export interface AiKnowledgeBaseStatusVO {
+  courseId: string
+  vectorStoreConfigured: boolean
+  indexedChunks: number
+  lastSyncedAt?: string | null
+}
 export interface CourseTemplateVO {
   templateId: string
   courseCode: string
@@ -1135,9 +1209,12 @@ export interface PaperSuggestionRequest {
 }
 
 export interface AiServiceStatusVO {
+  serviceStatus: string
+  framework: string
+  frameworkVersion: string
   provider: string
-  model?: string | null
-  available: boolean
-  mode?: string | null
-  checkedAt?: string | null
+  model: string | null
+  modelConfigured: boolean
+  vectorStoreConfigured: boolean
+  checkedAt: string
 }

@@ -16,6 +16,7 @@ import {
   aiApi,
 } from '@/services/api'
 import { RuntimeError } from '@/services/runtime'
+import { db } from '@/services/api/demo/db'
 
 async function expectCode(promise: Promise<unknown>, code: string) {
   const error = await promise.then(() => null).catch((caught: unknown) => caught)
@@ -80,6 +81,9 @@ describe('契约 API（演示模式）', () => {
     const repeat = await studentLearningApi.enroll('21001')
     expect(repeat.status.code).toBe('ENROLLED')
     const before = await studentLearningApi.progress('21001')
+    await expectCode(studentLearningApi.completeLesson('23002'), 'OPERATION_NOT_ALLOWED')
+    const lessonRecord = db.learningRecords.find((record) => record.lessonId === '23002')!
+    lessonRecord.studySeconds = 45 * 60
     await studentLearningApi.completeLesson('23002')
     const after = await studentLearningApi.progress('21001')
     expect(after.completedLessons).toBe(before.completedLessons + 1)
@@ -164,6 +168,7 @@ describe('契约 API（演示模式）', () => {
       if (event.type === 'delta') text += String(event.data)
     })
     expect(events[0]).toBe('meta')
+    expect(events).toContain('tool')
     expect(events[events.length - 1]).toBe('done')
     expect(events).toContain('citation')
     expect(text).toContain('元组和列表的区别')

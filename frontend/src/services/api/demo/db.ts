@@ -161,6 +161,7 @@ export interface LearningRecordRow {
   lessonId: string
   studentId: string
   status: string
+  studySeconds?: number
   startedAt?: string | null
   completedAt?: string | null
   lastStudiedAt?: string | null
@@ -182,6 +183,8 @@ export interface AssignmentRow {
   lessonId?: string | null
   title: string
   description?: string | null
+  responseMode?: string
+  questions?: import('../types').AssignmentQuestion[]
   maxScore: number
   assignmentStatus: string
   openAt?: string | null
@@ -198,6 +201,7 @@ export interface SubmissionRow {
   studentId: string
   attemptNo: number
   content?: string | null
+  answers?: Record<string, string[]>
   fileId?: string | null
   fileKey?: string | null
   fileUrl?: string | null
@@ -517,7 +521,7 @@ function seed(): DemoDb {
       { questionId: '52001', bankId: '51001', courseId: '21001', questionType: 'SINGLE_CHOICE', stem: '下列哪种类型在 Python 中是不可变的？', analysis: '元组创建后不可修改。', difficulty: 'EASY', score: 5, status: 'ACTIVE', options: [{ label: 'A', content: '列表', correct: false, sortOrder: 1 }, { label: 'B', content: '元组', correct: true, sortOrder: 2 }, { label: 'C', content: '字典', correct: false, sortOrder: 3 }, { label: 'D', content: '集合', correct: false, sortOrder: 4 }], version: 0 },
       { questionId: '52002', bankId: '51001', courseId: '21001', questionType: 'TRUE_FALSE', stem: '函数默认参数在每次调用时重新求值。', analysis: '默认参数在函数定义时求值一次。', difficulty: 'MEDIUM', score: 5, status: 'ACTIVE', options: [{ label: 'A', content: '正确', correct: false, sortOrder: 1 }, { label: 'B', content: '错误', correct: true, sortOrder: 2 }], version: 0 },
       { questionId: '52003', bankId: '51001', courseId: '21001', questionType: 'SHORT_ANSWER', stem: '简述列表推导式的优点与需要注意的场景。', difficulty: 'MEDIUM', score: 10, status: 'ACTIVE', options: [], version: 0 },
-      { questionId: '52004', bankId: '51002', courseId: '21002', questionType: 'MULTI_CHOICE', stem: '下列属于机器学习范式的有？', difficulty: 'MEDIUM', score: 5, status: 'ACTIVE', options: [{ label: 'A', content: '监督学习', correct: true, sortOrder: 1 }, { label: 'B', content: '无监督学习', correct: true, sortOrder: 2 }, { label: 'C', content: '编译原理', correct: false, sortOrder: 3 }, { label: 'D', content: '强化学习', correct: true, sortOrder: 4 }], version: 0 },
+      { questionId: '52004', bankId: '51002', courseId: '21002', questionType: 'MULTIPLE_CHOICE', stem: '下列属于机器学习范式的有？', difficulty: 'MEDIUM', score: 5, status: 'ACTIVE', options: [{ label: 'A', content: '监督学习', correct: true, sortOrder: 1 }, { label: 'B', content: '无监督学习', correct: true, sortOrder: 2 }, { label: 'C', content: '编译原理', correct: false, sortOrder: 3 }, { label: 'D', content: '强化学习', correct: true, sortOrder: 4 }], version: 0 },
     ],
     exams: [
       { examId: '53001', courseId: '21001', title: 'Python 期中测验', description: '覆盖第一、二章。', status: 'PUBLISHED', startAt: daysFromNow(-1), endAt: daysFromNow(7), durationMinutes: 60, totalScore: 20, version: 1 },
@@ -618,7 +622,7 @@ const labels: Record<string, string> = {
   OWNER: '主讲教师',
   COLLABORATOR: '协作教师',
   SINGLE_CHOICE: '单选题',
-  MULTI_CHOICE: '多选题',
+  MULTIPLE_CHOICE: '多选题',
   TRUE_FALSE: '判断题',
   SHORT_ANSWER: '简答题',
   EASY: '易',

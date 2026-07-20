@@ -73,7 +73,11 @@ public class GatewayConfig {
                 HttpHeaders.CONTENT_TYPE,
                 "X-Trace-Id",
                 "Idempotency-Key"));
-        configuration.setExposedHeaders(List.of("X-Trace-Id", "Retry-After"));
+        configuration.setExposedHeaders(List.of(
+                "X-Trace-Id",
+                "Retry-After",
+                "X-Preview-Page",
+                "X-Preview-Page-Count"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

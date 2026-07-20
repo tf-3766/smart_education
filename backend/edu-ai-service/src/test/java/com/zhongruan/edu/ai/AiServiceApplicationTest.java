@@ -80,7 +80,7 @@ class AiServiceApplicationTest {
                                 "course/material.pdf",
                                 null,
                                 "ENROLLED",
-                                "PUBLISHED"))),
+                                "PUBLISHED", "依赖注入课件正文", "EXTRACTED", "测试正文"))),
                 "ai-test-trace"));
         when(contextClient.getSubmissionContext(anyString(), any())).thenReturn(ApiResponse.success(
                 new AiSubmissionContextResponse(
@@ -148,11 +148,21 @@ class AiServiceApplicationTest {
                 .expectBody(String.class)
                 .value(body -> {
                     org.assertj.core.api.Assertions.assertThat(body).contains("event:meta");
+                    org.assertj.core.api.Assertions.assertThat(body).contains("event:tool");
                     org.assertj.core.api.Assertions.assertThat(body).contains("event:delta");
                     org.assertj.core.api.Assertions.assertThat(body).contains("event:citation");
                     org.assertj.core.api.Assertions.assertThat(body).contains("event:done");
                 });
 
+        webTestClient.get()
+                .uri("/api/v1/ai/courses/21001/knowledge-base/status")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.data.courseId").isEqualTo("21001")
+                .jsonPath("$.data.vectorStoreConfigured").isEqualTo(false)
+                .jsonPath("$.data.indexedChunks").isEqualTo(0);
         String adminToken = token(1003L, "admin", "SUPER_ADMIN", "admin:access");
         webTestClient.get()
                 .uri("/api/v1/ai/admin/status")

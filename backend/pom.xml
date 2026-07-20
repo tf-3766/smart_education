@@ -36,6 +36,9 @@
         <jjwt.version>0.12.6</jjwt.version>
         <testcontainers.version>1.21.1</testcontainers.version>
         <spring-ai.version>1.1.8</spring-ai.version>
+        <tika.version>3.3.1</tika.version>
+        <poi.version>5.5.1</poi.version>
+        <pdfbox.version>3.0.8</pdfbox.version>
     </properties>
 
     <dependencyManagement>

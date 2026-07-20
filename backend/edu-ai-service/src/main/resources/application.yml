@@ -7,15 +7,28 @@ spring:
   ai:
     model:
       chat: ${AI_CHAT_PROVIDER:none}
+      embedding: ${AI_EMBEDDING_PROVIDER:none}
     openai:
       # Alibaba Cloud Bailian exposes an OpenAI-compatible endpoint used by Spring AI.
       api-key: ${DASHSCOPE_API_KEY:disabled}
-      base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+      embedding:
+        options:
+          model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
+          dimensions: ${AI_EMBEDDING_DIMENSIONS:1024}
       chat:
         options:
           model: ${DASHSCOPE_CHAT_MODEL:qwen-plus}
           temperature: ${AI_TEMPERATURE:0.2}
           max-tokens: ${AI_MAX_TOKENS:2048}
+    vectorstore:
+      type: ${AI_VECTOR_STORE_TYPE:none}
+      qdrant:
+        host: ${QDRANT_HOST:127.0.0.1}
+        port: ${QDRANT_GRPC_PORT:16334}
+        collection-name: ${QDRANT_COLLECTION:smart_education_course_knowledge}
+        use-tls: ${QDRANT_USE_TLS:false}
+        initialize-schema: ${QDRANT_INITIALIZE_SCHEMA:true}
   cloud:
     nacos:
       config:
