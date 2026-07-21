@@ -61,8 +61,36 @@ public class CourseKnowledgeBaseService {
             int end = Math.min(start + EMBEDDING_BATCH_SIZE, documents.size());
             store.add(documents.subList(start, end));
         }
-        syncStates.put(context.courseId(), new SyncState(documents.size(), OffsetDateTime.now(ZoneOffset.UTC)));
+        syncStates.put(context.courseId(),
+                new SyncState(documents.size(), OffsetDateTime.now(ZoneOffset.UTC), contentHash(context)));
         return status(context.courseId());
+    }
+
+    /** 仅当课程资料/课时正文自上次索引后发生变化时才重建索引，避免每次问答都重复嵌入。返回是否本次重建。 */
+    public boolean syncIfStale(AiCourseContextResponse context) {
+        if (vectorStoreProvider.getIfAvailable() == null) {
+            return false;
+        }
+        String hash = contentHash(context);
+        SyncState existing = syncStates.get(context.courseId());
+        if (existing != null && hash.equals(existing.contentHash())) {
+            return false;
+        }
+        sync(context);
+        return true;
+    }
+
+    private String contentHash(AiCourseContextResponse context) {
+        StringBuilder builder = new StringBuilder();
+        for (AiLessonRef lesson : context.lessons()) {
+            builder.append('L').append(lesson.lessonId()).append('=')
+                    .append(lesson.content() == null ? "" : lesson.content()).append('\n');
+        }
+        for (AiMaterialRef material : context.materials()) {
+            builder.append('M').append(material.materialId()).append('=').append(material.status()).append(':')
+                    .append(material.extractedText() == null ? "" : material.extractedText()).append('\n');
+        }
+        return UUID.nameUUIDFromBytes(builder.toString().getBytes(StandardCharsets.UTF_8)).toString();
     }
 
     public Retrieval retrieve(Long courseId, Long lessonId, String question) {
@@ -174,7 +202,7 @@ public class CourseKnowledgeBaseService {
                 String.valueOf(metadata.getOrDefault("locator", "document:" + document.getId())));
     }
 
-    private record SyncState(int indexedChunks, OffsetDateTime lastSyncedAt) {}
+    private record SyncState(int indexedChunks, OffsetDateTime lastSyncedAt, String contentHash) {}
 
     public record Retrieval(boolean vectorStoreAvailable, String context, List<AiCitationVO> citations) {
         static Retrieval unavailable() { return new Retrieval(false, "", List.of()); }

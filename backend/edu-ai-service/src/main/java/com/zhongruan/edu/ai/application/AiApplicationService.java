@@ -9,6 +9,7 @@ import com.zhongruan.edu.ai.context.AuthorizedAiContextService;
 import com.zhongruan.edu.ai.generation.AiTextGenerator;
 import com.zhongruan.edu.ai.knowledge.CourseKnowledgeBaseService;
 import com.zhongruan.edu.ai.tools.CourseContextTools;
+import com.zhongruan.edu.ai.tools.CourseKnowledgeTools;
 import com.zhongruan.edu.ai.tools.PlatformUtilityTools;
 import com.zhongruan.edu.ai.tools.RoleScopedPlatformTools;
 import com.zhongruan.edu.common.exception.BusinessException;
@@ -68,6 +69,7 @@ public class AiApplicationService {
         return Mono.fromCallable(() -> {
                     AiCourseContextResponse context = contextService.courseContext(
                             authorization, userId, role, courseId, lessonId, AiContextPurpose.COURSE_QA, traceId);
+                    knowledgeBase.syncIfStale(context); // 内容变化时自动重建索引，无需手动同步
                     CourseKnowledgeBaseService.Retrieval retrieval = knowledgeBase.retrieve(courseId, lessonId, question.trim());
                     String prompt = systemPrompt(
                             context,
@@ -104,7 +106,8 @@ public class AiApplicationService {
                                         prepared.userPrompt(),
                                         conversationId,
                                         platformUtilityTools,
-                                        new CourseContextTools(prepared.context()))
+                                        new CourseContextTools(prepared.context()),
+                                        new CourseKnowledgeTools(knowledgeBase, courseId, lessonId))
                                 .filter(chunk -> chunk != null && !chunk.isEmpty())
                                 .map(chunk -> event("delta", requestId, chunk)),
                         Flux.fromIterable(prepared.citations())
