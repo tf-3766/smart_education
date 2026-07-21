@@ -92,7 +92,7 @@
 ## 组件 4 — 草稿标记（最小 schema 改动）
 
 - 为 `question_banks`、`exams`（及 exam_papers 若独立表）、`assignments`、`announcements` 各加 `source VARCHAR(16) NOT NULL DEFAULT 'HUMAN'`（取值 `AI` / `HUMAN`），可选 `ai_trace_id VARCHAR(64)` 溯源。
-- **复用已有 `DRAFT` 状态**，不新增状态枚举。
+- 状态尽量复用已有 `DRAFT`；实测题库 `QuestionBankStatus` 原本只有 `ACTIVE/ARCHIVED`，已补充 `DRAFT` 值（AI 草稿落 `DRAFT`，教师确认转 `ACTIVE`，`source=AI` 作溯源保留）。作业/考试已有 `DRAFT` 可直接复用。
 - 改动同步进唯一初始化脚本 `backend/edu-biz-service/src/main/resources/db/online_education_bootstrap.sql`（按团队规范：任何表结构变更只改这一个脚本，并在空 MySQL 8 验证）；同时提供可重复执行的 `manual-upgrades/2026-07-21-ai-authoring.sql` 供已有数据库升级。
 
 ## 组件 5 — 前端（草稿高亮 + 一键确认，复用现有风格）
