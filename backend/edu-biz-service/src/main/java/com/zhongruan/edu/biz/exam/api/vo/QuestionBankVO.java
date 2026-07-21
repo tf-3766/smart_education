@@ -6,4 +6,5 @@ public record QuestionBankVO(
         String name,
         String description,
         String status,
+        String source,
         Integer version) {}

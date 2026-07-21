@@ -117,7 +117,7 @@ public class ExamManagementService {
         bank.setCourseId(courseId);
         bank.setName(bankRequest.name().trim());
         bank.setDescription(trim(bankRequest.description()));
-        bank.setStatus(QuestionBankStatus.ACTIVE.name());
+        bank.setStatus(QuestionBankStatus.DRAFT.name());
         bank.setSource("AI");
         questionBankMapper.insert(bank);
         for (CreateQuestionRequest request : questions) {
@@ -137,12 +137,18 @@ public class ExamManagementService {
         return toQuestionBank(bank);
     }
 
-    /** 教师确认 AI 题库草稿：source 由 AI 置为 HUMAN，前端据此撤去草稿高亮。 */
+    /**
+     * 教师确认 AI 题库草稿：状态由 DRAFT 转 ACTIVE 正式生效；source 保留 AI 作为溯源。
+     * 前端据 status=DRAFT && source=AI 判定“待确认”，确认后转 ACTIVE 撤去草稿高亮。
+     */
     @Transactional
     public QuestionBankVO confirmAiDraftQuestionBank(Long teacherId, Long bankId) {
         QuestionBankEntity bank = requireQuestionBank(bankId);
         requireTeacherCourse(teacherId, bank.getCourseId());
-        bank.setSource("HUMAN");
+        if (!QuestionBankStatus.DRAFT.name().equals(bank.getStatus())) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "只有待确认的 AI 草稿题库可以确认发布");
+        }
+        bank.setStatus(QuestionBankStatus.ACTIVE.name());
         questionBankMapper.updateById(bank);
         return toQuestionBank(bank);
     }
@@ -618,6 +624,7 @@ public class ExamManagementService {
                 bank.getName(),
                 bank.getDescription(),
                 bank.getStatus(),
+                bank.getSource() == null ? "HUMAN" : bank.getSource(),
                 bank.getVersion());
     }
 
