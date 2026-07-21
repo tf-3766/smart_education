@@ -26,4 +26,14 @@ public interface BizAiAuthoringFeignClient {
     ApiResponse<AiAuthoringResultResponse> createAssignment(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody AiAssignmentDraftRequest request);
+
+    @PostMapping("/exams")
+    ApiResponse<AiAuthoringResultResponse> createExam(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiExamDraftRequest request);
+
+    @PostMapping("/announcements")
+    ApiResponse<AiAuthoringResultResponse> createAnnouncement(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiAnnouncementDraftRequest request);
 }

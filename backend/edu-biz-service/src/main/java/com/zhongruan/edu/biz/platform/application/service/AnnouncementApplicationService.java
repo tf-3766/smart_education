@@ -61,6 +61,49 @@ public class AnnouncementApplicationService {
         return create(teacherId, AnnouncementScope.COURSE, courseId, request);
     }
 
+    /**
+     * AI 自动流：落库课程公告为 DRAFT 草稿（source=AI），不推送学生。
+     * publishedAt 列为 NOT NULL，先以当前时间占位，教师确认发布时刷新。
+     */
+    @Transactional
+    public AnnouncementVO createCourseAnnouncementDraft(
+            Long teacherId, Long courseId, CreateAnnouncementRequest request) {
+        requireTeacherCourse(teacherId, courseId);
+        if (request.audience() == AnnouncementAudience.TEACHER) {
+            throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "课程公告受众只能是学生或全部成员");
+        }
+        AnnouncementEntity announcement = new AnnouncementEntity();
+        announcement.setScopeType(AnnouncementScope.COURSE.name());
+        announcement.setCourseId(courseId);
+        announcement.setTitle(request.title().trim());
+        announcement.setContent(request.content().trim());
+        announcement.setAudience(request.audience().name());
+        announcement.setStatus(AnnouncementStatus.DRAFT.name());
+        announcement.setSource("AI");
+        announcement.setPublishedAt(LocalDateTime.now(clock));
+        announcement.setCreatedBy(teacherId);
+        announcementMapper.insert(announcement);
+        return toVO(announcement);
+    }
+
+    /** 教师确认 AI 草稿公告：DRAFT 转 PUBLISHED，刷新发布时间并推送学生；source=AI 溯源保留。 */
+    @Transactional
+    public AnnouncementVO confirmCourseAnnouncement(Long teacherId, Long announcementId) {
+        AnnouncementEntity announcement = requireAnnouncement(announcementId);
+        if (!AnnouncementScope.COURSE.name().equals(announcement.getScopeType())) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "该公告不是课程公告");
+        }
+        requireTeacherCourse(teacherId, announcement.getCourseId());
+        if (!AnnouncementStatus.DRAFT.name().equals(announcement.getStatus())) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "只有待确认的 AI 草稿公告可以确认发布");
+        }
+        announcement.setStatus(AnnouncementStatus.PUBLISHED.name());
+        announcement.setPublishedAt(LocalDateTime.now(clock));
+        announcementMapper.updateById(announcement);
+        notificationService.publishAnnouncement(announcement);
+        return toVO(announcement);
+    }
+
     @Transactional
     public AnnouncementVO createSystemAnnouncement(Long administratorId, CreateAnnouncementRequest request) {
         return create(administratorId, AnnouncementScope.SYSTEM, null, request);

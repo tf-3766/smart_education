@@ -296,6 +296,19 @@ public class ExamManagementService {
         return toExam(exam);
     }
 
+    /**
+     * AI 自动流：复用常规创建逻辑落 DRAFT 考试，再标记 source=AI 作为待确认草稿。
+     * 考试本就以 DRAFT 创建、学生在试卷发布前不可见；教师用既有的组卷/发卷流确认。
+     */
+    @Transactional
+    public ExamVO createAiDraftExam(Long teacherId, Long courseId, CreateExamRequest request) {
+        ExamVO created = createExam(teacherId, courseId, request);
+        ExamEntity exam = examMapper.selectById(Long.valueOf(created.examId()));
+        exam.setSource("AI");
+        examMapper.updateById(exam);
+        return toExam(exam);
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<ExamVO> listTeacherExams(Long teacherId, Long courseId, ExamListQuery query) {
         requireTeacherCourse(teacherId, courseId);

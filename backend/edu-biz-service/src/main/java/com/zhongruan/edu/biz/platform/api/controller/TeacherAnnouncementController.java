@@ -64,6 +64,15 @@ public class TeacherAnnouncementController {
                         service.createCourseAnnouncement(user.userId(), courseId, body), trace(request)));
     }
 
+    @PostMapping("/announcements/{announcementId}/confirm")
+    public ApiResponse<AnnouncementVO> confirm(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long announcementId,
+            HttpServletRequest request) {
+        return ApiResponse.success(
+                service.confirmCourseAnnouncement(user.userId(), announcementId), trace(request));
+    }
+
     @PostMapping("/announcements/{announcementId}/withdrawal")
     public ApiResponse<AnnouncementVO> withdraw(
             @AuthenticationPrincipal AuthenticatedUser user,

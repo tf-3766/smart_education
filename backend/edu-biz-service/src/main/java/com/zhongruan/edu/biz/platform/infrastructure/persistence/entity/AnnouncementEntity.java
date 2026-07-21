@@ -12,6 +12,7 @@ public class AnnouncementEntity extends BaseAuditEntity {
     private String content;
     private String audience;
     private String status;
+    private String source;
     private LocalDateTime publishedAt;
     private LocalDateTime withdrawnAt;
 
@@ -27,6 +28,8 @@ public class AnnouncementEntity extends BaseAuditEntity {
     public void setAudience(String audience) { this.audience = audience; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
     public LocalDateTime getPublishedAt() { return publishedAt; }
     public void setPublishedAt(LocalDateTime publishedAt) { this.publishedAt = publishedAt; }
     public LocalDateTime getWithdrawnAt() { return withdrawnAt; }

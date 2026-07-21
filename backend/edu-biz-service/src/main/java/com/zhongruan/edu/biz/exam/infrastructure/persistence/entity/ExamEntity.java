@@ -11,6 +11,7 @@ public class ExamEntity extends BaseAuditEntity {
     private String title;
     private String description;
     private String status;
+    private String source;
     private LocalDateTime startAt;
     private LocalDateTime endAt;
     private Integer durationMinutes;
@@ -24,6 +25,8 @@ public class ExamEntity extends BaseAuditEntity {
     public void setDescription(String description) { this.description = description; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
     public LocalDateTime getStartAt() { return startAt; }
     public void setStartAt(LocalDateTime startAt) { this.startAt = startAt; }
     public LocalDateTime getEndAt() { return endAt; }

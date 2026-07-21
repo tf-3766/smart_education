@@ -1,8 +1,10 @@
 package com.zhongruan.edu.ai.tools;
 
 import com.zhongruan.edu.common.api.ApiResponse;
+import com.zhongruan.edu.feign.ai.AiAnnouncementDraftRequest;
 import com.zhongruan.edu.feign.ai.AiAssignmentDraftRequest;
 import com.zhongruan.edu.feign.ai.AiAuthoringResultResponse;
+import com.zhongruan.edu.feign.ai.AiExamDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionBankDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionDraft;
 import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
@@ -95,6 +97,58 @@ public class CourseAuthoringTools {
         } catch (RuntimeException exception) {
             log.warn("AI 作业草稿落库失败 courseId={} reason={}", courseId, exception.toString());
             return "作业草稿落库失败：" + exception.getMessage() + "。请核对后重试，切勿声称已成功。";
+        }
+    }
+
+    @Tool(name = "generateExam",
+            description = """
+                    把依据课程情况拟定的考试落库为当前课程的“AI 草稿考试”（DRAFT）。调用前可先用 searchCourseKnowledge 了解课程范围。
+                    title 为考试标题；description 为考试说明；durationMinutes 为考试时长（分钟）；totalScore 为总分(>0)。
+                    重要：本工具只创建考试草稿，不会自动选题组卷；落库后须提示教师到考试页面自行组卷选题并发布试卷，不得声称已发布。返回考试 ID。""")
+    public String generateExam(String title, String description, Integer durationMinutes, BigDecimal totalScore) {
+        if (title == null || title.isBlank()) {
+            return "考试标题为空，未创建草稿。请先拟定标题后再调用。";
+        }
+        BigDecimal score = totalScore == null || totalScore.signum() <= 0 ? new BigDecimal("100") : totalScore;
+        AiExamDraftRequest request = new AiExamDraftRequest(
+                userId, role, courseId, title.trim(), description, durationMinutes, score, null);
+        try {
+            ApiResponse<AiAuthoringResultResponse> response = authoringClient.createExam(authorization, request);
+            AiAuthoringResultResponse result = response == null ? null : response.data();
+            if (result == null) {
+                return "考试草稿创建请求已发送，但未返回结果，请稍后到考试页面核对。";
+            }
+            return "已创建 AI 草稿考试《%s》，考试 ID=%s，状态为草稿（DRAFT）。请提示教师到考试页面组卷选题并发布，本工具未自动选题。"
+                    .formatted(result.title(), result.resourceId());
+        } catch (RuntimeException exception) {
+            log.warn("AI 考试草稿落库失败 courseId={} reason={}", courseId, exception.toString());
+            return "考试草稿落库失败：" + exception.getMessage() + "。请核对后重试，切勿声称已成功。";
+        }
+    }
+
+    @Tool(name = "draftAnnouncement",
+            description = """
+                    把依据课程情况拟定的公告落库为当前课程的“AI 草稿公告”（不会立即推送学生）。调用前可先用 searchCourseKnowledge 了解课程情况。
+                    title 为公告标题；content 为公告正文；audience 受众取 STUDENT（仅学生）或 ALL（全部成员，默认 ALL）。
+                    落库后返回公告 ID，须提示教师到公告页面确认发布，确认后才会通知学生，不得声称已发布。""")
+    public String draftAnnouncement(String title, String content, String audience) {
+        if (title == null || title.isBlank() || content == null || content.isBlank()) {
+            return "公告标题或正文为空，未创建草稿。请先拟定完整内容后再调用。";
+        }
+        AiAnnouncementDraftRequest request = new AiAnnouncementDraftRequest(
+                userId, role, courseId, title.trim(), content.trim(), audience, null);
+        try {
+            ApiResponse<AiAuthoringResultResponse> response =
+                    authoringClient.createAnnouncement(authorization, request);
+            AiAuthoringResultResponse result = response == null ? null : response.data();
+            if (result == null) {
+                return "公告草稿创建请求已发送，但未返回结果，请稍后到公告页面核对。";
+            }
+            return "已创建 AI 草稿公告《%s》，公告 ID=%s，尚未推送学生。请提示教师到公告页面确认发布后学生才会收到。"
+                    .formatted(result.title(), result.resourceId());
+        } catch (RuntimeException exception) {
+            log.warn("AI 公告草稿落库失败 courseId={} reason={}", courseId, exception.toString());
+            return "公告草稿落库失败：" + exception.getMessage() + "。请核对后重试，切勿声称已成功。";
         }
     }
 }

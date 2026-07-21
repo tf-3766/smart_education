@@ -3,20 +3,28 @@ package com.zhongruan.edu.biz.ai.api.controller;
 import com.zhongruan.edu.biz.assignment.api.dto.request.AssignmentCreateRequest;
 import com.zhongruan.edu.biz.assignment.api.vo.AssignmentDetailVO;
 import com.zhongruan.edu.biz.assignment.application.service.AssignmentApplicationService;
+import com.zhongruan.edu.biz.exam.api.dto.request.CreateExamRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.CreateQuestionBankRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.CreateQuestionRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.QuestionOptionRequest;
+import com.zhongruan.edu.biz.exam.api.vo.ExamVO;
 import com.zhongruan.edu.biz.exam.api.vo.QuestionBankVO;
 import com.zhongruan.edu.biz.exam.application.service.ExamManagementService;
 import com.zhongruan.edu.biz.exam.domain.enums.QuestionDifficulty;
 import com.zhongruan.edu.biz.exam.domain.enums.QuestionType;
+import com.zhongruan.edu.biz.platform.api.dto.request.CreateAnnouncementRequest;
+import com.zhongruan.edu.biz.platform.api.vo.AnnouncementVO;
+import com.zhongruan.edu.biz.platform.application.service.AnnouncementApplicationService;
+import com.zhongruan.edu.biz.platform.domain.enums.AnnouncementAudience;
 import com.zhongruan.edu.biz.shared.security.AuthenticatedUser;
 import com.zhongruan.edu.biz.shared.web.RequestTrace;
 import com.zhongruan.edu.common.api.ApiResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
+import com.zhongruan.edu.feign.ai.AiAnnouncementDraftRequest;
 import com.zhongruan.edu.feign.ai.AiAssignmentDraftRequest;
 import com.zhongruan.edu.feign.ai.AiAuthoringResultResponse;
+import com.zhongruan.edu.feign.ai.AiExamDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionBankDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionDraft;
 import com.zhongruan.edu.feign.ai.AiQuestionOptionDraft;
@@ -42,14 +50,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalAiAuthoringController implements BizAiAuthoringFeignClient {
     private final ExamManagementService examManagementService;
     private final AssignmentApplicationService assignmentApplicationService;
+    private final AnnouncementApplicationService announcementApplicationService;
     private final HttpServletRequest servletRequest;
 
     public InternalAiAuthoringController(
             ExamManagementService examManagementService,
             AssignmentApplicationService assignmentApplicationService,
+            AnnouncementApplicationService announcementApplicationService,
             HttpServletRequest servletRequest) {
         this.examManagementService = examManagementService;
         this.assignmentApplicationService = assignmentApplicationService;
+        this.announcementApplicationService = announcementApplicationService;
         this.servletRequest = servletRequest;
     }
 
@@ -85,6 +96,45 @@ public class InternalAiAuthoringController implements BizAiAuthoringFeignClient 
         return ApiResponse.success(
                 new AiAuthoringResultResponse("ASSIGNMENT", created.assignmentId(), created.title(), 0),
                 RequestTrace.from(servletRequest));
+    }
+
+    @Override
+    public ApiResponse<AiAuthoringResultResponse> createExam(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiExamDraftRequest request) {
+        AuthenticatedUser user = requireIdentity(request.userId(), request.roleCode());
+        CreateExamRequest createRequest = new CreateExamRequest(
+                request.title(), request.description(), null, null,
+                request.durationMinutes(), request.totalScore());
+        ExamVO created = examManagementService.createAiDraftExam(user.userId(), request.courseId(), createRequest);
+        return ApiResponse.success(
+                new AiAuthoringResultResponse("EXAM", created.examId(), created.title(), 0),
+                RequestTrace.from(servletRequest));
+    }
+
+    @Override
+    public ApiResponse<AiAuthoringResultResponse> createAnnouncement(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiAnnouncementDraftRequest request) {
+        AuthenticatedUser user = requireIdentity(request.userId(), request.roleCode());
+        CreateAnnouncementRequest createRequest = new CreateAnnouncementRequest(
+                request.title(), request.content(), parseAudience(request.audience()));
+        AnnouncementVO created = announcementApplicationService.createCourseAnnouncementDraft(
+                user.userId(), request.courseId(), createRequest);
+        return ApiResponse.success(
+                new AiAuthoringResultResponse("ANNOUNCEMENT", created.announcementId(), created.title(), 0),
+                RequestTrace.from(servletRequest));
+    }
+
+    private static AnnouncementAudience parseAudience(String value) {
+        if (value == null || value.isBlank()) {
+            return AnnouncementAudience.ALL;
+        }
+        try {
+            return AnnouncementAudience.valueOf(value);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(CommonErrorCode.PARAM_VALIDATION_ERROR, "AI 生成了未知公告受众：" + value);
+        }
     }
 
     private static CreateQuestionRequest toCreateQuestion(AiQuestionDraft draft) {
