@@ -33,4 +33,17 @@ describe('workspace sidebar (flat per-role nav)', () => {
     expect(s).not.toContain('切换账号')
     expect(s).not.toContain('user-avatar')
   })
+
+  it('keeps the account profile inside the same liquid-glass workspace shell', () => {
+    expect(source()).toContain('student|teacher|admin|account')
+  })
+
+  it('groups identity, notification and account access in one glass status panel', () => {
+    const s = source()
+    expect(s).toContain('identity-glass-panel')
+    expect(s).toContain('identity-role-card')
+    expect(s).toContain('identity-notification-card')
+    expect(s).toContain('identity-account-card')
+    expect(s).toContain('<UserAvatar :file-id="session.backendUser?.avatarFileId"')
+  })
 })

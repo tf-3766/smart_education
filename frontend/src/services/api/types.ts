@@ -438,6 +438,7 @@ export interface AdminUserVO {
   userId: string
   username: string
   displayName: string
+  avatarFileId?: string | null
   userStatus: 'PENDING' | 'ENABLED' | 'DISABLED' | 'REJECTED'
   roles: string[]
   superAdministrator: boolean

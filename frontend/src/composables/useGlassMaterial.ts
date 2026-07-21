@@ -9,14 +9,15 @@ export interface GlassMaterialSettings {
 }
 
 export const DEFAULT_GLASS_MATERIAL: Readonly<GlassMaterialSettings> = Object.freeze({
-  displacementScale: 22,
-  blur: 18,
-  saturation: 175,
-  surfaceOpacity: 14,
-  warpOpacity: 8,
+  displacementScale: 16,
+  blur: 10,
+  saturation: 160,
+  surfaceOpacity: 10,
+  warpOpacity: 4,
 })
 
-const STORAGE_KEY = 'smart-education-glass-material'
+// 新材质的透明度与清晰度基线与旧版不同，使用新键避免浏览器沿用旧的泛白配置。
+const STORAGE_KEY = 'smart-education-glass-material-v2'
 const limits: Record<keyof GlassMaterialSettings, readonly [number, number]> = {
   displacementScale: [0, 50],
   blur: [0, 40],
@@ -67,4 +68,3 @@ export function useGlassMaterial() {
 
   return { settings, cssVariables, reset }
 }
-

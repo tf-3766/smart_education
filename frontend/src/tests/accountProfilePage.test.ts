@@ -17,6 +17,8 @@ describe('account profile page', () => {
     // 真实头像上传（接入 PUT /me/avatar）
     expect(s).toContain('type="file"')
     expect(s).toContain('updateAvatar')
+    expect(s).toContain('account-identity-card')
+    expect(s).toContain('account-info-card')
     // 真实修改密码
     expect(s).toContain('修改密码')
     expect(s).toContain('changePassword')

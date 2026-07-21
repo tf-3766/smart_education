@@ -30,7 +30,7 @@ describe('学习首页玻璃材质设置', () => {
     expect(wrapper.attributes('style')).toContain('--liquid-saturation: 205%')
     expect(glass.cssVariables.value['--liquid-surface']).toBe('rgba(255,255,255,0.26)')
     expect(glass.cssVariables.value['--liquid-warp-surface']).toBe('rgba(255,255,255,0.17)')
-    expect(JSON.parse(localStorage.getItem('smart-education-glass-material') ?? '{}')).toMatchObject(glass.settings)
+    expect(JSON.parse(localStorage.getItem('smart-education-glass-material-v2') ?? '{}')).toMatchObject(glass.settings)
   })
 
   it('可以一键恢复统一默认材质', async () => {

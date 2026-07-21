@@ -42,6 +42,7 @@ describe('管理员治理', () => {
     freshDemo()
     const { wrapper } = await mountPage(UserManagementPage, { path: '/admin/users' })
     await settle(700)
+    expect(wrapper.findComponent({ name: 'UserAvatar' }).exists()).toBe(true)
     const pendingRow = wrapper.findAll('tbody tr').find((tr) => tr.text().includes('高翔'))!
     expect(pendingRow.text()).toContain('待审核')
     await pendingRow.findAll('button').find((b) => b.text() === '通过教师申请')!.trigger('click')

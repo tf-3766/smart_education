@@ -10,6 +10,7 @@ function toVO(row: UserRow): AdminUserVO {
     userId: row.userId,
     username: row.username,
     displayName: row.displayName,
+    avatarFileId: row.avatarFileId ?? null,
     userStatus: row.userStatus,
     roles: [...row.roles],
     superAdministrator: row.superAdministrator,

@@ -7,6 +7,7 @@ public record AdminUserVO(
         String userId,
         String username,
         String displayName,
+        String avatarFileId,
         String userStatus,
         Set<String> roles,
         boolean superAdministrator,

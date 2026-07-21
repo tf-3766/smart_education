@@ -164,6 +164,7 @@ public class AdminUserApplicationService {
                 String.valueOf(user.getId()),
                 user.getUsername(),
                 user.getDisplayName(),
+                user.getAvatarFileId() == null ? null : String.valueOf(user.getAvatarFileId()),
                 user.getUserStatus(),
                 roles,
                 roles.contains(RoleCode.SUPER_ADMIN.name()),

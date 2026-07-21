@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="page-header"><div><h1 class="page-title">数据看板</h1><p class="page-subtitle">平台治理与教学运行实时汇总</p></div><AppButton variant="primary" @click="router.push('/admin/content')">发布公告</AppButton></div>
+    <div class="page-header"><div><h1 class="page-title">数据看板</h1><p class="page-subtitle">平台治理与教学运行实时汇总</p></div><AppButton class="announcement-cta" variant="primary" @click="router.push('/admin/content')"><span class="announcement-cta-label"><Megaphone :size="22" />发布公告<ArrowRight :size="25" /></span></AppButton></div>
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="load" />
     <template v-if="overview">
       <div class="kpi-grid"><AppMetric label="总用户" :value="overview.statistics.totalUsers" hint="学生、教师、管理员" :icon="Users" /><AppMetric label="运行课程" :value="overview.statistics.publishedCourses" hint="已发布课程" tone="success" :icon="BookOpen" /><AppMetric label="待审核课程" :value="overview.statistics.pendingCourseReviews" hint="需管理员处理" tone="warn" :icon="ShieldCheck" /><AppMetric label="开放预警" :value="overview.statistics.openWarnings" hint="需教学干预" tone="danger" :icon="TriangleAlert" /></div>
@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'; import { useRouter } from 'vue-router'; import { BookOpen, ShieldCheck, TriangleAlert, Users } from 'lucide-vue-next'
+import { onMounted, ref } from 'vue'; import { useRouter } from 'vue-router'; import { ArrowRight, BookOpen, Megaphone, ShieldCheck, TriangleAlert, Users } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'; import AppMetric from '@/components/AppMetric.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'
 import { loadAdminOverview, type AdminOverview } from '@/services/adapters/adminAdapter'; import { usePageState } from '@/services/pageState'; import { useSessionStore } from '@/stores/session'
 const router = useRouter(); const state = usePageState(); const overview = ref<AdminOverview | null>(null); const session = useSessionStore()

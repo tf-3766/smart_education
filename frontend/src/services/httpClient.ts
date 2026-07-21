@@ -16,6 +16,23 @@ export function beginTolerant(): void { tolerantDepth += 1 }
 export function endTolerant(): void { tolerantDepth = Math.max(0, tolerantDepth - 1) }
 
 /**
+ * 页面数据只在当前登录会话内缓存。再次访问时先把上一份真实响应立即交给页面，
+ * 同时在后台校验新数据；任何写请求成功后都会清掉缓存，避免读到自己刚修改前的数据。
+ * 这不是离线数据源，也不会把失败的正式接口伪装成演示数据。
+ */
+const readCache = new Map<string, unknown>()
+const pendingReads = new Map<string, Promise<unknown>>()
+
+export function clearRequestCache(): void {
+  readCache.clear()
+  pendingReads.clear()
+}
+
+function readCacheKey(path: string, token: string | null): string {
+  return `${token ?? 'anonymous'}:${path}`
+}
+
+/**
  * 以「容错」方式执行一个（或一组）请求：期间的 403 不触发全局跳转，异常时返回兜底值。
  * 用于首页概览等 best-effort 聚合——个别课程/资源越权不应让整页失败或跳飞。
  * 注意：传入的 promise 应在调用点就地创建（如 tolerant(api.x(), fb)），以保证计数早于响应结算。
@@ -31,9 +48,7 @@ export async function tolerant<T>(promise: Promise<T>, fallback: T): Promise<T> 
   }
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const traceId = createTraceId()
-  const token = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+async function sendRequest<T>(path: string, init: RequestInit, traceId: string, token: string | null): Promise<T> {
   const isForm = init.body instanceof FormData
   const response = await fetch(`${gateway}${path}`, {
     ...init,
@@ -60,4 +75,45 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     )
   }
   return (payload?.data ?? payload) as T
+}
+
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const method = (init.method ?? 'GET').toUpperCase()
+  const token = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+  const isRead = method === 'GET'
+  const key = isRead ? readCacheKey(path, token) : ''
+
+  if (isRead) {
+    const cached = readCache.get(key) as T | undefined
+    if (cached !== undefined) {
+      // 命中缓存不阻塞渲染；同一 URL 同时只允许一个后台刷新请求。
+      if (!pendingReads.has(key)) {
+        const refresh = sendRequest<T>(path, init, createTraceId(), token)
+          .then((data) => {
+            readCache.set(key, data)
+            return data
+          })
+          .finally(() => pendingReads.delete(key))
+        pendingReads.set(key, refresh)
+        void refresh.catch(() => undefined)
+      }
+      return cached
+    }
+
+    const pending = pendingReads.get(key) as Promise<T> | undefined
+    if (pending) return pending
+    const firstLoad = sendRequest<T>(path, init, createTraceId(), token)
+      .then((data) => {
+        readCache.set(key, data)
+        return data
+      })
+      .finally(() => pendingReads.delete(key))
+    pendingReads.set(key, firstLoad)
+    return firstLoad
+  }
+
+  const data = await sendRequest<T>(path, init, createTraceId(), token)
+  // 所有写操作成功后失效，保证下一次读取一定向正式后端重新取数。
+  clearRequestCache()
+  return data
 }

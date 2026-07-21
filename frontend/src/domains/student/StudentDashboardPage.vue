@@ -21,15 +21,16 @@
         <section class="panel">
           <div class="spread"><h2 class="panel-title">继续学习</h2><span class="muted">按进度</span></div>
           <div class="stack">
-            <div v-for="course in overview.courses" :key="course.id" class="notice">
-              <div style="flex: 1">
-                <div class="spread"><strong>{{ course.title }}</strong><StatusBadge tone="green" label="学习中" /></div>
+            <div v-for="course in overview.courses" :key="course.id" class="notice continue-course">
+              <div class="continue-course-main">
+                <strong>{{ course.title }}</strong>
                 <div class="progress-inline push-top">
                   <span class="progress good"><i :style="{ width: course.progress + '%' }" /></span>
                   <span class="num muted">{{ course.progress }}%</span>
                 </div>
               </div>
-              <AppButton variant="secondary" @click="enterCourse(course.id, course.nextLessonId)">进入</AppButton>
+              <StatusBadge class="continue-course-status" tone="green" label="学习中" />
+              <AppButton class="continue-course-enter" variant="secondary" @click="enterCourse(course.id, course.nextLessonId)">进入</AppButton>
             </div>
             <p v-if="!overview.courses.length" class="list-empty">暂无在学课程</p>
           </div>

@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TOKEN_STORAGE_KEY, request, tolerant } from '@/services/httpClient'
+import { clearRequestCache, TOKEN_STORAGE_KEY, request, tolerant } from '@/services/httpClient'
 import { RuntimeError } from '@/services/runtime'
 
 describe('real HTTP client', () => {
   beforeEach(() => {
     localStorage.clear()
+    sessionStorage.clear()
+    clearRequestCache()
     vi.stubEnv('VITE_GATEWAY_URL', 'http://localhost:18080')
   })
 
@@ -27,6 +29,31 @@ describe('real HTTP client', () => {
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers.Authorization).toBe('Bearer jwt-token')
     expect(init.headers['X-Trace-Id']).toMatch(/^trace-/)
+  })
+
+  it('returns cached real GET data immediately and refreshes it in the background', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { value: 1 } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { value: 2 } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(request<{ value: number }>('/api/v1/student/courses')).resolves.toEqual({ value: 1 })
+    await expect(request<{ value: number }>('/api/v1/student/courses')).resolves.toEqual({ value: 1 })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await expect(request<{ value: number }>('/api/v1/student/courses')).resolves.toEqual({ value: 2 })
+  })
+
+  it('invalidates cached reads after a successful write', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { value: 1 } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { value: 2 } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await request('/api/v1/student/courses')
+    await request('/api/v1/student/courses/1/enroll', { method: 'POST' })
+    await expect(request<{ value: number }>('/api/v1/student/courses')).resolves.toEqual({ value: 2 })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   it('clears auth and emits an expiry event on 401', async () => {

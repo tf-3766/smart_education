@@ -13,15 +13,29 @@
         <span>知行教学云</span>
       </div>
       <div class="topbar-actions">
-        <span class="preview-switch"><span>{{ roleLabels[session.currentRole] }}</span></span>
-        <button class="topbar-bell" aria-label="打开站内信" aria-controls="notificationDrawer" :aria-expanded="notificationOpen" @click="notificationOpen = true">
-          <Bell :size="20" />
-          <b v-if="notifications.unreadCount">{{ notifications.unreadCount }}</b>
-        </button>
-        <RouterLink class="account-center-link" to="/account/profile" aria-label="个人中心（含退出登录）" title="个人中心">
-          <UserAvatar :file-id="session.backendUser?.avatarFileId" :name="session.currentUser.name" :size="28" />
-          <span>个人中心</span>
-        </RouterLink>
+        <div class="identity-glass-panel" aria-label="当前登录状态">
+          <section class="identity-glass-card identity-role-card">
+            <span class="identity-glass-icon"><ShieldCheck :size="30" /></span>
+            <span class="identity-glass-copy">
+              <small>当前身份</small>
+              <strong>{{ roleLabels[session.currentRole] }}</strong>
+            </span>
+          </section>
+          <button class="identity-glass-card identity-notification-card" aria-label="打开站内信" aria-controls="notificationDrawer" :aria-expanded="notificationOpen" @click="notificationOpen = true">
+            <span class="identity-glass-icon"><Bell :size="30" /></span>
+            <span class="identity-glass-copy">
+              <small>通知提醒</small>
+              <strong>{{ notifications.unreadCount }} 条</strong>
+            </span>
+          </button>
+          <RouterLink class="identity-glass-card identity-account-card" to="/account/profile" aria-label="个人中心（含退出登录）" title="个人中心">
+            <span class="identity-glass-icon identity-avatar"><UserAvatar :file-id="session.backendUser?.avatarFileId" :name="session.currentUser.name" :size="42" /></span>
+            <span class="identity-glass-copy">
+              <small>个人中心</small>
+              <strong>进入 <ArrowRight :size="24" /></strong>
+            </span>
+          </RouterLink>
+        </div>
       </div>
     </header>
 
@@ -67,10 +81,18 @@
 
       <main class="main-area">
         <LiquidGlass v-if="routeGlassSurfaceActive" as="section" class="content route-glass-surface" interactive>
-          <RouterView />
+          <RouterView v-slot="{ Component, route: childRoute }">
+            <KeepAlive :max="32">
+              <component :is="Component" :key="childRoute.fullPath" />
+            </KeepAlive>
+          </RouterView>
         </LiquidGlass>
         <section v-else class="content">
-          <RouterView />
+          <RouterView v-slot="{ Component, route: childRoute }">
+            <KeepAlive :max="32">
+              <component :is="Component" :key="childRoute.fullPath" />
+            </KeepAlive>
+          </RouterView>
         </section>
       </main>
     </div>
@@ -116,9 +138,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, KeepAlive, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
-import { Bell, Menu, RotateCcw, SlidersHorizontal, X } from 'lucide-vue-next'
+import { ArrowRight, Bell, Menu, RotateCcw, ShieldCheck, SlidersHorizontal, X } from 'lucide-vue-next'
 import NotificationDrawer from '@/components/NotificationDrawer.vue'
 import GlobalAiAssistant from '@/components/GlobalAiAssistant.vue'
 import LiquidGlass from '@/components/LiquidGlass.vue'
@@ -139,7 +161,8 @@ const glassSettingsOpen = ref(false)
 const glassSettingsTrigger = ref<HTMLButtonElement | null>(null)
 const glassSettingsPanel = ref<HTMLElement | null>(null)
 const { settings: glassSettings, cssVariables: glassCssVariables, reset: resetGlassMaterial } = useGlassMaterial()
-const liquidGlassThemeActive = computed(() => /^\/(student|teacher|admin)(?:\/|$)/.test(route.path))
+// 个人中心同样挂在共享工作台壳层中，不能回退为旧版白色布局。
+const liquidGlassThemeActive = computed(() => /^\/(student|teacher|admin|account)(?:\/|$)/.test(route.path))
 const studentDashboardActive = computed(() => session.currentRole === 'student' && route.path === '/student/dashboard')
 const routeGlassSurfaceActive = computed(() => liquidGlassThemeActive.value && !studentDashboardActive.value)
 

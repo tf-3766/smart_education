@@ -48,38 +48,33 @@ const isLearnable = (statusCode: string) => LEARNABLE_COURSE_STATUS.has(statusCo
 
 export async function loadStudentOverview(): Promise<StudentOverview> {
   const coursePage = await studentLearningApi.myCourses({ page: 1, size: 100 })
-  const courses = await Promise.all(coursePage.records.map(async (course: StudentCourseListItemVO) => {
-    const progress = isLearnable(course.status.code)
-      ? await settled(studentLearningApi.progress(course.courseId), null)
-      : null
-    return {
-      id: course.courseId,
-      code: course.courseCode,
-      title: course.name,
-      teacher: course.ownerTeacherName,
-      term: course.term ?? '-',
-      status: course.status.code,
-      progress: progress?.progressPercent ?? 0,
-      nextLessonId: progress?.nextLessonId ?? progress?.lastLessonId ?? null,
-    }
-  }))
-
-  const perCourse = await Promise.all(courses.map(async (course) => {
-    if (!isLearnable(course.status)) {
-      return { assignments: [] as StudentAssignmentListItemVO[], exams: [] as StudentExamListItemVO[], topics: [] as ForumTopicListItemVO[] }
-    }
-    const [assignmentPage, examPage, topicPage] = await Promise.all([
-      settled(assignmentsApi.studentList(course.id, { page: 1, size: 100 }), { records: [] } as { records: StudentAssignmentListItemVO[] }),
-      settled(examsApi.studentExams(course.id, { page: 1, size: 100 }), { records: [] } as { records: StudentExamListItemVO[] }),
-      settled(forumApi.studentTopics(course.id, { page: 1, size: 100 }), { records: [] } as { records: ForumTopicListItemVO[] }),
-    ])
-    return { assignments: assignmentPage.records, exams: examPage.records, topics: topicPage.records }
-  }))
-  const gradePage = await settled(assignmentsApi.studentGrades({ page: 1, size: 100 }), { records: [] } as { records: StudentGradeVO[] })
+  // 课程清单到达后，进度、待办、考试、互动和成绩一次性并发；避免原先“先等进度、
+  // 再等每门课子资源”的两轮网络瀑布。接口与返回结构保持不变。
+  const [courseBundles, gradePage] = await Promise.all([
+    Promise.all(coursePage.records.map(async (course: StudentCourseListItemVO) => {
+      if (!isLearnable(course.status.code)) {
+        return {
+          course: { id: course.courseId, code: course.courseCode, title: course.name, teacher: course.ownerTeacherName, term: course.term ?? '-', status: course.status.code, progress: 0, nextLessonId: null },
+          assignments: [] as StudentAssignmentListItemVO[], exams: [] as StudentExamListItemVO[], topics: [] as ForumTopicListItemVO[],
+        }
+      }
+      const [progress, assignmentPage, examPage, topicPage] = await Promise.all([
+        settled(studentLearningApi.progress(course.courseId), null),
+        settled(assignmentsApi.studentList(course.courseId, { page: 1, size: 100 }), { records: [] } as { records: StudentAssignmentListItemVO[] }),
+        settled(examsApi.studentExams(course.courseId, { page: 1, size: 100 }), { records: [] } as { records: StudentExamListItemVO[] }),
+        settled(forumApi.studentTopics(course.courseId, { page: 1, size: 100 }), { records: [] } as { records: ForumTopicListItemVO[] }),
+      ])
+      return {
+        course: { id: course.courseId, code: course.courseCode, title: course.name, teacher: course.ownerTeacherName, term: course.term ?? '-', status: course.status.code, progress: progress?.progressPercent ?? 0, nextLessonId: progress?.nextLessonId ?? progress?.lastLessonId ?? null },
+        assignments: assignmentPage.records, exams: examPage.records, topics: topicPage.records,
+      }
+    })),
+    settled(assignmentsApi.studentGrades({ page: 1, size: 100 }), { records: [] } as { records: StudentGradeVO[] }),
+  ])
 
   return {
-    courses,
-    assignments: perCourse.flatMap((item) => item.assignments).map((item) => ({
+    courses: courseBundles.map((item) => item.course),
+    assignments: courseBundles.flatMap((item) => item.assignments).map((item) => ({
       id: item.assignmentId,
       courseId: item.courseId,
       title: item.title,
@@ -89,8 +84,8 @@ export async function loadStudentOverview(): Promise<StudentOverview> {
       submissionStatus: item.submissionStatus?.code ?? 'NOT_SUBMITTED',
       graded: item.graded,
     })),
-    exams: perCourse.flatMap((item) => item.exams),
+    exams: courseBundles.flatMap((item) => item.exams),
     grades: gradePage.records,
-    topics: perCourse.flatMap((item) => item.topics),
+    topics: courseBundles.flatMap((item) => item.topics),
   }
 }

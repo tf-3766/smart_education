@@ -18,47 +18,52 @@
     <div v-if="message" class="toast">{{ message }}</div>
 
     <div class="grid cols-2 account-grid">
-      <section class="panel">
-        <h2 class="panel-title">个人信息</h2>
-        <div class="account-profile-head">
-          <span class="account-avatar" aria-hidden="true">
-            <img v-if="avatarSrc" :src="avatarSrc" alt="头像" />
-            <UserRound v-else :size="30" />
-          </span>
-          <div class="account-profile-meta">
-            <h2>{{ displayName }}</h2>
-            <p>{{ username }}</p>
+      <section class="panel account-profile-panel">
+        <h2 class="panel-title account-profile-title"><UserRound :size="26" />个人信息</h2>
+        <div class="account-profile-layout">
+          <div class="account-identity-card">
+            <span class="account-avatar" aria-hidden="true">
+              <img v-if="avatarSrc" :src="avatarSrc" alt="头像" />
+              <UserRound v-else :size="66" />
+            </span>
+            <div class="account-profile-meta">
+              <h2>{{ displayName }}</h2>
+              <p>{{ username }}</p>
+            </div>
             <div class="account-avatar-actions">
               <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden @change="onPickAvatar" />
-              <button type="button" class="text-link" :disabled="avatarBusy" @click="fileInput?.click()">{{ avatarBusy ? '上传中…' : '更换头像' }}</button>
+              <button type="button" class="account-avatar-button" :disabled="avatarBusy" @click="fileInput?.click()"><Camera :size="17" />{{ avatarBusy ? '上传中…' : '更换头像' }}</button>
             </div>
           </div>
+          <dl class="account-fields account-info-cards">
+            <div v-for="item in profileRows" :key="item.label" class="account-info-card">
+              <span class="account-info-icon"><component :is="item.icon" :size="23" /></span>
+              <dt>{{ item.label }}</dt>
+              <dd>{{ item.value }}</dd>
+            </div>
+          </dl>
         </div>
-        <dl class="account-fields">
-          <div v-for="item in profileRows" :key="item.label">
-            <dt>{{ item.label }}</dt>
-            <dd>{{ item.value }}</dd>
-          </div>
-        </dl>
       </section>
 
-      <section class="panel">
-        <h2 class="panel-title">修改密码</h2>
-        <form class="stack" @submit.prevent="submitPassword">
+      <section class="panel account-password-panel">
+        <h2 class="panel-title account-password-title"><LockKeyhole :size="26" />修改密码</h2>
+        <form class="stack account-password-form" @submit.prevent="submitPassword">
+          <div class="account-password-card">
           <div>
-            <label class="field-label" for="pw-current">当前密码</label>
+            <label class="field-label" for="pw-current"><span class="account-password-field-icon"><LockKeyhole :size="19" /></span>当前密码</label>
             <input id="pw-current" v-model="pw.current" class="input" type="password" autocomplete="current-password" placeholder="请输入当前密码" />
           </div>
           <div>
-            <label class="field-label" for="pw-new">新密码</label>
+            <label class="field-label" for="pw-new"><span class="account-password-field-icon"><LockKeyhole :size="19" /></span>新密码</label>
             <input id="pw-new" v-model="pw.next" class="input" type="password" autocomplete="new-password" placeholder="8-128 位，含字母和数字" />
           </div>
           <div>
-            <label class="field-label" for="pw-confirm">确认新密码</label>
+            <label class="field-label" for="pw-confirm"><span class="account-password-field-icon"><LockKeyhole :size="19" /></span>确认新密码</label>
             <input id="pw-confirm" v-model="pw.confirm" class="input" type="password" autocomplete="new-password" placeholder="再次输入新密码" />
           </div>
+          </div>
           <p v-if="pwError" class="form-error" role="alert">{{ pwError }}</p>
-          <div class="form-actions">
+          <div class="form-actions account-password-actions">
             <AppButton variant="primary" type="submit" :loading="pwBusy" :disabled="!pwFilled">保存新密码</AppButton>
           </div>
           <p class="muted" style="font-size: 12.5px; margin: 0">修改成功后当前登录仍有效，下次登录请使用新密码。</p>
@@ -71,7 +76,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { LayoutDashboard, LogOut, UserRound } from 'lucide-vue-next'
+import { Camera, ContactRound, Fingerprint, LayoutDashboard, LockKeyhole, LogOut, ShieldCheck, UserRound } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'
 import { authApi, filesApi } from '@/services/api'
 import { roleLabel } from '@/utils/permissionLabels'
@@ -92,10 +97,10 @@ const roleText = computed(() => {
   return roles.length ? roles.map(roleLabel).join(' / ') : roleLabels[session.currentRole]
 })
 const profileRows = computed(() => [
-  { label: '显示名称', value: displayName.value },
-  { label: '用户名', value: username.value },
-  { label: '用户 ID', value: session.backendUser?.userId ?? session.currentUser.id },
-  { label: '角色', value: roleText.value },
+  { label: '显示名称', value: displayName.value, icon: ContactRound },
+  { label: '用户名', value: username.value, icon: UserRound },
+  { label: '用户 ID', value: session.backendUser?.userId ?? session.currentUser.id, icon: Fingerprint },
+  { label: '角色', value: roleText.value, icon: ShieldCheck },
 ])
 
 const message = ref('')

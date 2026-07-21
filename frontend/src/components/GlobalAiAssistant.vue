@@ -1,7 +1,7 @@
 <template>
-  <div class="ai-float" :class="{ open }" :style="floatStyle">
+  <div class="ai-float" :class="{ open, dragging: isDragging }" :style="floatStyle">
     <button v-if="!open" class="ai-mascot" aria-label="打开知行 AI 助手" title="知行 AI 助手（可拖动）" @pointerdown="startDrag" @click="openAssistant">
-      <Bot :size="25" /><span>AI</span>
+      <BookOpen :size="30" stroke-width="2.15" /><Sparkles class="ai-mascot-sparkle" :size="14" stroke-width="2.4" />
     </button>
     <section v-else class="ai-window" aria-label="知行 AI 助手">
       <header class="ai-window-head" @pointerdown="startDrag">
@@ -36,7 +36,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Bot, Minus, Send } from 'lucide-vue-next'
+import { BookOpen, Bot, Minus, Send, Sparkles } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { aiApi } from '@/services/api'
 import type { AiToolEvent } from '@/services/api/types'
@@ -58,6 +58,7 @@ const collapsedPosition = ref(defaultPosition())
 const positionStorageKey = 'global-ai-position-v2'
 let moved = false
 let dragOffset = { x: 0, y: 0 }
+const isDragging = ref(false)
 
 const roleName = computed(() => session.currentRole === 'teacher' ? '教师助手' : session.currentRole === 'admin' ? '管理员助手' : '学生助手')
 const courseId = computed(() => String(route.params.courseId || route.query.courseId || '') || null)
@@ -78,19 +79,38 @@ function clampPosition(x: number, y: number) {
 function startDrag(event: PointerEvent) {
   const target = event.currentTarget as HTMLElement
   moved = false
+  isDragging.value = false
+  const dragStart = { x: event.clientX, y: event.clientY }
   dragOffset = { x: event.clientX - position.value.x, y: event.clientY - position.value.y }
   target.setPointerCapture(event.pointerId)
-  const move = (next: PointerEvent) => { moved = true; clampPosition(next.clientX - dragOffset.x, next.clientY - dragOffset.y) }
+  const move = (next: PointerEvent) => {
+    if (!moved && Math.hypot(next.clientX - dragStart.x, next.clientY - dragStart.y) < 4) return
+    moved = true
+    isDragging.value = true
+    clampPosition(next.clientX - dragOffset.x, next.clientY - dragOffset.y)
+  }
   const end = () => {
     target.removeEventListener('pointermove', move)
     target.removeEventListener('pointerup', end)
+    target.removeEventListener('pointercancel', end)
+    isDragging.value = false
     if (!open.value) {
+      if (moved) snapMascotToEdge()
       collapsedPosition.value = { ...position.value }
       localStorage.setItem(positionStorageKey, JSON.stringify(collapsedPosition.value))
     }
   }
   target.addEventListener('pointermove', move)
   target.addEventListener('pointerup', end)
+  target.addEventListener('pointercancel', end)
+}
+function snapMascotToEdge() {
+  const mascotWidth = 66
+  const edgeInset = 12
+  const x = position.value.x + mascotWidth / 2 < window.innerWidth / 2
+    ? edgeInset
+    : window.innerWidth - mascotWidth - edgeInset
+  clampPosition(x, position.value.y)
 }
 function openAssistant() {
   if (moved) return
@@ -144,9 +164,13 @@ onBeforeUnmount(() => window.removeEventListener('resize', onResize))
 </script>
 
 <style scoped>
-.ai-float { position: fixed; z-index: 70; user-select: none; }
-.ai-mascot { width: 64px; height: 64px; display: grid; place-content: center; gap: 1px; border: 3px solid #fff; border-radius: 24px 24px 24px 8px; color: #fff; background: linear-gradient(145deg,#0b73ef,#6246ea); box-shadow: 0 12px 32px rgba(24,85,193,.35); cursor: grab; }
-.ai-mascot span { font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.ai-float { position: fixed; z-index: 70; user-select: none; transition: left 180ms cubic-bezier(.2,.8,.2,1), top 180ms cubic-bezier(.2,.8,.2,1); }
+.ai-float.dragging { transition: none; }
+.ai-mascot { position: relative; width: 66px; height: 66px; display: grid; place-items: center; border: 2px solid rgba(255,255,255,.94); border-radius: 22px 22px 22px 9px; color: #fff; background: linear-gradient(145deg, #54b8ff 0%, #197cf2 48%, #3255dd 100%); box-shadow: 0 12px 28px rgba(14, 87, 197, .3), inset 0 1px 0 rgba(255,255,255,.55), inset 0 -8px 14px rgba(21,65,190,.16); cursor: grab; opacity: .88; transition: transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease, filter 160ms ease; }
+.ai-mascot::before { position: absolute; inset: 4px; border: 1px solid rgba(255,255,255,.28); border-radius: 17px 17px 17px 6px; content: ''; pointer-events: none; }
+.ai-mascot:hover { opacity: 1; filter: saturate(1.08) brightness(1.04); }
+.ai-float.dragging .ai-mascot { transform: scale(1.06); opacity: 1; box-shadow: 0 20px 38px rgba(12, 76, 180, .48), inset 0 1px 0 rgba(255,255,255,.72), inset 0 -8px 14px rgba(21,65,190,.14); cursor: grabbing; }
+.ai-mascot-sparkle { position: absolute; right: 10px; bottom: 9px; filter: drop-shadow(0 1px 1px rgba(12, 69, 169, .3)); }
 .ai-window { width: min(390px, calc(100vw - 24px)); height: min(590px, calc(100vh - 92px)); display: grid; grid-template-rows: auto auto minmax(0,1fr) auto auto auto; overflow: hidden; border: 1px solid #cbd9ed; border-radius: 18px; background: #fff; box-shadow: 0 22px 60px rgba(15,23,42,.25); user-select: text; }
 .ai-window-head { display: grid; grid-template-columns: 38px minmax(0,1fr) 30px; gap: 10px; align-items: center; padding: 13px 14px; color: #fff; background: linear-gradient(105deg,#0f67d8,#4f46e5); cursor: grab; user-select: none; }
 .ai-head-avatar { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; background: rgba(255,255,255,.18); }

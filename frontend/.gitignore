@@ -5,3 +5,4 @@ output/
 *.log
 .env
 .env.*
+!.env.production
