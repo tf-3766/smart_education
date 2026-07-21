@@ -100,6 +100,12 @@ public class TeacherExamController {
         return ApiResponse.success(trace(request));
     }
 
+    @PostMapping("/question-banks/{bankId}/confirm")
+    public ApiResponse<QuestionBankVO> confirmAiDraftQuestionBank(
+            @AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long bankId, HttpServletRequest request) {
+        return ApiResponse.success(service.confirmAiDraftQuestionBank(user.userId(), bankId), trace(request));
+    }
+
     @GetMapping("/question-banks/{bankId}/questions")
     public ApiResponse<PageResponse<QuestionVO>> listQuestions(
             @AuthenticationPrincipal AuthenticatedUser user,

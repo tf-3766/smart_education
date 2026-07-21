@@ -834,6 +834,7 @@ export interface QuestionBankVO {
   name: string
   description?: string | null
   status: string
+  source: string
   version: number
 }
 

@@ -124,10 +124,18 @@ export const examsApi = {
   async createBank(courseId: string, body: CreateQuestionBankRequest): Promise<QuestionBankVO> {
     if (isRealMode()) return post<QuestionBankVO>(`/api/v1/teacher/courses/${courseId}/question-banks`, body)
     requireTeacherCourse(courseId)
-    const row: QuestionBankRow = { bankId: nextId(), courseId, name: body.name, description: body.description ?? null, status: 'ACTIVE', version: 0 }
+    const row: QuestionBankRow = { bankId: nextId(), courseId, name: body.name, description: body.description ?? null, status: 'ACTIVE', source: 'HUMAN', version: 0 }
     db.questionBanks.push(row)
     persist()
     return demoDelay({ ...row })
+  },
+
+  async confirmBank(bankId: string): Promise<QuestionBankVO> {
+    if (isRealMode()) return post<QuestionBankVO>(`/api/v1/teacher/question-banks/${bankId}/confirm`, {})
+    const row = requireBank(bankId)
+    row.status = 'ACTIVE'
+    persist()
+    return demoDelay({ ...row, description: row.description ?? null })
   },
 
   async getBank(bankId: string): Promise<QuestionBankVO> {

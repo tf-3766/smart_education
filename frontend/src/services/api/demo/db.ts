@@ -285,6 +285,7 @@ export interface QuestionBankRow {
   name: string
   description?: string | null
   status: string
+  source: string
   version: number
 }
 
@@ -514,8 +515,9 @@ function seed(): DemoDb {
       { warningId: '43003', courseId: '21002', studentId: '4', warningType: 'LOW_SCORE', warningLevel: 'LOW', warningStatus: 'HANDLED', summary: '一次测验得分低于 60 分。', generatedAt: daysFromNow(-9), handledBy: '2', handleRemark: '已沟通，学生将参加助教答疑。', handledAt: daysFromNow(-7), evidences: [{ evidenceId: '44004', evidenceType: 'METRIC', metricCode: 'SCORE', metricValue: 52, description: '随堂测验得分 52。' }], version: 1 },
     ],
     questionBanks: [
-      { bankId: '51001', courseId: '21001', name: 'Python 基础题库', description: '覆盖第一、二章知识点。', status: 'ACTIVE', version: 0 },
-      { bankId: '51002', courseId: '21002', name: 'AI 导论题库', status: 'ACTIVE', version: 0 },
+      { bankId: '51001', courseId: '21001', name: 'Python 基础题库', description: '覆盖第一、二章知识点。', status: 'ACTIVE', source: 'HUMAN', version: 0 },
+      { bankId: '51002', courseId: '21002', name: 'AI 导论题库', status: 'ACTIVE', source: 'HUMAN', version: 0 },
+      { bankId: '51003', courseId: '21001', name: 'AI 生成·第二章测验（草稿）', description: 'AI 依据课程资料自动生成，待教师确认。', status: 'DRAFT', source: 'AI', version: 0 },
     ],
     questions: [
       { questionId: '52001', bankId: '51001', courseId: '21001', questionType: 'SINGLE_CHOICE', stem: '下列哪种类型在 Python 中是不可变的？', analysis: '元组创建后不可修改。', difficulty: 'EASY', score: 5, status: 'ACTIVE', options: [{ label: 'A', content: '列表', correct: false, sortOrder: 1 }, { label: 'B', content: '元组', correct: true, sortOrder: 2 }, { label: 'C', content: '字典', correct: false, sortOrder: 3 }, { label: 'D', content: '集合', correct: false, sortOrder: 4 }], version: 0 },

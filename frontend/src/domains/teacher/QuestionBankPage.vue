@@ -12,7 +12,8 @@
           <thead><tr><th>题库名称</th><th>状态</th></tr></thead>
           <tbody>
             <tr v-for="bank in banks" :key="bank.bankId" :class="{ 'row-active': bank.bankId === selectedBankId }" style="cursor: pointer" @click="selectBank(bank.bankId)">
-              <td class="cell-strong">{{ bank.name }}</td><td><StatusBadge :tone="bank.status === 'ACTIVE' ? 'green' : 'gray'" :label="bank.status === 'ACTIVE' ? '启用' : '归档'" /></td>
+              <td class="cell-strong">{{ bank.name }}</td>
+              <td><div class="row" style="gap: 8px; align-items: center"><StatusBadge :tone="bankTone(bank)" :label="bankLabel(bank)" /><button v-if="bank.status === 'DRAFT'" class="text-link" @click.stop="confirmBank(bank.bankId)">确认发布</button></div></td>
             </tr>
             <tr v-if="!banks.length"><td colspan="2" class="list-empty">暂无题库</td></tr>
           </tbody>
@@ -172,6 +173,18 @@ const difficultyLabel = (code: string) => ({ EASY: '易', MEDIUM: '中', HARD: '
 const manualQuestionType = (type: string) => ['FILL_BLANK', 'SHORT_ANSWER'].includes(type)
 const studentName = (id: string) => ({ '4': '王一诺', '5': '刘子涵', '6': '赵晨' }[id] ?? id)
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
+function bankTone(bank: QuestionBankVO): 'green' | 'amber' | 'gray' {
+  if (bank.status === 'DRAFT' && bank.source === 'AI') return 'amber'
+  return bank.status === 'ACTIVE' ? 'green' : 'gray'
+}
+function bankLabel(bank: QuestionBankVO): string {
+  if (bank.status === 'DRAFT') return bank.source === 'AI' ? 'AI 草稿' : '草稿'
+  return bank.status === 'ACTIVE' ? '启用' : '归档'
+}
+async function confirmBank(bankId: string) {
+  const updated = await state.run(() => examsApi.confirmBank(bankId))
+  if (updated) { flash('已确认发布，题库转为启用'); await loadResourcesKeepSelection() }
+}
 
 const pickedQuestions = computed(() => paperForm.pool.filter((item) => item.picked))
 const pickedScore = computed(() => pickedQuestions.value.reduce((sum, item) => sum + (item.score || 0), 0))
