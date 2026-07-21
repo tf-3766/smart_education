@@ -12,6 +12,7 @@ import com.zhongruan.edu.ai.knowledge.CourseKnowledgeBaseService;
 import com.zhongruan.edu.ai.tools.PlatformUtilityTools;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhongruan.edu.feign.ai.AiAssistantContextResponse;
+import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
 import java.time.OffsetDateTime;
@@ -50,7 +51,8 @@ class AiPromptGroundingTest {
         when(knowledgeBase.retrieve(any(), any(), anyString()))
                 .thenReturn(new CourseKnowledgeBaseService.Retrieval(false, "", List.of()));
 
-        new AiApplicationService(contextService, generator, knowledgeBase, new PlatformUtilityTools(new ObjectMapper()))
+        new AiApplicationService(contextService, generator, knowledgeBase, new PlatformUtilityTools(new ObjectMapper()),
+                        mock(BizAiAuthoringFeignClient.class))
                 .courseQa("Bearer token", 1002L, "TEACHER", 21001L, 23001L, "什么是依赖注入？", "lesson-1", "trace")
                 .collectList()
                 .block();
@@ -77,7 +79,8 @@ class AiPromptGroundingTest {
         AiTextGenerator generator = new CapturingGenerator(systemPrompt);
         CourseKnowledgeBaseService knowledgeBase = mock(CourseKnowledgeBaseService.class);
 
-        new AiApplicationService(contextService, generator, knowledgeBase, new PlatformUtilityTools(new ObjectMapper()))
+        new AiApplicationService(contextService, generator, knowledgeBase, new PlatformUtilityTools(new ObjectMapper()),
+                        mock(BizAiAuthoringFeignClient.class))
                 .assistantChat(
                         "Bearer token", 1001L, "STUDENT", null, null, "/student/dashboard", "学生首页",
                         "我有哪些学习预警？", "global-1", "trace")

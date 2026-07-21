@@ -47,6 +47,9 @@ class AiServiceApplicationTest {
     @MockitoBean
     private BizAiContextFeignClient contextClient;
 
+    @MockitoBean
+    private com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient authoringClient;
+
     @Test
     void actuatorHealthIsAvailableWithoutAiProviderConfiguration() {
         webTestClient.get()

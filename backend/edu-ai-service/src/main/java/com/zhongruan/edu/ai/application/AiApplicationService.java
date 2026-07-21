@@ -8,12 +8,14 @@ import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
 import com.zhongruan.edu.ai.context.AuthorizedAiContextService;
 import com.zhongruan.edu.ai.generation.AiTextGenerator;
 import com.zhongruan.edu.ai.knowledge.CourseKnowledgeBaseService;
+import com.zhongruan.edu.ai.tools.CourseAuthoringTools;
 import com.zhongruan.edu.ai.tools.CourseContextTools;
 import com.zhongruan.edu.ai.tools.CourseKnowledgeTools;
 import com.zhongruan.edu.ai.tools.PlatformUtilityTools;
 import com.zhongruan.edu.ai.tools.RoleScopedPlatformTools;
 import com.zhongruan.edu.common.exception.BusinessException;
 import com.zhongruan.edu.feign.ai.AiAssistantContextResponse;
+import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
 import com.zhongruan.edu.feign.ai.AiContextPurpose;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
@@ -42,17 +44,20 @@ public class AiApplicationService {
     private final AiTextGenerator generator;
     private final CourseKnowledgeBaseService knowledgeBase;
     private final PlatformUtilityTools platformUtilityTools;
+    private final BizAiAuthoringFeignClient authoringClient;
     private final Clock clock = Clock.systemUTC();
 
     public AiApplicationService(
             AuthorizedAiContextService contextService,
             AiTextGenerator generator,
             CourseKnowledgeBaseService knowledgeBase,
-            PlatformUtilityTools platformUtilityTools) {
+            PlatformUtilityTools platformUtilityTools,
+            BizAiAuthoringFeignClient authoringClient) {
         this.contextService = contextService;
         this.generator = generator;
         this.knowledgeBase = knowledgeBase;
         this.platformUtilityTools = platformUtilityTools;
+        this.authoringClient = authoringClient;
     }
 
     public Flux<AiStreamEvent> courseQa(
@@ -71,10 +76,12 @@ public class AiApplicationService {
                             authorization, userId, role, courseId, lessonId, AiContextPurpose.COURSE_QA, traceId);
                     knowledgeBase.syncIfStale(context); // 内容变化时自动重建索引，无需手动同步
                     CourseKnowledgeBaseService.Retrieval retrieval = knowledgeBase.retrieve(courseId, lessonId, question.trim());
-                    String prompt = systemPrompt(
-                            context,
-                            "回答课程问题；优先依据 RAG 检索片段，必要时可调用课程目录工具。上下文不足时明确说明。",
-                            !retrieval.matched());
+                    String instruction = "回答课程问题；优先依据 RAG 检索片段，必要时可调用课程目录工具。上下文不足时明确说明。";
+                    if (isAuthoringRole(role)) {
+                        instruction += " 当教师/管理员明确要求生成题库时，先用 searchCourseKnowledge 检索资料再调用 generateQuestionBank"
+                                + " 落库为待确认草稿，并提示其到题库页面确认发布，不得谎称已正式发布。";
+                    }
+                    String prompt = systemPrompt(context, instruction, !retrieval.matched());
                     if (retrieval.matched()) {
                         prompt += "\nRAG 检索到的课程知识片段：\n" + retrieval.context();
                     }
@@ -105,9 +112,7 @@ public class AiApplicationService {
                                         prepared.systemPrompt(),
                                         prepared.userPrompt(),
                                         conversationId,
-                                        platformUtilityTools,
-                                        new CourseContextTools(prepared.context()),
-                                        new CourseKnowledgeTools(knowledgeBase, courseId, lessonId))
+                                        courseTools(role, prepared.context(), authorization, userId, courseId, lessonId))
                                 .filter(chunk -> chunk != null && !chunk.isEmpty())
                                 .map(chunk -> event("delta", requestId, chunk)),
                         Flux.fromIterable(prepared.citations())
@@ -429,6 +434,22 @@ public class AiApplicationService {
                 ? "- 无"
                 : values.stream().limit(100).map(value -> "- " + truncate(value, 600))
                         .reduce((left, right) -> left + "\n" + right).orElse("- 无");
+    }
+
+    private boolean isAuthoringRole(String role) {
+        return "TEACHER".equals(role) || "ADMIN".equals(role) || "SUPER_ADMIN".equals(role);
+    }
+
+    private Object[] courseTools(
+            String role, AiCourseContextResponse context, String authorization, Long userId, Long courseId, Long lessonId) {
+        List<Object> tools = new ArrayList<>();
+        tools.add(platformUtilityTools);
+        tools.add(new CourseContextTools(context));
+        tools.add(new CourseKnowledgeTools(knowledgeBase, courseId, lessonId));
+        if (isAuthoringRole(role)) {
+            tools.add(new CourseAuthoringTools(authoringClient, authorization, userId, role, courseId));
+        }
+        return tools.toArray();
     }
 
     private String systemPrompt(AiCourseContextResponse context, String instruction) {
