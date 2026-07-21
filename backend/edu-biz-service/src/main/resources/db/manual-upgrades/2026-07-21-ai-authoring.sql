@@ -10,3 +10,12 @@ SET @ddl := IF(@col_exists = 0,
     'ALTER TABLE edu_question_bank ADD COLUMN source VARCHAR(16) NOT NULL DEFAULT ''HUMAN'' AFTER status',
     'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- edu_assignment.source
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'edu_assignment' AND column_name = 'source');
+SET @ddl := IF(@col_exists = 0,
+    'ALTER TABLE edu_assignment ADD COLUMN source VARCHAR(16) NOT NULL DEFAULT ''HUMAN'' AFTER status',
+    'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;

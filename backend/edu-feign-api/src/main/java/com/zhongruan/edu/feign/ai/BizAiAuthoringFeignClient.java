@@ -21,4 +21,9 @@ public interface BizAiAuthoringFeignClient {
     ApiResponse<AiAuthoringResultResponse> createQuestionBank(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody AiQuestionBankDraftRequest request);
+
+    @PostMapping("/assignments")
+    ApiResponse<AiAuthoringResultResponse> createAssignment(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiAssignmentDraftRequest request);
 }

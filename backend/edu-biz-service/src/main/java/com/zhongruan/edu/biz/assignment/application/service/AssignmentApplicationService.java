@@ -112,6 +112,19 @@ public class AssignmentApplicationService {
         return detail(assignment);
     }
 
+    /**
+     * AI 自动流：复用常规创建逻辑落 DRAFT 作业，再标记 source=AI 作为待确认草稿。
+     * 教师用既有的发布流（publish）确认发布；权限、时间、题目定义校验全部复用 create。
+     */
+    @Transactional
+    public AssignmentDetailVO createAiDraftAssignment(Long teacherId, Long courseId, AssignmentCreateRequest request) {
+        AssignmentDetailVO created = create(teacherId, courseId, request);
+        AssignmentEntity assignment = assignmentMapper.selectById(Long.valueOf(created.assignmentId()));
+        assignment.setSource("AI");
+        assignmentMapper.updateById(assignment);
+        return detail(assignment);
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<AssignmentDetailVO> listForTeacher(
             Long teacherId, Long courseId, AssignmentListQuery query) {

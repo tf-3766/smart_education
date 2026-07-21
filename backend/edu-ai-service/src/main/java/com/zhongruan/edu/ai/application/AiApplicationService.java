@@ -78,8 +78,8 @@ public class AiApplicationService {
                     CourseKnowledgeBaseService.Retrieval retrieval = knowledgeBase.retrieve(courseId, lessonId, question.trim());
                     String instruction = "回答课程问题；优先依据 RAG 检索片段，必要时可调用课程目录工具。上下文不足时明确说明。";
                     if (isAuthoringRole(role)) {
-                        instruction += " 当教师/管理员明确要求生成题库时，先用 searchCourseKnowledge 检索资料再调用 generateQuestionBank"
-                                + " 落库为待确认草稿，并提示其到题库页面确认发布，不得谎称已正式发布。";
+                        instruction += " 当教师/管理员明确要求生成题库或作业时，先用 searchCourseKnowledge 检索资料，再调用"
+                                + " generateQuestionBank 或 generateAssignment 落库为待确认草稿，并提示其到对应页面确认发布，不得谎称已正式发布。";
                     }
                     String prompt = systemPrompt(context, instruction, !retrieval.matched());
                     if (retrieval.matched()) {

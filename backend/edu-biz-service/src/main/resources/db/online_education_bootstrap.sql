@@ -408,6 +408,7 @@ CREATE TABLE edu_assignment (
     questions_json TEXT NULL,
     max_score DECIMAL(7,2) NOT NULL,
     status VARCHAR(32) NOT NULL,
+    source VARCHAR(16) NOT NULL DEFAULT 'HUMAN',
     open_at DATETIME(3) NULL,
     due_at DATETIME(3) NULL,
     published_at DATETIME(3) NULL,

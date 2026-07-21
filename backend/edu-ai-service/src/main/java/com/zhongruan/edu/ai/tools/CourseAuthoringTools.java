@@ -1,10 +1,12 @@
 package com.zhongruan.edu.ai.tools;
 
 import com.zhongruan.edu.common.api.ApiResponse;
+import com.zhongruan.edu.feign.ai.AiAssignmentDraftRequest;
 import com.zhongruan.edu.feign.ai.AiAuthoringResultResponse;
 import com.zhongruan.edu.feign.ai.AiQuestionBankDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionDraft;
 import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
+import java.math.BigDecimal;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +66,35 @@ public class CourseAuthoringTools {
             log.warn("AI 题库草稿落库失败 courseId={} reason={}", courseId, exception.toString());
             return "题库草稿落库失败：" + exception.getMessage()
                     + "。可能是无该课程权限或题目字段不合法，请核对后重试，切勿声称已成功。";
+        }
+    }
+
+    @Tool(name = "generateAssignment",
+            description = """
+                    把依据课程资料生成的作业落库为当前课程的“AI 草稿作业”（文本作答方式），供教师确认后发布。
+                    调用前必须先用 searchCourseKnowledge 检索课程资料正文，据此拟题，不得凭空捏造。
+                    title 为作业标题；description 为作业要求与题干正文（可含多道小题的文字描述）；
+                    maxScore 为总分(>0)；dueInDays 为建议完成天数(默认 7，教师可调整)。
+                    落库后返回作业 ID，须提示教师到作业页面确认发布，不得声称已正式发布。""")
+    public String generateAssignment(String title, String description, BigDecimal maxScore, Integer dueInDays) {
+        if (title == null || title.isBlank()) {
+            return "作业标题为空，未创建草稿。请先检索资料并拟定标题与要求后再调用。";
+        }
+        BigDecimal score = maxScore == null || maxScore.signum() <= 0 ? new BigDecimal("100") : maxScore;
+        AiAssignmentDraftRequest request = new AiAssignmentDraftRequest(
+                userId, role, courseId, null, title.trim(), description, score, dueInDays, null);
+        try {
+            ApiResponse<AiAuthoringResultResponse> response =
+                    authoringClient.createAssignment(authorization, request);
+            AiAuthoringResultResponse result = response == null ? null : response.data();
+            if (result == null) {
+                return "作业草稿创建请求已发送，但未返回结果，请稍后到作业页面核对。";
+            }
+            return "已创建 AI 草稿作业《%s》，作业 ID=%s，作答方式为文本，状态为待确认（DRAFT）。请提示教师到作业页面确认发布。"
+                    .formatted(result.title(), result.resourceId());
+        } catch (RuntimeException exception) {
+            log.warn("AI 作业草稿落库失败 courseId={} reason={}", courseId, exception.toString());
+            return "作业草稿落库失败：" + exception.getMessage() + "。请核对后重试，切勿声称已成功。";
         }
     }
 }

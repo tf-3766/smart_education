@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.zhongruan.edu.common.api.ApiResponse;
+import com.zhongruan.edu.feign.ai.AiAssignmentDraftRequest;
 import com.zhongruan.edu.feign.ai.AiAuthoringResultResponse;
 import com.zhongruan.edu.feign.ai.AiQuestionBankDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionDraft;
@@ -57,6 +58,36 @@ class CourseAuthoringToolsTest {
         String result = tools.generateQuestionBank("空", "空", List.of());
 
         assertThat(result).contains("未提供任何题目");
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void assignmentDraftCallsBizWithCallerIdentity() {
+        BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
+        when(client.createAssignment(any(), any()))
+                .thenReturn(ApiResponse.success(
+                        new AiAuthoringResultResponse("ASSIGNMENT", "888", "第2章作业", 0), "trace"));
+        CourseAuthoringTools tools = new CourseAuthoringTools(client, "Bearer x", 99L, "TEACHER", 7L);
+
+        String result = tools.generateAssignment("第2章作业", "完成以下问答题…", new BigDecimal("100"), 5);
+
+        assertThat(result).contains("888").contains("待确认");
+        ArgumentCaptor<AiAssignmentDraftRequest> captor =
+                ArgumentCaptor.forClass(AiAssignmentDraftRequest.class);
+        verify(client).createAssignment(eq("Bearer x"), captor.capture());
+        assertThat(captor.getValue().courseId()).isEqualTo(7L);
+        assertThat(captor.getValue().title()).isEqualTo("第2章作业");
+        assertThat(captor.getValue().roleCode()).isEqualTo("TEACHER");
+    }
+
+    @Test
+    void assignmentBlankTitleDoesNotCallBiz() {
+        BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
+        CourseAuthoringTools tools = new CourseAuthoringTools(client, "Bearer x", 99L, "TEACHER", 7L);
+
+        String result = tools.generateAssignment("   ", "x", new BigDecimal("100"), 5);
+
+        assertThat(result).contains("标题为空");
         verifyNoInteractions(client);
     }
 

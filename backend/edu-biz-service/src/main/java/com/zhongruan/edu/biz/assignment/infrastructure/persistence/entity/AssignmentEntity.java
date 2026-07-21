@@ -15,6 +15,7 @@ public class AssignmentEntity extends BaseAuditEntity {
     private String questionsJson;
     private BigDecimal maxScore;
     private String status;
+    private String source;
     private LocalDateTime openAt;
     private LocalDateTime dueAt;
     private LocalDateTime publishedAt;
@@ -35,6 +36,8 @@ public class AssignmentEntity extends BaseAuditEntity {
     public void setMaxScore(BigDecimal maxScore) { this.maxScore = maxScore; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
     public LocalDateTime getOpenAt() { return openAt; }
     public void setOpenAt(LocalDateTime openAt) { this.openAt = openAt; }
     public LocalDateTime getDueAt() { return dueAt; }

@@ -1,5 +1,8 @@
 package com.zhongruan.edu.biz.ai.api.controller;
 
+import com.zhongruan.edu.biz.assignment.api.dto.request.AssignmentCreateRequest;
+import com.zhongruan.edu.biz.assignment.api.vo.AssignmentDetailVO;
+import com.zhongruan.edu.biz.assignment.application.service.AssignmentApplicationService;
 import com.zhongruan.edu.biz.exam.api.dto.request.CreateQuestionBankRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.CreateQuestionRequest;
 import com.zhongruan.edu.biz.exam.api.dto.request.QuestionOptionRequest;
@@ -12,6 +15,7 @@ import com.zhongruan.edu.biz.shared.web.RequestTrace;
 import com.zhongruan.edu.common.api.ApiResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
+import com.zhongruan.edu.feign.ai.AiAssignmentDraftRequest;
 import com.zhongruan.edu.feign.ai.AiAuthoringResultResponse;
 import com.zhongruan.edu.feign.ai.AiQuestionBankDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionDraft;
@@ -19,6 +23,8 @@ import com.zhongruan.edu.feign.ai.AiQuestionOptionDraft;
 import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,11 +41,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(BizAiAuthoringFeignClient.BASE_PATH)
 public class InternalAiAuthoringController implements BizAiAuthoringFeignClient {
     private final ExamManagementService examManagementService;
+    private final AssignmentApplicationService assignmentApplicationService;
     private final HttpServletRequest servletRequest;
 
     public InternalAiAuthoringController(
-            ExamManagementService examManagementService, HttpServletRequest servletRequest) {
+            ExamManagementService examManagementService,
+            AssignmentApplicationService assignmentApplicationService,
+            HttpServletRequest servletRequest) {
         this.examManagementService = examManagementService;
+        this.assignmentApplicationService = assignmentApplicationService;
         this.servletRequest = servletRequest;
     }
 
@@ -57,6 +67,23 @@ public class InternalAiAuthoringController implements BizAiAuthoringFeignClient 
                 user.userId(), request.courseId(), bankRequest, questions);
         return ApiResponse.success(
                 new AiAuthoringResultResponse("QUESTION_BANK", bank.bankId(), bank.name(), questions.size()),
+                RequestTrace.from(servletRequest));
+    }
+
+    @Override
+    public ApiResponse<AiAuthoringResultResponse> createAssignment(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody AiAssignmentDraftRequest request) {
+        AuthenticatedUser user = requireIdentity(request.userId(), request.roleCode());
+        int dueInDays = request.dueInDays() == null || request.dueInDays() < 1 ? 7 : request.dueInDays();
+        OffsetDateTime dueAt = OffsetDateTime.now(ZoneOffset.UTC).plusDays(dueInDays);
+        AssignmentCreateRequest createRequest = new AssignmentCreateRequest(
+                request.lessonId(), request.title(), request.description(), "TEXT",
+                null, request.maxScore(), null, dueAt, null);
+        AssignmentDetailVO created =
+                assignmentApplicationService.createAiDraftAssignment(user.userId(), request.courseId(), createRequest);
+        return ApiResponse.success(
+                new AiAuthoringResultResponse("ASSIGNMENT", created.assignmentId(), created.title(), 0),
                 RequestTrace.from(servletRequest));
     }
 
