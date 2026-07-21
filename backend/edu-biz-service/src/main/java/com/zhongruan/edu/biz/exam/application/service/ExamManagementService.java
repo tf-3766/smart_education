@@ -102,6 +102,51 @@ public class ExamManagementService {
         return toQuestionBank(bank);
     }
 
+    /**
+     * AI 自动流：把 AI 生成的题库与题目原子落库为待确认草稿（source=AI）。
+     * 教师归属由 {@link #requireTeacherCourse} 二次校验，不信任调用方传入的身份。
+     */
+    @Transactional
+    public QuestionBankVO createAiDraftQuestionBank(
+            Long teacherId, Long courseId, CreateQuestionBankRequest bankRequest, List<CreateQuestionRequest> questions) {
+        requireTeacherCourse(teacherId, courseId);
+        if (questions == null || questions.isEmpty()) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "AI 未生成任何题目，无法创建题库草稿");
+        }
+        QuestionBankEntity bank = new QuestionBankEntity();
+        bank.setCourseId(courseId);
+        bank.setName(bankRequest.name().trim());
+        bank.setDescription(trim(bankRequest.description()));
+        bank.setStatus(QuestionBankStatus.ACTIVE.name());
+        bank.setSource("AI");
+        questionBankMapper.insert(bank);
+        for (CreateQuestionRequest request : questions) {
+            validateOptions(request.questionType(), request.options());
+            QuestionEntity question = new QuestionEntity();
+            question.setBankId(bank.getId());
+            question.setCourseId(courseId);
+            question.setQuestionType(request.questionType().name());
+            question.setStem(request.stem().trim());
+            question.setAnalysis(trim(request.analysis()));
+            question.setDifficulty(request.difficulty().name());
+            question.setScore(request.score());
+            question.setStatus(QuestionStatus.ACTIVE.name());
+            questionMapper.insert(question);
+            replaceQuestionOptions(question.getId(), request.options());
+        }
+        return toQuestionBank(bank);
+    }
+
+    /** 教师确认 AI 题库草稿：source 由 AI 置为 HUMAN，前端据此撤去草稿高亮。 */
+    @Transactional
+    public QuestionBankVO confirmAiDraftQuestionBank(Long teacherId, Long bankId) {
+        QuestionBankEntity bank = requireQuestionBank(bankId);
+        requireTeacherCourse(teacherId, bank.getCourseId());
+        bank.setSource("HUMAN");
+        questionBankMapper.updateById(bank);
+        return toQuestionBank(bank);
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<QuestionBankVO> listQuestionBanks(Long teacherId, Long courseId, QuestionBankListQuery query) {
         requireTeacherCourse(teacherId, courseId);

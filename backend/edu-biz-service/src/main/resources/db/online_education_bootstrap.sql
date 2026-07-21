@@ -706,6 +706,7 @@ CREATE TABLE edu_question_bank (
     name VARCHAR(160) NOT NULL,
     description TEXT NULL,
     status VARCHAR(32) NOT NULL,
+    source VARCHAR(16) NOT NULL DEFAULT 'HUMAN',
     created_at DATETIME(3) NOT NULL,
     created_by BIGINT NOT NULL,
     updated_at DATETIME(3) NOT NULL,

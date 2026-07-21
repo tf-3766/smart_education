@@ -9,6 +9,7 @@ public class QuestionBankEntity extends BaseAuditEntity {
     private String name;
     private String description;
     private String status;
+    private String source;
 
     public Long getCourseId() { return courseId; }
     public void setCourseId(Long courseId) { this.courseId = courseId; }
@@ -18,4 +19,6 @@ public class QuestionBankEntity extends BaseAuditEntity {
     public void setDescription(String description) { this.description = description; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
 }
