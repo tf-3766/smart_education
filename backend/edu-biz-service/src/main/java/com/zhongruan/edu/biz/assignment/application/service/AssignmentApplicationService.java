@@ -139,6 +139,13 @@ public class AssignmentApplicationService {
         return PageResponse.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
 
+    @Transactional(readOnly = true)
+    public AssignmentDetailVO getForTeacher(Long teacherId, Long assignmentId) {
+        AssignmentEntity assignment = requireAssignment(assignmentId);
+        courseManagementService.requireEditor(teacherId, assignment.getCourseId());
+        return detail(assignment);
+    }
+
     @Transactional
     public AssignmentDetailVO update(Long teacherId, Long assignmentId, AssignmentUpdateRequest request) {
         AssignmentEntity assignment = requireAssignment(assignmentId);

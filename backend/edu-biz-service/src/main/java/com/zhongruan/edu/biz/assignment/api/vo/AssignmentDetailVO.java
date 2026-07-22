@@ -20,4 +20,5 @@ public record AssignmentDetailVO(
         OffsetDateTime dueAt,
         OffsetDateTime publishedAt,
         List<AssignmentAttachmentVO> attachments,
+        String source,
         Integer version) {}

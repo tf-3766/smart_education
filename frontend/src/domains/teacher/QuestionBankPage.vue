@@ -26,7 +26,7 @@
           <tbody>
             <tr v-for="exam in exams" :key="exam.examId">
               <td class="cell-strong">{{ exam.title }}</td><td>{{ formatTime(exam.startAt) }}</td><td class="num">{{ exam.totalScore }}</td>
-              <td><StatusBadge :tone="exam.status === 'PUBLISHED' ? 'green' : 'amber'" :label="exam.status" /></td>
+              <td><StatusBadge :tone="exam.status === 'PUBLISHED' ? 'green' : 'amber'" :label="examLabel(exam)" /></td>
               <td class="cell-actions">
                 <button v-if="exam.status !== 'PUBLISHED'" class="text-link" @click="openPaperForm(exam)">组卷</button>
                 <button v-if="draftPapers[exam.examId]" class="text-link" @click="publishPaper(exam.examId)">发布试卷</button>
@@ -180,6 +180,10 @@ function bankTone(bank: QuestionBankVO): 'green' | 'amber' | 'gray' {
 function bankLabel(bank: QuestionBankVO): string {
   if (bank.status === 'DRAFT') return bank.source === 'AI' ? 'AI 草稿' : '草稿'
   return bank.status === 'ACTIVE' ? '启用' : '归档'
+}
+function examLabel(exam: ExamVO): string {
+  if (exam.status === 'DRAFT' && exam.source === 'AI') return 'AI 草稿'
+  return exam.status
 }
 async function confirmBank(bankId: string) {
   const updated = await state.run(() => examsApi.confirmBank(bankId))

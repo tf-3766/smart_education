@@ -25,7 +25,7 @@ class BootstrapInitializationTest {
         Set<String> tables = Set.copyOf(jdbcTemplate.queryForList(
                 "SELECT LOWER(TABLE_NAME) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'public'",
                 String.class));
-        assertEquals(37, tables.size());
+        assertEquals(38, tables.size());
         assertTrue(tables.containsAll(Set.of(
                 "sys_user", "sys_role", "sys_permission", "sys_user_role", "sys_role_permission")));
         assertTrue(tables.containsAll(Set.of(
@@ -45,7 +45,8 @@ class BootstrapInitializationTest {
                 "edu_notification",
                 "edu_notification_read",
                 "edu_notification_preference",
-                "edu_ai_generation_record")));
+                "edu_ai_generation_record",
+                "edu_ai_action")));
         assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
         assertEquals(
                 4,

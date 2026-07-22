@@ -679,6 +679,7 @@ public class ExamManagementService {
                 offset(exam.getEndAt()),
                 exam.getDurationMinutes(),
                 exam.getTotalScore(),
+                exam.getSource() == null ? "HUMAN" : exam.getSource(),
                 exam.getVersion());
     }
 

@@ -15,7 +15,10 @@ import com.zhongruan.edu.feign.ai.AiQuestionBankDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionDraft;
 import com.zhongruan.edu.feign.ai.AiQuestionOptionDraft;
 import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -29,15 +32,19 @@ class CourseAuthoringToolsTest {
                         new AiQuestionOptionDraft("B", "全表扫描", false, 2))));
     }
 
+    private String sampleQuestionsJson() throws JsonProcessingException {
+        return new ObjectMapper().writeValueAsString(sampleQuestions());
+    }
+
     @Test
-    void persistsDraftWithCallerIdentityAndReturnsSummary() {
+    void persistsDraftWithCallerIdentityAndReturnsSummary() throws JsonProcessingException {
         BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
         when(client.createQuestionBank(any(), any()))
                 .thenReturn(ApiResponse.success(
                         new AiAuthoringResultResponse("QUESTION_BANK", "555", "第2章测验", 1), "trace"));
         CourseAuthoringTools tools = new CourseAuthoringTools(client, "Bearer x", 99L, "TEACHER", 7L);
 
-        String result = tools.generateQuestionBank("第2章测验", "自动生成", sampleQuestions());
+        String result = tools.generateQuestionBank("第2章测验", "自动生成", sampleQuestionsJson());
 
         assertThat(result).contains("555").contains("待确认");
         ArgumentCaptor<AiQuestionBankDraftRequest> captor =
@@ -55,7 +62,7 @@ class CourseAuthoringToolsTest {
         BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
         CourseAuthoringTools tools = new CourseAuthoringTools(client, "Bearer x", 99L, "TEACHER", 7L);
 
-        String result = tools.generateQuestionBank("空", "空", List.of());
+        String result = tools.generateQuestionBank("空", "空", "[]");
 
         assertThat(result).contains("未提供任何题目");
         verifyNoInteractions(client);
@@ -92,13 +99,45 @@ class CourseAuthoringToolsTest {
     }
 
     @Test
-    void feignFailureReturnsGracefulMessageInsteadOfThrowing() {
+    void feignFailureReturnsGracefulMessageInsteadOfThrowing() throws JsonProcessingException {
         BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
         when(client.createQuestionBank(any(), any())).thenThrow(new RuntimeException("FORBIDDEN"));
         CourseAuthoringTools tools = new CourseAuthoringTools(client, "Bearer x", 99L, "TEACHER", 7L);
 
-        String result = tools.generateQuestionBank("第2章测验", "自动生成", sampleQuestions());
+        String result = tools.generateQuestionBank("第2章测验", "自动生成", sampleQuestionsJson());
 
         assertThat(result).contains("落库失败");
+    }
+
+    @Test
+    void malformedQuestionJsonDoesNotCallBiz() {
+        BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
+        CourseAuthoringTools tools = new CourseAuthoringTools(client, "Bearer x", 99L, "TEACHER", 7L);
+
+        String result = tools.generateQuestionBank("坏数据", "自动生成", "[{\"stem\":\"缺少结尾\"");
+
+        assertThat(result).contains("JSON 无法解析");
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void emitsStructuredActionAfterDraftCreation() {
+        BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
+        when(client.createAssignment(any(), any()))
+                .thenReturn(ApiResponse.success(
+                        new AiAuthoringResultResponse("ASSIGNMENT", "888", "第2章作业", 0), "trace"));
+        var actions = new ArrayList<com.zhongruan.edu.ai.api.vo.AiActionVO>();
+        CourseAuthoringTools tools = new CourseAuthoringTools(
+                client, "Bearer x", 99L, "TEACHER", 7L, new ObjectMapper(), actions::add);
+
+        tools.generateAssignment("第2章作业", "完成练习", new BigDecimal("100"), 5);
+
+        assertThat(actions).singleElement().satisfies(action -> {
+            assertThat(action.capabilityId()).isEqualTo("course.assignment.create");
+            assertThat(action.status()).isEqualTo("DRAFT_CREATED");
+            assertThat(action.resourceId()).isEqualTo("888");
+            assertThat(action.requiresConfirmation()).isTrue();
+            assertThat(action.href()).contains("assignmentId=888");
+        });
     }
 }

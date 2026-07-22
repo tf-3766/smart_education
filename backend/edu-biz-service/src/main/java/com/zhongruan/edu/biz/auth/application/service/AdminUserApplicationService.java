@@ -110,6 +110,12 @@ public class AdminUserApplicationService {
         return toVO(user);
     }
 
+    @Transactional(readOnly = true)
+    public AdminUserVO getPendingTeacherRegistration(Long operatorId, Long userId) {
+        requireSuperAdministrator(operatorId);
+        return toVO(requirePendingTeacher(userId));
+    }
+
     @Transactional
     public AdminUserVO rejectTeacherRegistration(Long operatorId, Long userId) {
         requireSuperAdministrator(operatorId);

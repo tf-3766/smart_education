@@ -13,4 +13,5 @@ public record AnnouncementVO(
         OffsetDateTime publishedAt,
         OffsetDateTime withdrawnAt,
         String publisherId,
+        String source,
         Integer version) {}

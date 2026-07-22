@@ -91,4 +91,19 @@ describe('教师课程互动页 · 课程公告', () => {
       expect(updatedRow.text()).toContain('已撤回')
     } finally { confirmSpy.mockRestore() }
   })
+
+  it('AI 草稿公告显示来源并可确认发布', async () => {
+    freshDemo()
+    const { wrapper } = await mountForum()
+    const row = wrapper.findAll('[data-test="announcement-row"]').find((r) => r.text().includes('AI 生成·课程复习提醒'))!
+
+    expect(row.text()).toContain('AI 草稿')
+    expect(row.text()).toContain('尚未发布')
+    await row.findAll('button').find((b) => b.text() === '确认发布')!.trigger('click')
+    await settle(800)
+
+    expect(db.announcements.find((item) => item.announcementId === '61004')!.status).toBe('PUBLISHED')
+    const updated = wrapper.findAll('[data-test="announcement-row"]').find((r) => r.text().includes('AI 生成·课程复习提醒'))!
+    expect(updated.text()).toContain('已发布')
+  })
 })

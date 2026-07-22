@@ -11,7 +11,7 @@
         <tbody>
           <tr v-for="item in visibleAssignments" :key="item.assignmentId" data-test="assignment-row" :class="{ 'notification-resource-target': item.assignmentId === targetAssignmentId }">
             <td class="cell-strong">{{ item.title }}</td>
-            <td><StatusBadge :tone="item.assignmentStatus.code === 'PUBLISHED' ? 'green' : item.assignmentStatus.code === 'CLOSED' ? 'gray' : 'amber'" :label="item.assignmentStatus.label" /></td>
+            <td><StatusBadge :tone="assignmentTone(item)" :label="assignmentLabel(item)" /></td>
             <td>{{ formatTime(item.dueAt) }}</td><td class="num">{{ item.maxScore }}</td>
             <td class="cell-actions">
               <button v-if="item.assignmentStatus.code !== 'CLOSED'" class="text-link" @click="openEditAssignment(item)">编辑</button>
@@ -130,6 +130,8 @@ const gradedCount = computed(() => roster.value.filter((item) => item.submission
 const targetAssignmentId = computed(() => typeof route.query.assignmentId === 'string' ? route.query.assignmentId : '')
 const targetCourseId = computed(() => typeof route.query.courseId === 'string' ? route.query.courseId : '')
 const formatTime = formatDateTime
+function assignmentTone(item: AssignmentDetailVO) { return item.assignmentStatus.code === 'PUBLISHED' ? 'green' : item.assignmentStatus.code === 'CLOSED' ? 'gray' : 'amber' }
+function assignmentLabel(item: AssignmentDetailVO) { return item.assignmentStatus.code === 'DRAFT' && item.source === 'AI' ? 'AI 草稿' : item.assignmentStatus.label }
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
 async function load() { const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 })); if (page) { courses.value = page.records; courseId.value = page.records.some((item) => item.courseId === targetCourseId.value) ? targetCourseId.value : courseId.value || page.records[0]?.courseId || ''; assignmentId.value = targetAssignmentId.value || assignmentId.value; await loadAssignments() } }
 async function onCourseChange() { assignmentId.value = ''; roster.value = []; await loadAssignments() }

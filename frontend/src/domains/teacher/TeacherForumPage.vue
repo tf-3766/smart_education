@@ -28,9 +28,9 @@
           <tr v-for="item in announcements" :key="item.announcementId" data-test="announcement-row">
             <td><span class="cell-strong">{{ item.title }}</span><span class="cell-sub">{{ item.content }}</span></td>
             <td>{{ audienceLabel(item.audience) }}</td>
-            <td><StatusBadge :tone="item.status === 'PUBLISHED' ? 'green' : 'gray'" :label="item.status === 'PUBLISHED' ? '已发布' : '已撤回'" /></td>
-            <td>{{ formatTime(item.publishedAt) }}</td>
-            <td><button v-if="item.status === 'PUBLISHED'" class="text-link" @click="withdrawAnnouncement(item)">撤回</button></td>
+            <td><StatusBadge :tone="announcementTone(item)" :label="announcementLabel(item)" /></td>
+            <td>{{ item.publishedAt ? formatTime(item.publishedAt) : '尚未发布' }}</td>
+            <td><button v-if="item.status === 'DRAFT'" class="text-link" @click="confirmAnnouncement(item)">确认发布</button><button v-if="item.status === 'PUBLISHED'" class="text-link" @click="withdrawAnnouncement(item)">撤回</button></td>
           </tr>
           <tr v-if="!announcements.length"><td colspan="5" class="list-empty">暂无课程公告，点击右上角发布。</td></tr>
         </tbody>
@@ -71,6 +71,8 @@ const state = usePageState(); const courses = ref<TeacherCourseListItemVO[]>([])
 const message = ref('')
 const formatTime = formatDateTime
 const audienceLabel = (value: AnnouncementAudience) => value === 'ALL' ? '课程全体成员' : value === 'STUDENT' ? '仅选课学生' : '全体教师'
+const announcementTone = (item: AnnouncementVO) => item.status === 'PUBLISHED' ? 'green' : item.status === 'DRAFT' ? 'amber' : 'gray'
+const announcementLabel = (item: AnnouncementVO) => item.status === 'DRAFT' && item.source === 'AI' ? 'AI 草稿' : item.status === 'DRAFT' ? '草稿' : item.status === 'PUBLISHED' ? '已发布' : '已撤回'
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
 async function load() { const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 })); if (page) { courses.value = page.records; courseId.value ||= page.records[0]?.courseId ?? ''; await loadCourseData() } }
 async function loadCourseData() { await Promise.all([loadTopics(), loadAnnouncements()]) }
@@ -100,6 +102,10 @@ async function withdrawAnnouncement(item: AnnouncementVO) {
   if (!window.confirm(`确认撤回公告《${item.title}》？撤回后学生不再看到该公告。`)) return
   const updated = await state.run(() => announcementsApi.teacherWithdraw(item.announcementId, { version: item.version }))
   if (updated) { flash('公告已撤回'); await loadAnnouncements() }
+}
+async function confirmAnnouncement(item: AnnouncementVO) {
+  const updated = await state.run(() => announcementsApi.confirmCourseAnnouncement(item.announcementId))
+  if (updated) { flash('AI 草稿公告已确认发布'); await loadAnnouncements() }
 }
 
 // —— 回复管理 ——

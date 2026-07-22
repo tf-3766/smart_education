@@ -258,6 +258,7 @@ public class AnnouncementApplicationService {
                 announcement.getPublishedAt() == null ? null : announcement.getPublishedAt().atOffset(ZoneOffset.UTC),
                 announcement.getWithdrawnAt() == null ? null : announcement.getWithdrawnAt().atOffset(ZoneOffset.UTC),
                 announcement.getCreatedBy() == null ? null : String.valueOf(announcement.getCreatedBy()),
+                announcement.getSource() == null ? "HUMAN" : announcement.getSource(),
                 announcement.getVersion());
     }
 }

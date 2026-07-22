@@ -84,4 +84,13 @@ describe('考试题库工作台', () => {
     const shortAnswer = attempt.answers.find((answer) => answer.teacherComment)
     expect(shortAnswer?.teacherComment).toBe('思路正确，注意补充适用场景。')
   })
+
+  it('AI 生成考试显示 AI 草稿来源', async () => {
+    freshDemo()
+    const { wrapper } = await mountQB()
+    await wrapper.find('select').setValue('21002')
+    await settle(700)
+
+    expect(rowWith(wrapper, 'AI 导论期末考试')!.text()).toContain('AI 草稿')
+  })
 })

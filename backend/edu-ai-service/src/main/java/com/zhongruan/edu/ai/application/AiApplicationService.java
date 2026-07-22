@@ -1,5 +1,7 @@
 package com.zhongruan.edu.ai.application;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhongruan.edu.ai.api.vo.AiActionVO;
 import com.zhongruan.edu.ai.api.vo.AiCitationVO;
 import com.zhongruan.edu.ai.api.vo.AiDraftVO;
 import com.zhongruan.edu.ai.api.vo.AiKnowledgeBaseStatusVO;
@@ -8,14 +10,17 @@ import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
 import com.zhongruan.edu.ai.context.AuthorizedAiContextService;
 import com.zhongruan.edu.ai.generation.AiTextGenerator;
 import com.zhongruan.edu.ai.knowledge.CourseKnowledgeBaseService;
+import com.zhongruan.edu.ai.tools.AdminActionTools;
 import com.zhongruan.edu.ai.tools.CourseAuthoringTools;
 import com.zhongruan.edu.ai.tools.CourseContextTools;
 import com.zhongruan.edu.ai.tools.CourseKnowledgeTools;
 import com.zhongruan.edu.ai.tools.PlatformUtilityTools;
 import com.zhongruan.edu.ai.tools.RoleScopedPlatformTools;
+import com.zhongruan.edu.ai.tools.TeacherActionTools;
 import com.zhongruan.edu.common.exception.BusinessException;
 import com.zhongruan.edu.feign.ai.AiAssistantContextResponse;
 import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
+import com.zhongruan.edu.feign.ai.BizAiActionFeignClient;
 import com.zhongruan.edu.feign.ai.AiContextPurpose;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
@@ -31,11 +36,14 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 @Service
@@ -45,6 +53,9 @@ public class AiApplicationService {
     private final CourseKnowledgeBaseService knowledgeBase;
     private final PlatformUtilityTools platformUtilityTools;
     private final BizAiAuthoringFeignClient authoringClient;
+    private final BizAiActionFeignClient actionClient;
+    private final AiCapabilityRegistry capabilityRegistry;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final Clock clock = Clock.systemUTC();
 
     public AiApplicationService(
@@ -52,12 +63,28 @@ public class AiApplicationService {
             AiTextGenerator generator,
             CourseKnowledgeBaseService knowledgeBase,
             PlatformUtilityTools platformUtilityTools,
-            BizAiAuthoringFeignClient authoringClient) {
+            BizAiAuthoringFeignClient authoringClient,
+            BizAiActionFeignClient actionClient) {
+        this(contextService, generator, knowledgeBase, platformUtilityTools, authoringClient, actionClient,
+                new AiCapabilityRegistry());
+    }
+
+    @Autowired
+    public AiApplicationService(
+            AuthorizedAiContextService contextService,
+            AiTextGenerator generator,
+            CourseKnowledgeBaseService knowledgeBase,
+            PlatformUtilityTools platformUtilityTools,
+            BizAiAuthoringFeignClient authoringClient,
+            BizAiActionFeignClient actionClient,
+            AiCapabilityRegistry capabilityRegistry) {
         this.contextService = contextService;
         this.generator = generator;
         this.knowledgeBase = knowledgeBase;
         this.platformUtilityTools = platformUtilityTools;
         this.authoringClient = authoringClient;
+        this.actionClient = actionClient;
+        this.capabilityRegistry = capabilityRegistry;
     }
 
     public Flux<AiStreamEvent> courseQa(
@@ -92,7 +119,25 @@ public class AiApplicationService {
                     return new PreparedRequest(prompt, "问题：" + question.trim(), citations, context, retrieval);
                 })
                 .subscribeOn(Schedulers.boundedElastic())
-                .flatMapMany(prepared -> Flux.concat(
+                .flatMapMany(prepared -> {
+                    Sinks.Many<AiStreamEvent> actionEvents = Sinks.many().unicast().onBackpressureBuffer();
+                    Flux<AiStreamEvent> modelEvents = generator.stream(
+                                    prepared.systemPrompt(),
+                                    prepared.userPrompt(),
+                                    conversationId,
+                                    courseTools(
+                                            role,
+                                            prepared.context(),
+                                            authorization,
+                                            userId,
+                                            courseId,
+                                            lessonId,
+                                            requestId,
+                                            action -> actionEvents.tryEmitNext(event("action", requestId, action))))
+                            .filter(chunk -> chunk != null && !chunk.isEmpty())
+                            .map(chunk -> event("delta", requestId, chunk))
+                            .doFinally(signal -> actionEvents.tryEmitComplete());
+                    return Flux.concat(
                         Flux.just(event("meta", requestId, new Meta(
                                 courseId,
                                 generator.provider(),
@@ -109,16 +154,12 @@ public class AiApplicationService {
                                         ? "已从课程知识库检索到相关片段"
                                         : "知识库未命中，已回退到授权课时正文",
                                 prepared.citations()))),
-                        generator.stream(
-                                        prepared.systemPrompt(),
-                                        prepared.userPrompt(),
-                                        conversationId,
-                                        courseTools(role, prepared.context(), authorization, userId, courseId, lessonId))
-                                .filter(chunk -> chunk != null && !chunk.isEmpty())
-                                .map(chunk -> event("delta", requestId, chunk)),
+                        Flux.just(event("capability", requestId, capabilityRegistry.available(role, courseId))),
+                        Flux.merge(actionEvents.asFlux(), modelEvents),
                         Flux.fromIterable(prepared.citations())
                                 .map(citation -> event("citation", requestId, citation)),
-                        Flux.just(event("done", requestId, new Done("COMPLETED")))))
+                        Flux.just(event("done", requestId, new Done("COMPLETED"))));
+                })
                 .onErrorResume(error -> Flux.just(event("error", requestId, errorData(error))));
     }
 
@@ -133,7 +174,7 @@ public class AiApplicationService {
             String question,
             String requestedConversationId,
             String traceId) {
-        if (courseId != null && ("STUDENT".equals(role) || "TEACHER".equals(role))) {
+        if (courseId != null && Set.of("STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN").contains(role)) {
             return courseQa(authorization, userId, role, courseId, lessonId, question, requestedConversationId, traceId);
         }
         String requestId = UUID.randomUUID().toString();
@@ -149,6 +190,7 @@ public class AiApplicationService {
         return Mono.fromCallable(() -> contextService.assistantContext(authorization, userId, role, traceId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMapMany(context -> {
+                    Sinks.Many<AiStreamEvent> actionEvents = Sinks.many().unicast().onBackpressureBuffer();
                     String systemPrompt = """
                             你是“知行教学云”的全局教学智能助手。%s
                             当前角色：%s
@@ -156,11 +198,28 @@ public class AiApplicationService {
                             下方事实由业务服务按照当前 JWT 身份和角色从真实数据库实时读取，必须优先据此回答；
                             需要选课时间、本人课程、本人预警、作业、考试或平台指标时，可调用对应只读工具核对。
                             不得虚构未提供的数据，不得把其他用户信息归到当前用户；资料型课程问题应进入具体课程后使用课程 RAG。
+                            当前能力目录只表示真正可用的能力；缺少执行能力时应说明限制，不得承诺已执行。
+                            对已经接入动作执行器的写操作，只能调用计划工具创建 WAITING_CONFIRMATION 计划；
+                            不得把计划描述成已经执行，必须等待用户点击正式确认卡。不得绕过业务服务的权限和状态校验。
                             回答简洁、可操作，说明数据为空或尚未设置的情况，不展示内部推理，不声称已执行未实际发生的写操作。
 
                             当前授权数据库快照：
                             %s
                             """.formatted(roleScope, role, text(pageTitle), text(pagePath), assistantFacts(context));
+                    Flux<AiStreamEvent> modelEvents = generator.stream(
+                                    systemPrompt,
+                                    question.trim(),
+                                    conversationId,
+                                    platformTools(
+                                            role,
+                                            context,
+                                            authorization,
+                                            userId,
+                                            requestId,
+                                            action -> actionEvents.tryEmitNext(event("action", requestId, action))))
+                            .filter(chunk -> chunk != null && !chunk.isEmpty())
+                            .map(chunk -> event("delta", requestId, chunk))
+                            .doFinally(signal -> actionEvents.tryEmitComplete());
                     return Flux.concat(
                             Flux.just(event("meta", requestId, new Meta(
                                     null, generator.provider(), generator.model(), generator.configured(), false,
@@ -168,14 +227,8 @@ public class AiApplicationService {
                             Flux.just(event("tool", requestId, new ToolData(
                                     "authorizedPlatformContext", "COMPLETED", role,
                                     "已从业务数据库读取当前账号的授权事实", List.of()))),
-                            generator.stream(
-                                            systemPrompt,
-                                            question.trim(),
-                                            conversationId,
-                                            platformUtilityTools,
-                                            new RoleScopedPlatformTools(context))
-                                    .filter(chunk -> chunk != null && !chunk.isEmpty())
-                                    .map(chunk -> event("delta", requestId, chunk)),
+                            Flux.just(event("capability", requestId, capabilityRegistry.available(role, null))),
+                            Flux.merge(actionEvents.asFlux(), modelEvents),
                             Flux.just(event("done", requestId, new Done("COMPLETED"))));
                 })
                 .onErrorResume(error -> Flux.just(event("error", requestId, errorData(error))));
@@ -424,10 +477,15 @@ public class AiApplicationService {
                 %s
                 平台汇总指标：
                 %s
+                待审核教师注册：
+                %s
+                当前授权作业提交：
+                %s
                 """.formatted(
                 context.generatedAt(), section(context.enrollmentWindows()), section(context.courses()),
                 section(context.warnings()), section(context.assignments()), section(context.exams()),
-                section(context.platformMetrics()));
+                section(context.platformMetrics()), section(context.pendingTeacherRegistrations()),
+                section(context.submissions()));
     }
 
     private String section(List<String> values) {
@@ -438,17 +496,48 @@ public class AiApplicationService {
     }
 
     private boolean isAuthoringRole(String role) {
-        return "TEACHER".equals(role) || "ADMIN".equals(role) || "SUPER_ADMIN".equals(role);
+        return "TEACHER".equals(role);
     }
 
     private Object[] courseTools(
-            String role, AiCourseContextResponse context, String authorization, Long userId, Long courseId, Long lessonId) {
+            String role,
+            AiCourseContextResponse context,
+            String authorization,
+            Long userId,
+            Long courseId,
+            Long lessonId,
+            String requestId,
+            java.util.function.Consumer<AiActionVO> actionObserver) {
         List<Object> tools = new ArrayList<>();
         tools.add(platformUtilityTools);
         tools.add(new CourseContextTools(context));
         tools.add(new CourseKnowledgeTools(knowledgeBase, courseId, lessonId));
         if (isAuthoringRole(role)) {
-            tools.add(new CourseAuthoringTools(authoringClient, authorization, userId, role, courseId));
+            tools.add(new CourseAuthoringTools(
+                    authoringClient, authorization, userId, role, courseId, objectMapper, actionObserver));
+            tools.add(new TeacherActionTools(
+                    actionClient, authorization, userId, role, requestId, objectMapper, actionObserver));
+        }
+        return tools.toArray();
+    }
+
+    private Object[] platformTools(
+            String role,
+            AiAssistantContextResponse context,
+            String authorization,
+            Long userId,
+            String requestId,
+            java.util.function.Consumer<AiActionVO> actionObserver) {
+        List<Object> tools = new ArrayList<>();
+        tools.add(platformUtilityTools);
+        tools.add(new RoleScopedPlatformTools(context));
+        if ("TEACHER".equals(role)) {
+            tools.add(new TeacherActionTools(
+                    actionClient, authorization, userId, role, requestId, objectMapper, actionObserver));
+        }
+        if (Set.of("ADMIN", "SUPER_ADMIN").contains(role)) {
+            tools.add(new AdminActionTools(
+                    actionClient, authorization, userId, role, requestId, objectMapper, actionObserver));
         }
         return tools.toArray();
     }

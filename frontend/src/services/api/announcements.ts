@@ -11,7 +11,7 @@ function toVO(row: AnnouncementRow): AnnouncementVO {
 }
 
 function byPublishedDesc(a: AnnouncementRow, b: AnnouncementRow) {
-  return b.publishedAt.localeCompare(a.publishedAt)
+  return (b.publishedAt ?? '').localeCompare(a.publishedAt ?? '')
 }
 
 function withdraw(row: AnnouncementRow, body: WithdrawAnnouncementRequest): AnnouncementVO {
@@ -36,7 +36,7 @@ export const announcementsApi = {
     requireTeacherCourse(courseId)
     if (body.audience === 'TEACHER') badRequest('课程公告的受众不能是 TEACHER。')
     const teacher = currentUser('TEACHER')
-    const row: AnnouncementRow = { announcementId: nextId(), scopeType: 'COURSE', courseId, title: body.title, content: body.content, audience: body.audience, status: 'PUBLISHED', publishedAt: nowIso(), publisherId: teacher.userId, version: 0 }
+    const row: AnnouncementRow = { announcementId: nextId(), scopeType: 'COURSE', courseId, title: body.title, content: body.content, audience: body.audience, status: 'PUBLISHED', publishedAt: nowIso(), publisherId: teacher.userId, source: 'HUMAN', version: 0 }
     db.announcements.push(row)
     persist()
     return demoDelay(toVO(row))
@@ -47,6 +47,17 @@ export const announcementsApi = {
     const row = db.announcements.find((item) => item.announcementId === announcementId) ?? notFound('公告不存在。')
     if (row.scopeType === 'COURSE' && row.courseId) requireTeacherCourse(row.courseId)
     return demoDelay(withdraw(row, body))
+  },
+
+  async confirmCourseAnnouncement(announcementId: string): Promise<AnnouncementVO> {
+    if (isRealMode()) return post<AnnouncementVO>(`/api/v1/teacher/announcements/${announcementId}/confirm`)
+    const row = db.announcements.find((item) => item.announcementId === announcementId) ?? notFound('公告不存在。')
+    if (row.scopeType !== 'COURSE' || !row.courseId) conflict('该公告不是课程公告。', 'OPERATION_NOT_ALLOWED')
+    requireTeacherCourse(row.courseId)
+    if (row.status !== 'DRAFT') conflict('只有 AI 草稿公告可以确认发布。', 'OPERATION_NOT_ALLOWED')
+    Object.assign(row, { status: 'PUBLISHED', publishedAt: nowIso(), version: row.version + 1 })
+    persist()
+    return demoDelay(toVO(row))
   },
 
   /** 教师可见的公告流：负责课程的课程公告 + 面向 ALL/TEACHER 的系统公告。 */
@@ -87,7 +98,7 @@ export const announcementsApi = {
   async adminCreate(body: CreateAnnouncementRequest): Promise<AnnouncementVO> {
     if (isRealMode()) return post<AnnouncementVO>('/api/v1/admin/announcements', body)
     const admin = currentUser('ADMIN')
-    const row: AnnouncementRow = { announcementId: nextId(), scopeType: 'SYSTEM', title: body.title, content: body.content, audience: body.audience, status: 'PUBLISHED', publishedAt: nowIso(), publisherId: admin.userId, version: 0 }
+    const row: AnnouncementRow = { announcementId: nextId(), scopeType: 'SYSTEM', title: body.title, content: body.content, audience: body.audience, status: 'PUBLISHED', publishedAt: nowIso(), publisherId: admin.userId, source: 'HUMAN', version: 0 }
     db.announcements.push(row)
     persist()
     return demoDelay(toVO(row))

@@ -52,7 +52,8 @@ class AiPromptGroundingTest {
                 .thenReturn(new CourseKnowledgeBaseService.Retrieval(false, "", List.of()));
 
         new AiApplicationService(contextService, generator, knowledgeBase, new PlatformUtilityTools(new ObjectMapper()),
-                        mock(BizAiAuthoringFeignClient.class))
+                        mock(BizAiAuthoringFeignClient.class),
+                        mock(com.zhongruan.edu.feign.ai.BizAiActionFeignClient.class))
                 .courseQa("Bearer token", 1002L, "TEACHER", 21001L, 23001L, "什么是依赖注入？", "lesson-1", "trace")
                 .collectList()
                 .block();
@@ -74,13 +75,16 @@ class AiPromptGroundingTest {
                         List.of("软件工程：级别 MEDIUM，状态 OPEN，学习进度低于课程节奏；建议：本周完成补学"),
                         List.of(),
                         List.of(),
+                        List.of(),
+                        List.of(),
                         List.of()));
         AtomicReference<String> systemPrompt = new AtomicReference<>();
         AiTextGenerator generator = new CapturingGenerator(systemPrompt);
         CourseKnowledgeBaseService knowledgeBase = mock(CourseKnowledgeBaseService.class);
 
         new AiApplicationService(contextService, generator, knowledgeBase, new PlatformUtilityTools(new ObjectMapper()),
-                        mock(BizAiAuthoringFeignClient.class))
+                        mock(BizAiAuthoringFeignClient.class),
+                        mock(com.zhongruan.edu.feign.ai.BizAiActionFeignClient.class))
                 .assistantChat(
                         "Bearer token", 1001L, "STUDENT", null, null, "/student/dashboard", "学生首页",
                         "我有哪些学习预警？", "global-1", "trace")

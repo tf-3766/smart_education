@@ -541,6 +541,7 @@ export interface AssignmentDetailVO {
   dueAt: string
   publishedAt?: string | null
   attachments: AssignmentAttachmentVO[]
+  source: 'AI' | 'HUMAN'
   version: number
 }
 
@@ -908,6 +909,7 @@ export interface ExamVO {
   endAt: string
   durationMinutes: number
   totalScore: number
+  source: 'AI' | 'HUMAN'
   version: number
 }
 
@@ -1032,10 +1034,11 @@ export interface AnnouncementVO {
   title: string
   content: string
   audience: AnnouncementAudience
-  status: 'PUBLISHED' | 'WITHDRAWN'
-  publishedAt: string
+  status: 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN'
+  publishedAt?: string | null
   withdrawnAt?: string | null
   publisherId: string
+  source: 'AI' | 'HUMAN'
   version: number
 }
 
@@ -1154,8 +1157,8 @@ export interface AiDraftVO {
 }
 
 export interface AiStreamEvent {
-  // tool：RAG 检索/工具调用进度；meta 携带能力元信息；delta 增量正文；citation 引用；done/error 终止。
-  type: 'meta' | 'tool' | 'delta' | 'citation' | 'done' | 'error'
+  // capability：当前实际能力；tool：调用进度；action：结构化业务结果；citation：引用。
+  type: 'meta' | 'capability' | 'tool' | 'action' | 'delta' | 'citation' | 'done' | 'error'
   requestId: string
   data: unknown
   timestamp: string
@@ -1168,6 +1171,45 @@ export interface AiToolEvent {
   input?: string | null
   summary?: string | null
   result?: AiCitationVO[] | null
+}
+
+export interface AiCapabilityEvent {
+  capabilityId: string
+  name: string
+  description?: string | null
+  roles?: string[]
+  mode: 'ANSWER' | 'DRAFT' | 'ACTION' | 'BATCH_ACTION'
+  riskLevel: 'READ_ONLY' | 'LOW' | 'MEDIUM' | 'HIGH'
+  requiredContext?: string[]
+  confirmationPolicy?: 'NONE' | 'DRAFT_REVIEW' | 'EXPLICIT_CONFIRM' | 'STRONG_CONFIRM'
+  deepLinkTemplate?: string | null
+  requiresCourseContext: boolean
+  enabled: boolean
+  unavailableReason?: string | null
+}
+
+export interface AiActionEvent {
+  actionId: string
+  capabilityId: string
+  status: 'PLANNED' | 'WAITING_CONFIRMATION' | 'DRAFT_CREATED' | 'EXECUTING' | 'SUCCEEDED' | 'PARTIAL_SUCCESS' | 'FAILED' | 'CANCELLED' | 'EXPIRED'
+  riskLevel?: 'READ_ONLY' | 'LOW' | 'MEDIUM' | 'HIGH' | null
+  confirmationPolicy?: 'NONE' | 'DRAFT_REVIEW' | 'EXPLICIT_CONFIRM' | 'STRONG_CONFIRM' | null
+  targetType?: string | null
+  targetId?: string | null
+  targetVersion?: number | null
+  resourceType?: string | null
+  resourceId?: string | null
+  title: string
+  summary: string
+  preview?: Record<string, string> | null
+  href?: string | null
+  requiresConfirmation: boolean
+  errorCode?: string | null
+  errorMessage?: string | null
+  expiresAt?: string | null
+  confirmedAt?: string | null
+  executedAt?: string | null
+  createdAt?: string | null
 }
 
 export interface AiKnowledgeBaseStatusVO {

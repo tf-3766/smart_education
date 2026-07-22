@@ -13,4 +13,5 @@ public record ExamVO(
         OffsetDateTime endAt,
         Integer durationMinutes,
         BigDecimal totalScore,
+        String source,
         Integer version) {}

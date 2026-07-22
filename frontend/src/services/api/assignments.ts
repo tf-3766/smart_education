@@ -50,6 +50,7 @@ function toAssignmentVO(row: AssignmentRow): AssignmentDetailVO {
     dueAt: row.dueAt,
     publishedAt: row.publishedAt ?? null,
     attachments: row.attachments,
+    source: row.source,
     version: row.version,
   }
 }
@@ -164,7 +165,7 @@ export const assignmentsApi = {
   async create(courseId: string, body: AssignmentCreateRequest): Promise<AssignmentDetailVO> {
     if (isRealMode()) return post<AssignmentDetailVO>(`/api/v1/teacher/courses/${courseId}/assignments`, body)
     requireTeacherCourse(courseId)
-    const row: AssignmentRow = { assignmentId: nextId(), courseId, title: body.title, maxScore: body.maxScore, assignmentStatus: 'DRAFT', dueAt: body.dueAt, attachments: [], version: 0 }
+    const row: AssignmentRow = { assignmentId: nextId(), courseId, title: body.title, maxScore: body.maxScore, assignmentStatus: 'DRAFT', dueAt: body.dueAt, attachments: [], source: 'HUMAN', version: 0 }
     applyAssignmentFields(row, body)
     db.assignments.push(row)
     persist()

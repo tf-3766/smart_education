@@ -249,7 +249,7 @@ export const examsApi = {
   async createExam(courseId: string, body: CreateExamRequest): Promise<ExamVO> {
     if (isRealMode()) return post<ExamVO>(`/api/v1/teacher/courses/${courseId}/exams`, body)
     requireTeacherCourse(courseId)
-    const row: ExamRow = { examId: nextId(), courseId, title: body.title, description: body.description ?? null, status: 'DRAFT', startAt: body.startAt, endAt: body.endAt, durationMinutes: body.durationMinutes, totalScore: body.totalScore, version: 0 }
+    const row: ExamRow = { examId: nextId(), courseId, title: body.title, description: body.description ?? null, status: 'DRAFT', startAt: body.startAt, endAt: body.endAt, durationMinutes: body.durationMinutes, totalScore: body.totalScore, source: 'HUMAN', version: 0 }
     db.exams.push(row)
     persist()
     return demoDelay({ ...row })

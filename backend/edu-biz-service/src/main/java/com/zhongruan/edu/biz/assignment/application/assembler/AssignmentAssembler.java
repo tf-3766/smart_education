@@ -73,6 +73,7 @@ public class AssignmentAssembler {
                 time(assignment.getDueAt()),
                 time(assignment.getPublishedAt()),
                 attachments.stream().map(this::toAttachment).toList(),
+                assignment.getSource() == null ? "HUMAN" : assignment.getSource(),
                 assignment.getVersion());
     }
 

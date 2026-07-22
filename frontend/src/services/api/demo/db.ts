@@ -191,6 +191,7 @@ export interface AssignmentRow {
   dueAt: string
   publishedAt?: string | null
   attachments: AssignmentAttachmentVO[]
+  source: 'AI' | 'HUMAN'
   version: number
 }
 
@@ -313,6 +314,7 @@ export interface ExamRow {
   endAt: string
   durationMinutes: number
   totalScore: number
+  source: 'AI' | 'HUMAN'
   version: number
 }
 
@@ -348,10 +350,11 @@ export interface AnnouncementRow {
   title: string
   content: string
   audience: AnnouncementAudience
-  status: 'PUBLISHED' | 'WITHDRAWN'
-  publishedAt: string
+  status: 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN'
+  publishedAt?: string | null
   withdrawnAt?: string | null
   publisherId: string
+  source: 'AI' | 'HUMAN'
   version: number
 }
 
@@ -487,9 +490,9 @@ function seed(): DemoDb {
       { reviewId: '28001', courseId: '21002', reviewStatus: 'APPROVED', reviewerId: '1', remark: '课程结构完整，通过审核。', reviewedAt: daysFromNow(-30) },
     ],
     assignments: [
-      { assignmentId: '31001', courseId: '21001', lessonId: '23001', title: '第一章课后练习', description: '完成变量与数据类型的练习题，并附运行截图。', maxScore: 100, assignmentStatus: 'PUBLISHED', openAt: daysFromNow(-20), dueAt: daysFromNow(10), publishedAt: daysFromNow(-20), attachments: [], version: 1 },
-      { assignmentId: '31002', courseId: '21001', title: '第二章编程作业', description: '实现一个带默认参数的函数并编写测试。', maxScore: 100, assignmentStatus: 'PUBLISHED', openAt: daysFromNow(-10), dueAt: daysFromNow(14), publishedAt: daysFromNow(-10), attachments: [], version: 1 },
-      { assignmentId: '31003', courseId: '21002', title: 'AI 应用调研报告', description: '选择一个行业调研 AI 应用现状。', maxScore: 100, assignmentStatus: 'DRAFT', dueAt: daysFromNow(21), attachments: [], version: 0 },
+      { assignmentId: '31001', courseId: '21001', lessonId: '23001', title: '第一章课后练习', description: '完成变量与数据类型的练习题，并附运行截图。', maxScore: 100, assignmentStatus: 'PUBLISHED', openAt: daysFromNow(-20), dueAt: daysFromNow(10), publishedAt: daysFromNow(-20), attachments: [], source: 'HUMAN', version: 1 },
+      { assignmentId: '31002', courseId: '21001', title: '第二章编程作业', description: '实现一个带默认参数的函数并编写测试。', maxScore: 100, assignmentStatus: 'PUBLISHED', openAt: daysFromNow(-10), dueAt: daysFromNow(14), publishedAt: daysFromNow(-10), attachments: [], source: 'HUMAN', version: 1 },
+      { assignmentId: '31003', courseId: '21002', title: 'AI 应用调研报告', description: '选择一个行业调研 AI 应用现状。', maxScore: 100, assignmentStatus: 'DRAFT', dueAt: daysFromNow(21), attachments: [], source: 'AI', version: 0 },
     ],
     submissions: [
       { submissionId: '32001', assignmentId: '31001', courseId: '21001', studentId: '4', attemptNo: 1, content: '已完成练习 1-10，截图见附件链接。', submissionStatus: 'SUBMITTED', submittedAt: daysFromNow(-3), version: 1 },
@@ -526,8 +529,8 @@ function seed(): DemoDb {
       { questionId: '52004', bankId: '51002', courseId: '21002', questionType: 'MULTIPLE_CHOICE', stem: '下列属于机器学习范式的有？', difficulty: 'MEDIUM', score: 5, status: 'ACTIVE', options: [{ label: 'A', content: '监督学习', correct: true, sortOrder: 1 }, { label: 'B', content: '无监督学习', correct: true, sortOrder: 2 }, { label: 'C', content: '编译原理', correct: false, sortOrder: 3 }, { label: 'D', content: '强化学习', correct: true, sortOrder: 4 }], version: 0 },
     ],
     exams: [
-      { examId: '53001', courseId: '21001', title: 'Python 期中测验', description: '覆盖第一、二章。', status: 'PUBLISHED', startAt: daysFromNow(-1), endAt: daysFromNow(7), durationMinutes: 60, totalScore: 20, version: 1 },
-      { examId: '53002', courseId: '21002', title: 'AI 导论期末考试', status: 'DRAFT', startAt: daysFromNow(30), endAt: daysFromNow(31), durationMinutes: 120, totalScore: 100, version: 0 },
+      { examId: '53001', courseId: '21001', title: 'Python 期中测验', description: '覆盖第一、二章。', status: 'PUBLISHED', startAt: daysFromNow(-1), endAt: daysFromNow(7), durationMinutes: 60, totalScore: 20, source: 'HUMAN', version: 1 },
+      { examId: '53002', courseId: '21002', title: 'AI 导论期末考试', status: 'DRAFT', startAt: daysFromNow(30), endAt: daysFromNow(31), durationMinutes: 120, totalScore: 100, source: 'AI', version: 0 },
     ],
     papers: [
       { paperId: '54001', examId: '53001', courseId: '21001', title: '期中测验 A 卷', totalScore: 20, status: 'PUBLISHED', questions: [{ questionId: '52001', questionOrder: 1, score: 5 }, { questionId: '52002', questionOrder: 2, score: 5 }, { questionId: '52003', questionOrder: 3, score: 10 }], version: 1 },
@@ -536,9 +539,10 @@ function seed(): DemoDb {
       { attemptId: '55001', examId: '53001', paperId: '54001', studentId: '5', status: 'SUBMITTED', startedAt: daysFromNow(-0.5), deadlineAt: daysFromNow(0.5), submittedAt: daysFromNow(-0.4), answers: [{ questionId: '52001', answerContent: 'B', score: 5 }, { questionId: '52002', answerContent: 'B', score: 5 }, { questionId: '52003', answerContent: '列表推导式简洁高效，但嵌套过深会降低可读性。' }], version: 1 },
     ],
     announcements: [
-      { announcementId: '61001', scopeType: 'SYSTEM', title: '教学平台暑期维护通知', content: '平台将于 7 月 20 日 02:00-04:00 进行维护，期间暂停访问。', audience: 'ALL', status: 'PUBLISHED', publishedAt: daysFromNow(-4), publisherId: '1', version: 0 },
-      { announcementId: '61002', scopeType: 'COURSE', courseId: '21001', title: '第一章作业已发布', content: '请在截止时间前完成「第一章课后练习」。', audience: 'STUDENT', status: 'PUBLISHED', publishedAt: daysFromNow(-20), publisherId: '2', version: 0 },
-      { announcementId: '61003', scopeType: 'SYSTEM', title: '新学期教师培训报名', content: '面向全体教师的教学平台使用培训，欢迎报名。', audience: 'TEACHER', status: 'PUBLISHED', publishedAt: daysFromNow(-6), publisherId: '1', version: 0 },
+      { announcementId: '61001', scopeType: 'SYSTEM', title: '教学平台暑期维护通知', content: '平台将于 7 月 20 日 02:00-04:00 进行维护，期间暂停访问。', audience: 'ALL', status: 'PUBLISHED', publishedAt: daysFromNow(-4), publisherId: '1', source: 'HUMAN', version: 0 },
+      { announcementId: '61002', scopeType: 'COURSE', courseId: '21001', title: '第一章作业已发布', content: '请在截止时间前完成「第一章课后练习」。', audience: 'STUDENT', status: 'PUBLISHED', publishedAt: daysFromNow(-20), publisherId: '2', source: 'HUMAN', version: 0 },
+      { announcementId: '61003', scopeType: 'SYSTEM', title: '新学期教师培训报名', content: '面向全体教师的教学平台使用培训，欢迎报名。', audience: 'TEACHER', status: 'PUBLISHED', publishedAt: daysFromNow(-6), publisherId: '1', source: 'HUMAN', version: 0 },
+      { announcementId: '61004', scopeType: 'COURSE', courseId: '21001', title: 'AI 生成·课程复习提醒', content: '请结合第二章资料完成本周复习。', audience: 'STUDENT', status: 'DRAFT', publisherId: '2', source: 'AI', version: 0 },
     ],
     notificationReads: [],
     notificationArchives: [],

@@ -13,7 +13,9 @@ public record AiAssistantContextResponse(
         List<String> warnings,
         List<String> assignments,
         List<String> exams,
-        List<String> platformMetrics) {
+        List<String> platformMetrics,
+        List<String> pendingTeacherRegistrations,
+        List<String> submissions) {
     public AiAssistantContextResponse {
         enrollmentWindows = safe(enrollmentWindows);
         courses = safe(courses);
@@ -21,6 +23,8 @@ public record AiAssistantContextResponse(
         assignments = safe(assignments);
         exams = safe(exams);
         platformMetrics = safe(platformMetrics);
+        pendingTeacherRegistrations = safe(pendingTeacherRegistrations);
+        submissions = safe(submissions);
     }
 
     private static List<String> safe(List<String> values) {

@@ -31,7 +31,7 @@ import reactor.core.publisher.Mono;
 @RestController
 @RequestMapping("/api/v1/ai")
 public class AiController {
-    private static final Set<String> QA_ROLES = Set.of("STUDENT", "TEACHER");
+    private static final Set<String> QA_ROLES = Set.of("STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN");
     private static final Set<String> ADMIN_ROLES = Set.of("ADMIN", "SUPER_ADMIN");
 
     private final AiApplicationService service;

@@ -5,7 +5,7 @@
 import { demoDelay } from '../runtime'
 import { get, isRealMode, post, postEventStream } from './client'
 import { db, nextId, notFound, nowIso } from './demo/db'
-import type { AiCitationVO, AiDraftVO, AssistantChatRequest, AiKnowledgeBaseStatusVO, AiServiceStatusVO, AiStreamEvent, CourseQaRequest, LessonSummaryRequest, PaperSuggestionRequest } from './types'
+import type { AiActionEvent, AiCitationVO, AiDraftVO, AssistantChatRequest, AiKnowledgeBaseStatusVO, AiServiceStatusVO, AiStreamEvent, CourseQaRequest, LessonSummaryRequest, PaperSuggestionRequest } from './types'
 
 function draft(draftType: string, businessId: string, content: string, citations: AiCitationVO[] = []): AiDraftVO {
   return {
@@ -30,6 +30,7 @@ function lessonCitations(courseId: string, lessonId?: string | null): AiCitation
 async function emitDemoStream(requestId: string, chunks: string[], citations: AiCitationVO[], onEvent: (event: AiStreamEvent) => void): Promise<void> {
   const emit = (type: AiStreamEvent['type'], data: unknown) => onEvent({ type, requestId, data, timestamp: nowIso() })
   emit('meta', { provider: 'demo', model: null, vectorStoreConfigured: true, toolCallingConfigured: true })
+  emit('capability', [{ capabilityId: 'platform.authorized-context', name: '授权数据问答', mode: 'ANSWER', riskLevel: 'READ_ONLY', requiresCourseContext: false, enabled: true }])
   emit('tool', { toolName: 'courseKnowledgeSearch', status: 'COMPLETED', input: null, summary: '已检索演示课程知识', result: citations })
   for (const chunk of chunks) {
     await demoDelay(undefined, 60)
@@ -46,6 +47,26 @@ export const aiApi = {
     const roleHint = role === 'TEACHER' ? '教师可从课程管理、作业批改、考试题库和课程互动完成教学闭环。' : role === 'ADMIN' ? '管理员可处理教师审核、平台统计和 AI 服务状态。' : '学生可从我的课程进入课时资料，并在学习任务和考试安排中完成待办。'
     const answer = `${roleHint} 你当前的问题是“${body.question}”。${body.courseId ? '我会优先结合当前课程知识库与课时上下文回答。' : '如需查询具体课程事实，请先进入对应课程页面。'}`
     return emitDemoStream(nextId(), answer.match(/.{1,24}/g) ?? [answer], [], onEvent)
+  },
+  async confirmAction(action: AiActionEvent, confirmationText?: string): Promise<AiActionEvent> {
+    if (isRealMode()) return post<AiActionEvent>(`/api/v1/assistant-actions/${action.actionId}/confirm`, {
+      confirmationText: confirmationText || null,
+    })
+    return demoDelay({
+      ...action,
+      status: 'SUCCEEDED',
+      requiresConfirmation: false,
+      confirmedAt: nowIso(),
+      executedAt: nowIso(),
+    })
+  },
+  async cancelAction(action: AiActionEvent): Promise<AiActionEvent> {
+    if (isRealMode()) return post<AiActionEvent>(`/api/v1/assistant-actions/${action.actionId}/cancel`)
+    return demoDelay({ ...action, status: 'CANCELLED', requiresConfirmation: false })
+  },
+  async listActions(limit = 20): Promise<AiActionEvent[]> {
+    if (isRealMode()) return get<AiActionEvent[]>('/api/v1/assistant-actions', { limit })
+    return demoDelay([])
   },
   async knowledgeBaseStatus(courseId: string): Promise<AiKnowledgeBaseStatusVO> {
     if (isRealMode()) return get<AiKnowledgeBaseStatusVO>(`/api/v1/ai/courses/${courseId}/knowledge-base/status`)

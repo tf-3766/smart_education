@@ -5,6 +5,8 @@ import com.zhongruan.edu.biz.assignment.infrastructure.persistence.entity.Assign
 import com.zhongruan.edu.biz.assignment.infrastructure.persistence.entity.AssignmentSubmissionEntity;
 import com.zhongruan.edu.biz.assignment.infrastructure.persistence.mapper.AssignmentMapper;
 import com.zhongruan.edu.biz.assignment.infrastructure.persistence.mapper.AssignmentSubmissionMapper;
+import com.zhongruan.edu.biz.auth.infrastructure.persistence.entity.UserEntity;
+import com.zhongruan.edu.biz.auth.infrastructure.persistence.mapper.UserMapper;
 import com.zhongruan.edu.biz.course.application.service.CoursePermissionService;
 import com.zhongruan.edu.biz.course.domain.enums.EnrollmentStatus;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEnrollmentEntity;
@@ -85,6 +87,7 @@ public class InternalAiContextController implements BizAiContextFeignClient {
     private final QuestionMapper questionMapper;
     private final ExamMapper examMapper;
     private final TermEnrollmentWindowMapper termEnrollmentWindowMapper;
+    private final UserMapper userMapper;
     private final MaterialTextExtractionService extractionService;
     private final HttpServletRequest servletRequest;
 
@@ -102,6 +105,7 @@ public class InternalAiContextController implements BizAiContextFeignClient {
             QuestionMapper questionMapper,
             ExamMapper examMapper,
             TermEnrollmentWindowMapper termEnrollmentWindowMapper,
+            UserMapper userMapper,
             MaterialTextExtractionService extractionService,
             HttpServletRequest servletRequest) {
         this.courseMapper = courseMapper;
@@ -117,6 +121,7 @@ public class InternalAiContextController implements BizAiContextFeignClient {
         this.questionMapper = questionMapper;
         this.examMapper = examMapper;
         this.termEnrollmentWindowMapper = termEnrollmentWindowMapper;
+        this.userMapper = userMapper;
         this.extractionService = extractionService;
         this.servletRequest = servletRequest;
     }
@@ -198,8 +203,9 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                         teacher ? "；学生ID " + warning.getStudentId() : ""))
                 .toList();
         List<String> assignmentFacts = assignments.stream()
-                .map(assignment -> "%s：%s，状态 %s，开放 %s，截止 %s，满分 %s".formatted(
+                .map(assignment -> "%s：%s（作业ID %s），状态 %s，开放 %s，截止 %s，满分 %s".formatted(
                         courseLabel(courseById, assignment.getCourseId()), value(assignment.getTitle()),
+                        assignment.getId(),
                         value(assignment.getStatus()), value(assignment.getOpenAt()),
                         value(assignment.getDueAt()), value(assignment.getMaxScore())))
                 .toList();
@@ -214,10 +220,35 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                         .eq(LearningWarningEntity::getWarningStatus, "OPEN")),
                 "作业总数：" + assignmentMapper.selectCount(Wrappers.<AssignmentEntity>lambdaQuery()),
                 "考试总数：" + examMapper.selectCount(Wrappers.<ExamEntity>lambdaQuery())) : List.of();
+        List<String> pendingTeachers = admin
+                ? userMapper.selectList(Wrappers.<UserEntity>lambdaQuery()
+                        .eq(UserEntity::getUserStatus, "PENDING")
+                        .orderByAsc(UserEntity::getCreatedAt)
+                        .last("LIMIT 100"))
+                    .stream()
+                    .map(candidate -> "%s（用户名 %s，用户ID %s，版本 %s）".formatted(
+                            value(candidate.getDisplayName()), value(candidate.getUsername()),
+                            candidate.getId(), candidate.getVersion()))
+                    .toList()
+                : List.of();
+        List<String> submissionFacts = teacher && !courseIds.isEmpty()
+                ? assignmentSubmissionMapper.selectList(Wrappers.<AssignmentSubmissionEntity>lambdaQuery()
+                        .in(AssignmentSubmissionEntity::getCourseId, courseIds)
+                        .in(AssignmentSubmissionEntity::getStatus, "SUBMITTED", "GRADED")
+                        .orderByDesc(AssignmentSubmissionEntity::getSubmittedAt)
+                        .last("LIMIT 100"))
+                    .stream()
+                    .map(submission -> "提交ID %s：作业ID %s，课程ID %s，学生ID %s，状态 %s，当前分数 %s，版本 %s".formatted(
+                            submission.getId(), submission.getAssignmentId(), submission.getCourseId(),
+                            submission.getStudentId(), value(submission.getStatus()), value(submission.getScore()),
+                            submission.getVersion()))
+                    .toList()
+                : List.of();
 
         return ApiResponse.success(new AiAssistantContextResponse(
                 user.userId(), user.username(), user.activeRole(), OffsetDateTime.now(ZoneOffset.UTC),
-                windows, courseFacts, warningFacts, assignmentFacts, examFacts, metrics),
+                windows, courseFacts, warningFacts, assignmentFacts, examFacts, metrics,
+                pendingTeachers, submissionFacts),
                 RequestTrace.from(servletRequest));
     }
 

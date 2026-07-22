@@ -42,6 +42,16 @@ describe('作业批改工作台', () => {
     expect(published!.text()).toContain('已发布')
   })
 
+  it('区分 AI 草稿和人工草稿作业', async () => {
+    freshDemo()
+    const mounted = await mountPage(GradingWorkspacePage, { path: '/teacher/assignments' })
+    await mounted.wrapper.find('select').setValue('21002')
+    await settle(700)
+
+    const row = mounted.wrapper.findAll('[data-test="assignment-row"]').find((item) => item.text().includes('AI 应用调研报告'))!
+    expect(row.text()).toContain('AI 草稿')
+  })
+
   it('可编辑已有作业并保留其余字段', async () => {
     freshDemo()
     const { wrapper } = await mountGrading()

@@ -147,6 +147,16 @@ public class GradeApplicationService {
                 })
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public TeacherSubmissionGradeVO getSubmissionForTeacher(Long teacherId, Long submissionId) {
+        AssignmentSubmissionEntity submission = requireSubmission(submissionId);
+        AssignmentEntity assignment = requireAssignment(submission.getAssignmentId());
+        courseManagementService.requireEditor(teacherId, submission.getCourseId());
+        GradeRecordEntity grade = findGrade(assignment.getId(), submission.getStudentId());
+        return assembler.toTeacherSubmission(
+                submission, assignment, grade, studentName(submission.getStudentId()));
+    }
     @Transactional
     public TeacherSubmissionGradeVO gradeSubmission(
             Long teacherId, Long submissionId, GradeSubmissionRequest request) {
