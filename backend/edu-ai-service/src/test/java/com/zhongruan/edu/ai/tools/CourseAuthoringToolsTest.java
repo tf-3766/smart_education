@@ -138,6 +138,7 @@ class CourseAuthoringToolsTest {
             assertThat(action.resourceId()).isEqualTo("888");
             assertThat(action.requiresConfirmation()).isTrue();
             assertThat(action.href()).contains("assignmentId=888");
+            assertThat(action.href()).contains("courseId=7");
         });
     }
 }

@@ -1,10 +1,7 @@
 <template>
-  <FrappeUIProvider>
-    <RouterView />
-  </FrappeUIProvider>
+  <RouterView />
 </template>
 
 <script setup lang="ts">
-import { FrappeUIProvider } from 'frappe-ui'
 import { RouterView } from 'vue-router'
 </script>

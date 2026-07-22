@@ -31,10 +31,13 @@
         <div class="notice push-top"><div><strong>{{ warning.summary }}</strong><p v-for="evidence in warning.evidences" :key="evidence.evidenceId">{{ evidence.description }}</p></div></div>
         <p v-if="warning.suggestion" class="muted push-top">建议：{{ warning.suggestion }}</p>
         <div v-if="!aiDrafts[warning.warningId]" class="ai-card push-top">
-          <div class="spread wrap"><div class="row"><span class="ai-chip">AI</span><strong style="color: var(--ink)">风险解读</strong></div><AiAssistButton label="生成 AI 解读" :loading="aiLoadingId === warning.warningId" @click="draftExplanation(warning)" /></div>
+          <div class="spread wrap"><div class="row"><span class="ai-chip">AI</span><strong style="color: var(--ink)">风险解读与干预计划</strong></div><div class="row wrap">
+            <AiAssistButton label="生成风险解读" :loading="aiLoadingId === warning.warningId" @click="draftExplanation(warning)" />
+            <AiAssistButton label="生成干预计划" :loading="aiLoadingId === warning.warningId" @click="draftInterventionPlan(warning)" />
+          </div></div>
           <p v-if="aiErrors[warning.warningId]" class="form-error" style="margin-top: 10px">{{ aiErrors[warning.warningId] }}</p>
         </div>
-        <AiResultPanel v-else :result="aiDrafts[warning.warningId]" :adopt-label="warning.warningStatus.code === 'OPEN' ? '采用为干预记录' : undefined" class="push-top" @adopt="remarks[warning.warningId] = $event" @regenerate="draftExplanation(warning)" />
+        <AiResultPanel v-else :result="aiDrafts[warning.warningId]" :adopt-label="warning.warningStatus.code === 'OPEN' ? '采用为干预记录' : undefined" class="push-top" @adopt="remarks[warning.warningId] = $event" @regenerate="regenerateWarningDraft(warning)" />
 
         <template v-if="warning.warningStatus.code === 'OPEN'">
           <textarea v-model="remarks[warning.warningId]" class="textarea push-top" placeholder="填写干预记录或忽略原因" />
@@ -76,17 +79,35 @@ const remarks = reactive<Record<string, string>>({})
 const aiDrafts = reactive<Record<string, AiResult>>({})
 const aiErrors = reactive<Record<string, string>>({})
 const aiLoadingId = ref('')
+const aiDraftKinds = reactive<Record<string, 'explanation' | 'intervention'>>({})
 async function draftExplanation(warning: LearningWarningVO) {
   aiLoadingId.value = warning.warningId
   aiErrors[warning.warningId] = ''
   try {
     const draft = await aiApi.warningExplanation(warning.warningId)
     aiDrafts[warning.warningId] = aiDraftToResult(draft, 'risk', 'AI 风险解读')
+    aiDraftKinds[warning.warningId] = 'explanation'
   } catch (caught) {
     aiErrors[warning.warningId] = aiErrorMessage(caught)
   } finally { aiLoadingId.value = '' }
 }
 const selectedWarningId = computed(() => typeof route.query.warningId === 'string' ? route.query.warningId : '')
+async function draftInterventionPlan(warning: LearningWarningVO) {
+  aiLoadingId.value = warning.warningId
+  aiErrors[warning.warningId] = ''
+  try {
+    const draft = await aiApi.warningInterventionPlan(warning.warningId)
+    aiDrafts[warning.warningId] = aiDraftToResult(draft, 'risk', 'AI 学习干预计划草稿')
+    aiDraftKinds[warning.warningId] = 'intervention'
+  } catch (caught) {
+    aiErrors[warning.warningId] = aiErrorMessage(caught)
+  } finally { aiLoadingId.value = '' }
+}
+function regenerateWarningDraft(warning: LearningWarningVO) {
+  if (aiDraftKinds[warning.warningId] === 'intervention') void draftInterventionPlan(warning)
+  else void draftExplanation(warning)
+}
+
 const selectedCourseId = computed(() => typeof route.query.courseId === 'string' ? route.query.courseId : '')
 
 const byLevel = (level: string) => warningRows.value.filter((item) => item.warningLevel.code === level && item.warningStatus.code === 'OPEN').length

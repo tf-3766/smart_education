@@ -70,6 +70,17 @@ public class AiActionController {
                 service.cancel(user.userId(), user.activeRole(), actionId), trace(request));
     }
 
+    @PostMapping("/{actionId}/retry")
+    public ApiResponse<AiActionResponse> retry(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long actionId,
+            HttpServletRequest request) {
+        String traceId = trace(request);
+        return ApiResponse.success(
+                service.retry(user.userId(), user.activeRole(), actionId, traceId), traceId);
+    }
+
+
     private String trace(HttpServletRequest request) {
         return contextFactory.current(request).traceId();
     }

@@ -1156,6 +1156,37 @@ export interface AiDraftVO {
   createdAt: string
 }
 
+export interface BatchGradingDraftRequest {
+  submissionIds: string[]
+  rubric: string
+  reviewThreshold?: number
+  instruction?: string | null
+}
+
+export interface BatchGradingDraftItemVO {
+  submissionId: string
+  assignmentId: string
+  maxScore: number
+  suggestedScore?: number | null
+  comment: string
+  confidence: number
+  reviewRequired: boolean
+  anomalyCodes: string[]
+  reviewReasons: string[]
+  citations: AiCitationVO[]
+}
+
+export interface BatchGradingDraftVO {
+  requestId: string
+  rubric: string
+  reviewThreshold: number
+  totalCount: number
+  reviewCount: number
+  status: 'DRAFT' | 'FRAMEWORK_ONLY'
+  items: BatchGradingDraftItemVO[]
+  createdAt: string
+}
+
 export interface AiStreamEvent {
   // capability：当前实际能力；tool：调用进度；action：结构化业务结果；citation：引用。
   type: 'meta' | 'capability' | 'tool' | 'action' | 'delta' | 'citation' | 'done' | 'error'

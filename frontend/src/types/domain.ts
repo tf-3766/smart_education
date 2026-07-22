@@ -126,7 +126,7 @@ export interface AiCitation {
 
 export interface AiResult {
   id: string
-  type: 'qa' | 'feedback' | 'risk' | 'summary' | 'paper'
+  type: 'qa' | 'feedback' | 'risk' | 'summary' | 'paper' | 'teaching-package' | 'operations-brief'
   title: string
   content: string
   citations?: AiCitation[]

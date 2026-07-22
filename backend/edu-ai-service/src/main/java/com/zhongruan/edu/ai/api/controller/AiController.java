@@ -1,11 +1,13 @@
 package com.zhongruan.edu.ai.api.controller;
 
 import com.zhongruan.edu.ai.api.dto.CourseQaRequest;
+import com.zhongruan.edu.ai.api.dto.BatchGradingDraftRequest;
 import com.zhongruan.edu.ai.api.dto.AssistantChatRequest;
 import com.zhongruan.edu.ai.api.dto.AiDraftInstructionRequest;
 import com.zhongruan.edu.ai.api.dto.LessonSummaryRequest;
 import com.zhongruan.edu.ai.api.dto.PaperSuggestionRequest;
 import com.zhongruan.edu.ai.api.vo.AiDraftVO;
+import com.zhongruan.edu.ai.api.vo.BatchGradingDraftVO;
 import com.zhongruan.edu.ai.api.vo.AiKnowledgeBaseStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiServiceStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
@@ -123,6 +125,26 @@ public class AiController {
                 .map(draft -> ApiResponse.success(draft, traceId));
     }
 
+    @PostMapping("/submissions/batch-grading-draft")
+    public Mono<ApiResponse<BatchGradingDraftVO>> batchGradingDraft(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @Valid @RequestBody BatchGradingDraftRequest body) {
+        requireRole(role, Set.of("TEACHER"));
+        return service.batchGradingDraft(
+                        authorization,
+                        userId,
+                        role,
+                        body.submissionIds(),
+                        body.rubric(),
+                        body.reviewThreshold(),
+                        body.instruction(),
+                        traceId)
+                .map(draft -> ApiResponse.success(draft, traceId));
+    }
+
     @PostMapping("/warnings/{warningId}/explanation")
     public Mono<ApiResponse<AiDraftVO>> warningExplanation(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -133,6 +155,20 @@ public class AiController {
             @Valid @RequestBody AiDraftInstructionRequest body) {
         requireRole(role, Set.of("TEACHER"));
         return service.warningExplanation(
+                        authorization, userId, role, warningId, body.instruction(), traceId)
+                .map(draft -> ApiResponse.success(draft, traceId));
+    }
+
+    @PostMapping("/warnings/{warningId}/intervention-plan")
+    public Mono<ApiResponse<AiDraftVO>> warningInterventionPlan(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @PathVariable Long warningId,
+            @Valid @RequestBody AiDraftInstructionRequest body) {
+        requireRole(role, Set.of("TEACHER"));
+        return service.warningInterventionPlan(
                         authorization, userId, role, warningId, body.instruction(), traceId)
                 .map(draft -> ApiResponse.success(draft, traceId));
     }
@@ -154,6 +190,33 @@ public class AiController {
                         body.totalScore(),
                         body.requirements(),
                         traceId)
+                .map(draft -> ApiResponse.success(draft, traceId));
+    }
+
+    @PostMapping("/courses/{courseId}/teaching-package-plan")
+    public Mono<ApiResponse<AiDraftVO>> teachingPackagePlan(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @PathVariable Long courseId,
+            @Valid @RequestBody AiDraftInstructionRequest body) {
+        requireRole(role, Set.of("TEACHER"));
+        return service.teachingPackagePlan(
+                        authorization, userId, role, courseId, body.instruction(), traceId)
+                .map(draft -> ApiResponse.success(draft, traceId));
+    }
+
+    @PostMapping("/admin/operations-brief")
+    public Mono<ApiResponse<AiDraftVO>> adminOperationsBrief(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @Valid @RequestBody AiDraftInstructionRequest body) {
+        requireRole(role, ADMIN_ROLES);
+        return service.adminOperationsBrief(
+                        authorization, userId, role, body.instruction(), traceId)
                 .map(draft -> ApiResponse.success(draft, traceId));
     }
 

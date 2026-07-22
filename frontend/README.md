@@ -2,7 +2,7 @@
 
 面向高校教学场景的三端演示前端（学生 / 教师 / 管理员），参照《项目设计文档》与《UI 设计规范》，视觉采用**腾讯云控制台风格**（品牌蓝 `#1468e8`、纯白面板 + 1px 描边、表格优先、信息密集、低装饰）。
 
-技术栈：Vue 3 + Vite + TypeScript + Vue Router + Pinia + frappe-ui + Tailwind + Lucide。默认使用本地演示数据，可独立运行，无后端耦合。
+技术栈：Vue 3 + Vite + TypeScript + Vue Router + Pinia + Tailwind + Lucide。默认使用本地演示数据，可独立运行，无后端耦合。
 
 ## 快速开始
 

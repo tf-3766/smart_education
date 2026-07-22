@@ -111,4 +111,21 @@ describe('教师课程内容页：章节', () => {
     expect(wrapper.text()).toContain('AI 课时摘要草稿')
     expect(wrapper.text()).toContain('课时说明和已发布资料')
     expect(wrapper.text()).not.toContain('采用为课时内容')
-  })})
+  })
+
+  it('生成六步骤教学包计划并交给全局助手逐步执行', async () => {
+    freshDemo()
+    const { wrapper } = await mountContent()
+    expect(wrapper.text()).toContain('一键规划课程教学包')
+    expect(wrapper.text()).toContain('题库题目')
+
+    await clickByText(wrapper, 'button', '生成执行计划')
+    await settle(500)
+    expect(wrapper.text()).toContain('AI 教学包执行计划')
+
+    const received = vi.fn()
+    window.addEventListener('smart-education:ai-compose', received, { once: true })
+    await clickByText(wrapper, 'button', '交给 AI 助手逐步执行')
+    expect(received).toHaveBeenCalledOnce()
+  })
+})

@@ -128,7 +128,7 @@ public class AiActionService {
     }
 
     public AiActionResponse get(Long userId, String roleCode, Long actionId) {
-        return response(requireOwned(userId, roleCode, actionId));
+        return response(refreshExpiry(requireOwned(userId, roleCode, actionId)));
     }
 
     public List<AiActionResponse> listMine(Long userId, String roleCode, int requestedLimit) {
@@ -139,6 +139,7 @@ public class AiActionService {
                         .orderByDesc(AiActionEntity::getCreatedAt)
                         .last("LIMIT " + limit))
                 .stream()
+                .map(this::refreshExpiry)
                 .map(this::response)
                 .toList();
     }
@@ -201,6 +202,24 @@ public class AiActionService {
         updateOrConflict(entity);
         return response(entity);
     }
+    /**
+     * Failure compensation entry: rebuild a fresh plan from the original, audited parameters.
+     * The normal prepare path runs again so permissions, target state and target version are
+     * re-read instead of blindly replaying a stale write.
+     */
+    public AiActionResponse retry(Long userId, String roleCode, Long actionId, String traceId) {
+        AiActionEntity source = refreshExpiry(requireOwned(userId, roleCode, actionId));
+        if (!Set.of(FAILED, CANCELLED, EXPIRED).contains(source.getStatus())) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "仅失败、取消或过期的 AI 动作可以重新规划");
+        }
+        return plan(new AiActionPlanRequest(
+                userId,
+                roleCode,
+                source.getCapabilityId(),
+                "retry:" + source.getId() + ":" + clock.millis(),
+                source.getParametersJson()), traceId);
+    }
+
 
     private PlanDraft prepare(AiActionPlanRequest request) {
         return switch (request.capabilityId()) {
@@ -231,7 +250,7 @@ public class AiActionService {
             preview.put("当前设置", text(current.enrollmentOpenAt()) + " 至 " + text(current.enrollmentCloseAt()));
         }
         return new PlanDraft(
-                "HIGH", "EXPLICIT_CONFIRM", "TERM_ENROLLMENT_WINDOW",
+                "HIGH", "STRONG_CONFIRM", "TERM_ENROLLMENT_WINDOW",
                 current == null ? null : Long.valueOf(current.windowId()),
                 current == null ? null : current.version(),
                 "更新“" + term + "”选课时间",
@@ -282,7 +301,8 @@ public class AiActionService {
         preview.put("评语", text(parameters.teacherComment()));
         preview.put("结果", parameters.publishNow() ? "保存并立即向学生发布" : "仅保存为评分草稿");
         return new PlanDraft(
-                "HIGH", "EXPLICIT_CONFIRM", "ASSIGNMENT_SUBMISSION", parameters.submissionId(),
+                "HIGH", parameters.publishNow() ? "STRONG_CONFIRM" : "EXPLICIT_CONFIRM",
+                "ASSIGNMENT_SUBMISSION", parameters.submissionId(),
                 submission.version(), "确认评分：" + submission.studentName(),
                 "确认后将按预览保存评分；选择立即发布时学生会收到正式成绩通知。", preview);
     }
@@ -399,6 +419,19 @@ public class AiActionService {
         }
         return entity;
     }
+
+    private AiActionEntity refreshExpiry(AiActionEntity entity) {
+        if (WAITING_CONFIRMATION.equals(entity.getStatus())
+                && entity.getExpiresAt() != null
+                && !entity.getExpiresAt().isAfter(now())) {
+            entity.setStatus(EXPIRED);
+            entity.setErrorCode("ACTION_EXPIRED");
+            entity.setErrorMessage("动作计划已过期，请重新规划后再确认");
+            updateOrConflict(entity);
+        }
+        return entity;
+    }
+
 
     private AiActionEntity findByIdempotencyKey(String idempotencyKey) {
         return mapper.selectOne(Wrappers.<AiActionEntity>lambdaQuery()

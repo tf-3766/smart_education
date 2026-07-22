@@ -31,6 +31,10 @@
                   <dt>{{ label }}</dt><dd>{{ value }}</dd>
                 </template>
               </dl>
+              <ol class="action-stages" aria-label="执行阶段">
+                <li v-for="(stage, index) in actionStages" :key="stage" :class="actionStageClass(action, index)"><i />{{ stage }}</li>
+              </ol>
+
               <label v-if="action.status === 'WAITING_CONFIRMATION' && action.confirmationPolicy === 'STRONG_CONFIRM'" class="strong-confirm">
                 <span>输入“确认执行”后方可提交</span>
                 <input v-model="strongConfirmInputs[action.actionId]" autocomplete="off" placeholder="确认执行" />
@@ -42,6 +46,7 @@
                   <button v-if="action.status === 'WAITING_CONFIRMATION'" type="button" :disabled="actionBusy.has(action.actionId)" @click="cancelAction(action)"><X :size="14" />取消</button>
                   <button v-if="action.status === 'WAITING_CONFIRMATION'" class="confirm" type="button" :disabled="actionBusy.has(action.actionId) || !canConfirmAction(action)" @click="confirmAction(action)"><Check :size="14" />确认执行</button>
                   <button v-if="action.href" type="button" @click="openAction(action)"><ExternalLink :size="14" />查看</button>
+                  <button v-if="retryableAction(action)" type="button" :disabled="actionBusy.has(action.actionId)" @click="retryAction(action)"><RotateCcw :size="14" />重新规划</button>
                 </div>
               </div>
             </section>
@@ -52,9 +57,9 @@
         </article>
         <div v-if="asking" class="thinking"><span /><span /><span /></div>
       </div>
-      <div v-if="pendingActions.length" class="pending-strip">
-        <span>{{ pendingActions.length }} 个待确认动作</span>
-        <button type="button" @click="showPendingActions">查看</button>
+      <div v-if="persistedActions.length" class="pending-strip">
+        <span>AI 任务中心 · {{ pendingActions.length }} 个待确认</span>
+        <button type="button" @click="showPendingActions">查看全部</button>
       </div>
       <div v-if="messages.length === 1" class="suggestion-row">
         <button v-for="suggestion in suggestions" :key="suggestion" @click="question = suggestion">{{ suggestion }}</button>
@@ -70,7 +75,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { BookOpen, Bot, Check, CheckCircle2, ExternalLink, Minus, Send, Sparkles, X } from 'lucide-vue-next'
+import { BookOpen, Bot, Check, CheckCircle2, ExternalLink, Minus, RotateCcw, Send, Sparkles, X } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { aiApi } from '@/services/api'
 import type { AiActionEvent, AiCapabilityEvent, AiCitationVO, AiToolEvent } from '@/services/api/types'
@@ -99,6 +104,7 @@ const actionBusy = ref(new Set<string>())
 const strongConfirmInputs = ref<Record<string, string>>({})
 const persistedActions = ref<AiActionEvent[]>([])
 const pendingActions = computed(() => persistedActions.value.filter((item) => item.status === 'WAITING_CONFIRMATION'))
+const actionStages = ['生成计划', '风险判断', '预览变化', '用户确认', '执行', '验证结果', '失败补偿']
 const messages = ref<Message[]>([{ id: 'welcome', role: 'assistant', content: '你好，我是知行 AI 助手。我会根据你的角色、当前页面和实际授权能力回答或协助处理业务。', activities: [], actions: [], citations: [] }])
 const defaultPosition = () => ({ x: Math.max(16, window.innerWidth - 92), y: Math.max(90, window.innerHeight - 104) })
 const position = ref(defaultPosition())
@@ -113,9 +119,9 @@ const courseId = computed(() => String(route.params.courseId || route.query.cour
 const lessonId = computed(() => String(route.params.lessonId || route.query.lessonId || '') || null)
 const placeholder = computed(() => courseId.value ? '询问当前课程、资料或操作…' : '询问平台功能或当前页面操作…')
 const suggestions = computed(() => session.currentRole === 'teacher'
-  ? ['总结我当前的教学任务', '进入课程后根据资料生成练习', '分析课程中的学习预警']
+  ? [courseId.value ? '按当前课程资料创建教学包，先给出计划并逐步确认' : '推荐一门课程创建教学包，先只给计划', '按评分标准辅助批改，异常答案进入人工复核', '分析风险学生并生成补救任务计划']
   : session.currentRole === 'admin'
-    ? ['汇总当前平台指标', '有哪些课程或教师待审核？', '当前选课安排是什么？']
+    ? ['生成今日运营简报和异常告警，只提供可确认处理方案', '批量预审待审核教师，逐项给出风险', '分析选课容量、时间窗口与课程供需']
     : ['我接下来有哪些学习任务？', '我的考试和成绩情况如何？', '进入课程后帮我解释资料内容'])
 const floatStyle = computed(() => ({ left: `${position.value.x}px`, top: `${position.value.y}px` }))
 
@@ -222,19 +228,45 @@ async function cancelAction(action: AiActionEvent) {
   catch (error) { replaceAction({ ...action, errorMessage: error instanceof Error ? error.message : '取消失败，请稍后重试。' }) }
   finally { setActionBusy(action.actionId, false) }
 }
+function retryableAction(action: AiActionEvent) {
+  return ['FAILED', 'CANCELLED', 'EXPIRED'].includes(action.status)
+}
+function actionStageClass(action: AiActionEvent, index: number) {
+  if (action.status === 'SUCCEEDED') return index < 6 ? 'done' : ''
+  if (action.status === 'FAILED') return index < 4 ? 'done' : index === 4 ? 'failed' : index === 6 ? 'active' : ''
+  if (action.status === 'EXECUTING') return index < 4 ? 'done' : index === 4 ? 'active' : ''
+  if (action.status === 'WAITING_CONFIRMATION' || action.status === 'DRAFT_CREATED') {
+    return index < 3 ? 'done' : index === 3 ? 'active' : ''
+  }
+  return index < 3 ? 'done' : ''
+}
+async function retryAction(action: AiActionEvent) {
+  if (actionBusy.value.has(action.actionId)) return
+  setActionBusy(action.actionId, true)
+  try {
+    const replanned = await aiApi.retryAction(action)
+    replaceAction(replanned)
+    persistedActions.value = [replanned, ...persistedActions.value.filter((item) => item.actionId !== replanned.actionId)]
+  } catch (error) {
+    replaceAction({ ...action, errorMessage: error instanceof Error ? error.message : '重新规划失败，请稍后重试。' })
+  } finally {
+    setActionBusy(action.actionId, false)
+  }
+}
+
 function showPendingActions() {
   const existing = messages.value.find((item) => item.id === 'persisted-actions')
-  if (existing) existing.actions = [...pendingActions.value]
+  if (existing) existing.actions = [...persistedActions.value]
   else messages.value.push({
-    id: 'persisted-actions', role: 'assistant', content: '以下动作仍在等待你的正式确认：',
-    activities: [], actions: [...pendingActions.value], citations: [],
+    id: 'persisted-actions', role: 'assistant', content: '以下是最近的 AI 自动流动作与审计状态：',
+    activities: [], actions: [...persistedActions.value], citations: [],
   })
   messages.value = [...messages.value]
   openAssistant()
   void scrollToBottom()
 }
 async function loadPersistedActions() {
-  try { persistedActions.value = await aiApi.listActions(20) }
+  try { persistedActions.value = await aiApi.listActions(50) }
   catch { persistedActions.value = [] }
 }
 async function ask() {
@@ -277,8 +309,23 @@ function restorePosition() {
   clampPosition(position.value.x, position.value.y)
 }
 function onResize() { clampPosition(position.value.x, position.value.y) }
-onMounted(() => { restorePosition(); window.addEventListener('resize', onResize); void loadPersistedActions() })
-onBeforeUnmount(() => window.removeEventListener('resize', onResize))
+function composeFromPage(event: Event) {
+  const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt?.trim()
+  if (!prompt) return
+  question.value = prompt
+  if (!open.value) { moved = false; openAssistant() }
+  void scrollToBottom()
+}
+onMounted(() => {
+  restorePosition()
+  window.addEventListener('resize', onResize)
+  window.addEventListener('smart-education:ai-compose', composeFromPage)
+  void loadPersistedActions()
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onResize)
+  window.removeEventListener('smart-education:ai-compose', composeFromPage)
+})
 </script>
 
 <style scoped>
@@ -319,6 +366,16 @@ onBeforeUnmount(() => window.removeEventListener('resize', onResize))
 .action-preview { display: grid; grid-template-columns: minmax(70px,auto) minmax(0,1fr); gap: 4px 10px; margin: 0; padding: 8px; background: #f6f8fb; font-size: 10px; }
 .action-preview dt { color: #64748b; }
 .action-preview dd { min-width: 0; margin: 0; color: #273548; overflow-wrap: anywhere; }
+.action-stages { display: grid; grid-template-columns: repeat(5,1fr); gap: 3px; margin: 1px 0; padding: 0; list-style: none; color: #94a3b8; font-size: 9px; }
+.action-stages li { display: grid; grid-template-columns: 7px 1fr; gap: 3px; align-items: center; white-space: nowrap; }
+.action-stages i { width: 7px; height: 7px; border: 1px solid #cbd5e1; border-radius: 50%; background: #fff; }
+.action-stages li.done { color: #176d54; }
+.action-stages li.done i { border-color: #22a47a; background: #22a47a; }
+.action-stages li.active { color: #9a6700; font-weight: 700; }
+.action-stages li.active i { border-color: #e5a000; background: #fff1b8; box-shadow: 0 0 0 2px #fff6d6; }
+.action-stages li.failed { color: #b42318; font-weight: 700; }
+.action-stages li.failed i { border-color: #dc4c4c; background: #dc4c4c; }
+
 .strong-confirm { display: grid; gap: 5px; color: #8a4308; font-size: 10px; }
 .strong-confirm input { min-width: 0; border: 1px solid #e2b979; padding: 6px 8px; color: #502b08; background: #fffaf3; font: inherit; }
 .action-error { color: #b42318 !important; }

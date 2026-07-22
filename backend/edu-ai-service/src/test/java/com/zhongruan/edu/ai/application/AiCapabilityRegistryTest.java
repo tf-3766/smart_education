@@ -15,11 +15,11 @@ class AiCapabilityRegistryTest {
                 .doesNotContain("admin.teacher-registration.review", "course.submission.grade");
         assertThat(registry.available("TEACHER", null))
                 .extracting(item -> item.capabilityId())
-                .contains("course.submission.grade", "course.assignment.publish")
+                .contains("course.submission.grade", "course.submission.batch-grade-assist", "course.assignment.publish", "course.teaching-package.plan", "course.risk-intervention.plan")
                 .doesNotContain("platform.term-enrollment-window.upsert");
         assertThat(registry.available("SUPER_ADMIN", null))
                 .extracting(item -> item.capabilityId())
-                .contains("admin.teacher-registration.review", "platform.term-enrollment-window.upsert")
+                .contains("admin.teacher-registration.review", "platform.term-enrollment-window.upsert", "admin.operations-brief.generate")
                 .doesNotContain("course.assignment.create");
     }
 

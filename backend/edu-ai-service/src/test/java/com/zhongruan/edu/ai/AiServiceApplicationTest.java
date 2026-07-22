@@ -193,6 +193,23 @@ class AiServiceApplicationTest {
                 .jsonPath("$.data.status").isEqualTo("FRAMEWORK_ONLY");
 
         webTestClient.post()
+                .uri("/api/v1/ai/submissions/batch-grading-draft")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"submissionIds":["32001"],"rubric":"概念准确 60 分，示例完整 40 分","reviewThreshold":0.75}
+                        """)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.data.totalCount").isEqualTo(1)
+                .jsonPath("$.data.reviewCount").isEqualTo(1)
+                .jsonPath("$.data.status").isEqualTo("FRAMEWORK_ONLY")
+                .jsonPath("$.data.items[0].submissionId").isEqualTo("32001")
+                .jsonPath("$.data.items[0].reviewRequired").isEqualTo(true)
+                .jsonPath("$.data.items[0].anomalyCodes[0]").exists();
+
+        webTestClient.post()
                 .uri("/api/v1/ai/warnings/36001/explanation")
                 .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
                 .contentType(MediaType.APPLICATION_JSON)

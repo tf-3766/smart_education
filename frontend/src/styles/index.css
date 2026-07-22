@@ -1,7 +1,27 @@
+@font-face {
+  font-family: 'Inter';
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+  src: url('../assets/fonts/Inter.var.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: italic;
+  src: url('../assets/fonts/Inter-Italic.var.woff2') format('woff2');
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* 在线教育辅助教学系统 · 前端视觉层
    参照 UI设计规范 与 teaching-workbench-demo：腾讯云控制台风格。
    蓝色为唯一品牌强调色；纯白面板 + 1px 描边分隔（不用阴影）；表格优先、信息密集、低装饰。
-   frappe-ui 组件保持亮色语义 token，本层用显式 CSS 变量精确对齐控制台配色。 */
+   本层使用本地 CSS 变量精确对齐控制台配色，不依赖第三方 UI 运行时。 */
 
 :root {
   /* 品牌蓝 */
@@ -222,7 +242,7 @@ button, a, select { cursor: pointer; }
 .seg button { padding: 5px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; }
 .seg button.active { color: var(--brand-ink); background: var(--brand-weak); }
 
-/* ============ 按钮（frappe-ui Button 外观统一为蓝色控制台） ============ */
+/* ============ 按钮（统一为蓝色控制台外观） ============ */
 .app-btn-primary, .app-btn-secondary { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; white-space: nowrap !important; border-radius: 6px !important; font-weight: 600 !important; transition: background-color .14s, color .14s, border-color .14s !important; }
 .app-btn-primary > *, .app-btn-secondary > *, .app-btn-primary .truncate, .app-btn-secondary .truncate { display: inline-flex; align-items: center; white-space: nowrap; }
 .app-btn-primary { background-color: var(--brand) !important; color: #fff !important; box-shadow: none !important; }

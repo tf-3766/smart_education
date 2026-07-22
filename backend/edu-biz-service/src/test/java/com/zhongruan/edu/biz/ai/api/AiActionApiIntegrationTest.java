@@ -51,6 +51,7 @@ class AiActionApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("WAITING_CONFIRMATION"))
                 .andExpect(jsonPath("$.data.riskLevel").value("HIGH"))
+                .andExpect(jsonPath("$.data.confirmationPolicy").value("STRONG_CONFIRM"))
                 .andExpect(jsonPath("$.data.preview.学期").value("2031 春季"))
                 .andReturn();
         String actionId = body(planned).path("data").path("actionId").asText();
@@ -67,7 +68,9 @@ class AiActionApiIntegrationTest {
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/v1/assistant-actions/{actionId}/confirm", actionId)
-                        .header("Authorization", bearer(admin.token())))
+                        .header("Authorization", bearer(admin.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"confirmationText\":\"确认执行\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.data.resourceType").value("TERM_ENROLLMENT_WINDOW"))

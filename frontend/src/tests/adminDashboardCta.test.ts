@@ -12,4 +12,12 @@ describe('admin dashboard announcement call to action', () => {
     expect(source).toContain('<ArrowRight')
     expect(source).toContain("router.push('/admin/content')")
   })
+
+  it('renders the operations brief and hands confirmed planning to the assistant', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/domains/admin/AdminDashboardPage.vue'), 'utf8')
+
+    expect(source).toContain('aiApi.adminOperationsBrief')
+    expect(source).toContain('每日运营简报')
+    expect(source).toContain("smart-education:ai-compose")
+  })
 })

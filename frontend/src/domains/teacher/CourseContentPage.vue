@@ -10,6 +10,27 @@
     </div>
     <div v-if="message" class="toast">{{ message }}</div>
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="load" />
+    <section class="ai-workflow-panel" aria-labelledby="teaching-package-title">
+      <div class="workflow-copy">
+        <span class="ai-workflow-chip"><Sparkles :size="14" />AI P0 自动流</span>
+        <h2 id="teaching-package-title">一键规划课程教学包</h2>
+        <p>读取当前课程课时与资料，先生成完整计划；后续按步骤确认，只创建草稿，不静默发布。</p>
+      </div>
+      <ol class="workflow-steps">
+        <li v-for="(step, index) in packageSteps" :key="step.title"><span>{{ index + 1 }}</span><div><strong>{{ step.title }}</strong><p>{{ step.hint }}</p></div></li>
+      </ol>
+      <label class="workflow-instruction"><span>补充要求（可选）</span><input v-model="packageInstruction" class="input" placeholder="例如：面向零基础学生，控制在 2 学时" /></label>
+      <p v-if="packageError" class="form-error" role="alert">{{ packageError }}</p>
+      <AiResultPanel v-if="packagePlan" :result="packagePlan" :allow-adopt="false" />
+      <footer class="workflow-actions">
+        <span><ShieldCheck :size="15" />发布作业、成绩、通知等仍需单独确认</span>
+        <div class="row wrap">
+          <AppButton variant="secondary" :loading="packageLoading" @click="generatePackagePlan">{{ packagePlan ? '重新生成计划' : '生成执行计划' }}</AppButton>
+          <AppButton v-if="packagePlan" variant="primary" @click="startPackageWorkflow"><span class="row">交给 AI 助手逐步执行<ArrowRight :size="15" /></span></AppButton>
+        </div>
+      </footer>
+    </section>
+
     <section class="panel flush">
       <div class="panel-head"><h2>章节</h2><span class="count">共 {{ chapters.length }} 章 · 点击某一章可在下方管理其课时</span></div>
       <div class="table-scroll"><table class="table">
@@ -125,7 +146,7 @@
 import { formatDateTime } from '@/utils/datetime'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { Plus } from 'lucide-vue-next'
+import { ArrowRight, Plus, ShieldCheck, Sparkles } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'; import AiAssistButton from '@/components/AiAssistButton.vue'
 import { aiApi, courseContentApi, filesApi, teacherCoursesApi } from '@/services/api'; import type { AiKnowledgeBaseStatusVO, ChapterDetailVO, CourseDetailVO, CourseMaterialVO, LessonDetailVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
 import { aiDraftToResult } from '@/services/aiDraft'
@@ -144,6 +165,30 @@ const materials = ref<CourseMaterialVO[]>([])
 const materialForm = reactive({ open: false, materialId: '', name: '', source: 'link', visibility: 'COURSE', chapterId: '', lessonId: '', fileUrl: '', fileId: '', fileSize: 0, mimeType: '', materialType: 'DOCUMENT', sortOrder: 10, status: 'DRAFT', version: 0, uploading: false })
 const materialLessons = ref<LessonDetailVO[]>([])
 const formatTime = formatDateTime
+const packageSteps = [
+  { title: '资料梳理', hint: '读取课时与资料正文并核对引用' },
+  { title: '教案设计', hint: '预览教学目标、重难点和活动' },
+  { title: '课时摘要', hint: '逐课时生成可审阅摘要' },
+  { title: '作业草稿', hint: '创建草稿，不自动发布' },
+  { title: '题库题目', hint: '生成题库并进入人工复核' },
+  { title: '公告草稿', hint: '生成公告，不自动通知学生' },
+]
+const packageInstruction = ref(''); const packagePlan = ref<AiResult | null>(null); const packageLoading = ref(false); const packageError = ref('')
+
+async function generatePackagePlan() {
+  packageLoading.value = true; packageError.value = ''
+  try {
+    const draft = await aiApi.teachingPackagePlan(courseId, packageInstruction.value.trim() || undefined)
+    packagePlan.value = aiDraftToResult(draft, 'teaching-package', 'AI 教学包执行计划')
+  } catch (caught) { packageError.value = aiErrorMessage(caught) }
+  finally { packageLoading.value = false }
+}
+function startPackageWorkflow() {
+  const instruction = packageInstruction.value.trim()
+  window.dispatchEvent(new CustomEvent('smart-education:ai-compose', { detail: { prompt: `请按刚才的教学包计划逐步执行。先执行“资料梳理”，展示依据和预览，等待我确认后再进入下一步。${instruction ? `补充要求：${instruction}` : ''}` } }))
+  flash('已将教学包计划交给 AI 助手，请逐步骤确认')
+}
+
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
 
 async function syncKnowledgeBase() {
@@ -155,12 +200,15 @@ async function syncKnowledgeBase() {
 }
 
 async function load() {
-  const result = await state.run(async () => ({
-    detail: await teacherCoursesApi.getDetail(courseId),
-    chapters: await courseContentApi.listChapters(courseId),
-    materials: await courseContentApi.listMaterials(courseId, { page: 1, size: 100 }),
-    knowledge: await aiApi.knowledgeBaseStatus(courseId).catch(() => null),
-  }))
+  const result = await state.run(async () => {
+    const [detail, chapters, materials, knowledge] = await Promise.all([
+      teacherCoursesApi.getDetail(courseId),
+      courseContentApi.listChapters(courseId),
+      courseContentApi.listMaterials(courseId, { page: 1, size: 100 }),
+      aiApi.knowledgeBaseStatus(courseId).catch(() => null),
+    ])
+    return { detail, chapters, materials, knowledge }
+  })
   if (result) {
     course.value = result.detail; chapters.value = result.chapters; materials.value = result.materials.records; knowledgeStatus.value = result.knowledge
     // 默认选中首个章节，让「课时」区块直接可见（否则未选章节时该区块隐藏，易被误认为缺失）。
@@ -359,9 +407,26 @@ async function materialAction(material: CourseMaterialVO, status: 'PUBLISHED' | 
 
 async function removeMaterial(material: CourseMaterialVO) {
   if (!window.confirm(`删除资料「${material.name}」？`)) return
+
   const result = await state.run(async () => { await courseContentApi.deleteMaterial(material.materialId); return true })
   if (result) { flash('资料已删除'); await load() }
 }
 
 onMounted(load)
 </script>
+
+<style scoped>
+.ai-workflow-panel { display: grid; gap: 16px; margin-bottom: 18px; padding: 20px; border: 1px solid #bfd4f5; border-radius: 16px; background: linear-gradient(120deg, #f4f8ff 0%, #fff 55%, #f7f5ff 100%); box-shadow: 0 10px 28px rgba(37,99,235,.07); }
+.workflow-copy h2 { margin: 8px 0 4px; color: var(--ink); font-size: 20px; }
+.workflow-copy p, .workflow-steps p { margin: 0; color: var(--muted); font-size: 12px; }
+.ai-workflow-chip { display: inline-flex; gap: 6px; align-items: center; width: fit-content; padding: 4px 8px; border-radius: 999px; color: #2458bd; background: #e6efff; font-size: 11px; font-weight: 700; }
+.workflow-steps { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.workflow-steps li { display: grid; grid-template-columns: 24px minmax(0,1fr); gap: 8px; padding: 10px; border: 1px solid #dfe8f5; background: rgba(255,255,255,.85); }
+.workflow-steps li > span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: #3568db; font-size: 11px; font-weight: 800; }
+.workflow-steps strong { display: block; color: #273548; font-size: 12px; }
+.workflow-instruction { display: grid; gap: 6px; color: #475569; font-size: 12px; }
+.workflow-actions { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+.workflow-actions > span { display: inline-flex; gap: 6px; align-items: center; color: #64748b; font-size: 11px; }
+@media (max-width: 1080px) { .workflow-steps { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 680px) { .workflow-steps { grid-template-columns: 1fr; } .workflow-actions { align-items: stretch; flex-direction: column; } }
+</style>

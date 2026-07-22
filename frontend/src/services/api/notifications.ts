@@ -87,7 +87,7 @@ function demoRows(): NotificationVO[] {
       row.content,
       row.scopeType === 'COURSE' ? 'COURSE' : 'SYSTEM',
       'ANNOUNCEMENT',
-      row.publishedAt,
+      row.publishedAt ?? nowIso(),
       { announcementId: row.announcementId, courseId: row.courseId },
     )))
 

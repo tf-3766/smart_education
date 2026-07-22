@@ -94,7 +94,7 @@ public class CourseAuthoringTools {
             if (result == null) {
                 return "题库草稿创建请求已发送，但未返回结果，请稍后到题库页面核对。";
             }
-            emitCreated("course.question-bank.create", result, "/teacher/exams?bankId=" + result.resourceId());
+            emitCreated("course.question-bank.create", result, "/teacher/exams?courseId=" + courseId + "&bankId=" + result.resourceId());
             return "已创建 AI 草稿题库《%s》，题库 ID=%s，含 %d 道题，状态为待确认（AI 草稿）。请提示教师到该课程的题库页面确认后发布。"
                     .formatted(result.title(), result.resourceId(), result.itemCount());
         } catch (RuntimeException exception) {
@@ -125,7 +125,7 @@ public class CourseAuthoringTools {
             if (result == null) {
                 return "作业草稿创建请求已发送，但未返回结果，请稍后到作业页面核对。";
             }
-            emitCreated("course.assignment.create", result, "/teacher/assignments?assignmentId=" + result.resourceId());
+            emitCreated("course.assignment.create", result, "/teacher/assignments?courseId=" + courseId + "&assignmentId=" + result.resourceId());
             return "已创建 AI 草稿作业《%s》，作业 ID=%s，作答方式为文本，状态为待确认（DRAFT）。请提示教师到作业页面确认发布。"
                     .formatted(result.title(), result.resourceId());
         } catch (RuntimeException exception) {
@@ -152,7 +152,7 @@ public class CourseAuthoringTools {
             if (result == null) {
                 return "考试草稿创建请求已发送，但未返回结果，请稍后到考试页面核对。";
             }
-            emitCreated("course.exam.create", result, "/teacher/exams?examId=" + result.resourceId());
+            emitCreated("course.exam.create", result, "/teacher/exams?courseId=" + courseId + "&examId=" + result.resourceId());
             return "已创建 AI 草稿考试《%s》，考试 ID=%s，状态为草稿（DRAFT）。请提示教师到考试页面组卷选题并发布，本工具未自动选题。"
                     .formatted(result.title(), result.resourceId());
         } catch (RuntimeException exception) {
@@ -179,7 +179,7 @@ public class CourseAuthoringTools {
             if (result == null) {
                 return "公告草稿创建请求已发送，但未返回结果，请稍后到公告页面核对。";
             }
-            emitCreated("course.announcement.create", result, "/teacher/forum?announcementId=" + result.resourceId());
+            emitCreated("course.announcement.create", result, "/teacher/forum?courseId=" + courseId + "&announcementId=" + result.resourceId());
             return "已创建 AI 草稿公告《%s》，公告 ID=%s，尚未推送学生。请提示教师到公告页面确认发布后学生才会收到。"
                     .formatted(result.title(), result.resourceId());
         } catch (RuntimeException exception) {

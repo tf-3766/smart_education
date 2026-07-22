@@ -1,8 +1,11 @@
 package com.zhongruan.edu.ai.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,8 +70,19 @@ class CourseKnowledgeBaseServiceTest {
             assertThat(citation.resourceId()).isEqualTo("23001");
             assertThat(citation.title()).isEqualTo("依赖注入");
         });
-        verify(vectorStore).delete(any(Filter.Expression.class));
+        ArgumentCaptor<Filter.Expression> deleteFilter = ArgumentCaptor.forClass(Filter.Expression.class);
+        verify(vectorStore).delete(deleteFilter.capture());
+        Filter.Expression deleteCourseFilter = (Filter.Expression) deleteFilter.getValue().left();
+        assertThat(((Filter.Value) deleteCourseFilter.right()).value()).isEqualTo("21001");
         verify(vectorStore).add(any());
+
+        ArgumentCaptor<SearchRequest> searchRequest = ArgumentCaptor.forClass(SearchRequest.class);
+        verify(vectorStore).similaritySearch(searchRequest.capture());
+        Filter.Expression combined = searchRequest.getValue().getFilterExpression();
+        Filter.Expression courseFilter = (Filter.Expression) combined.left();
+        Filter.Expression lessonFilter = (Filter.Expression) combined.right();
+        assertThat(((Filter.Value) courseFilter.right()).value()).isEqualTo("21001");
+        assertThat(((Filter.Value) lessonFilter.right()).value()).isEqualTo("23001");
     }
     @Test
     void splitsEmbeddingWritesIntoProviderSafeBatches() {
@@ -94,6 +108,26 @@ class CourseKnowledgeBaseServiceTest {
         assertThat(status.indexedChunks()).isEqualTo(23);
     }
 
+    @Test
+    void keepsPreviousIndexWhenEmbeddingFails() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<VectorStore> provider = mock(ObjectProvider.class);
+        VectorStore vectorStore = mock(VectorStore.class);
+        when(provider.getIfAvailable()).thenReturn(vectorStore);
+        doThrow(new IllegalStateException("embedding unavailable")).when(vectorStore).add(any());
+        CourseKnowledgeBaseService service = new CourseKnowledgeBaseService(provider);
+        AiCourseContextResponse context = new AiCourseContextResponse(
+                21001L, "COURSE-001", "Spring 课程", "PUBLISHED", "APPROVED",
+                1002L, true, false,
+                List.of(new AiLessonRef(23001L, 22001L, "依赖注入", "PUBLISHED",
+                        "RICH_TEXT", "依赖注入正文", 30)),
+                List.of());
+
+        assertThatThrownBy(() -> service.sync(context))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("embedding unavailable");
+        verify(vectorStore, never()).delete(any(Filter.Expression.class));
+    }
     @Test
     void fallsBackWhenVectorStoreIsTemporarilyUnavailable() {
         @SuppressWarnings("unchecked")

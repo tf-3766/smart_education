@@ -71,6 +71,31 @@
         <span class="summary-warn"><strong>{{ missingCount }}</strong> 未提交</span>
         <span><strong>{{ gradedCount }}</strong> 已批改</span>
       </div>
+      <section class="batch-grading-launch">
+        <div><span class="ai-batch-chip"><Sparkles :size="14" />AI P1 辅助批改</span><strong>按评分标准批量生成建议</strong><p>低置信度、空答案和异常结果自动进入人工复核；不会批量保存或发布成绩。</p></div>
+        <AppButton variant="secondary" :disabled="!batchCandidates.length" @click="openBatchGrading">{{ batchPanelOpen ? '收起批量辅助' : `辅助批改 ${batchCandidates.length} 份` }}</AppButton>
+      </section>
+      <section v-if="batchPanelOpen" class="batch-grading-panel" aria-labelledby="batch-grading-title">
+        <div class="spread wrap"><div><h3 id="batch-grading-title">批量辅助批改设置</h3><p>评分标准越具体，建议越可复核。已发布成绩不会加入本次批次。</p></div><span class="safety-note"><ShieldCheck :size="14" />仅生成草稿</span></div>
+        <label class="field-label">评分标准<textarea v-model="batchRubric" class="textarea" rows="3" placeholder="例如：概念准确 40 分，步骤完整 30 分，边界情况 20 分，表达规范 10 分" /></label>
+        <div class="batch-settings">
+          <label class="field-label">人工复核阈值<select v-model.number="batchThreshold" class="select"><option :value="0.7">70%</option><option :value="0.75">75%</option><option :value="0.8">80%</option><option :value="0.85">85%</option></select></label>
+          <div class="batch-generate"><span>{{ batchCandidates.length }} 份待处理</span><AppButton variant="primary" :loading="batchLoading" :disabled="!batchRubric.trim() || !batchCandidates.length" @click="generateBatchGrading">生成批改建议</AppButton></div>
+        </div>
+        <p v-if="batchError" class="form-error" role="alert">{{ batchError }}</p>
+        <template v-if="batchDraft">
+          <div class="batch-summary"><span><strong>{{ batchDraft.totalCount }}</strong> 已分析</span><span class="review"><strong>{{ batchDraft.reviewCount }}</strong> 需人工复核</span><span><strong>{{ batchDraft.totalCount - batchDraft.reviewCount }}</strong> 可优先检查</span></div>
+          <div class="batch-results">
+            <article v-for="item in batchDraft.items" :key="item.submissionId" class="batch-result" :class="{ review: item.reviewRequired }" data-test="batch-grade-result">
+              <div class="spread wrap"><div><strong>{{ batchStudentName(item.submissionId) }}</strong><p>建议 {{ item.suggestedScore ?? '—' }} / {{ item.maxScore }} 分</p></div><StatusBadge :tone="item.reviewRequired ? 'amber' : 'green'" :label="item.reviewRequired ? '人工复核' : '优先检查'" /></div>
+              <div class="confidence"><span>置信度 {{ Math.round(item.confidence * 100) }}%</span><i><b :style="{ width: `${Math.round(item.confidence * 100)}%` }" /></i></div>
+              <p class="batch-comment">{{ item.comment }}</p>
+              <ul v-if="item.reviewReasons.length" class="review-reasons"><li v-for="reason in item.reviewReasons" :key="reason">{{ reason }}</li></ul>
+              <button class="text-link" type="button" @click="adoptBatchSuggestion(item)">打开原提交并人工确认</button>
+            </article>
+          </div>
+        </template>
+      </section>
       <div class="roster-grid">
         <article v-for="item in roster" :key="item.studentId" class="roster-card" data-test="roster-item">
           <div class="student-avatar" aria-hidden="true">{{ (item.studentName || '学').slice(0, 1) }}</div>
@@ -111,11 +136,11 @@
 <script setup lang="ts">
 import { formatDateTime } from '@/utils/datetime'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Plus } from 'lucide-vue-next'
+import { Plus, ShieldCheck, Sparkles } from 'lucide-vue-next'
 import AiAssistButton from '@/components/AiAssistButton.vue'
 import { useRoute } from 'vue-router'
 import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'
-import { aiApi, assignmentsApi, teacherCoursesApi } from '@/services/api'; import type { AssignmentDetailVO, AssignmentQuestion, AssignmentQuestionType, TeacherCourseListItemVO, TeacherSubmissionGradeVO, TeacherSubmissionRosterVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
+import { aiApi, assignmentsApi, teacherCoursesApi } from '@/services/api'; import type { AssignmentDetailVO, AssignmentQuestion, AssignmentQuestionType, BatchGradingDraftItemVO, BatchGradingDraftVO, TeacherCourseListItemVO, TeacherSubmissionGradeVO, TeacherSubmissionRosterVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
 import { aiDraftToResult } from '@/services/aiDraft'
 import { aiErrorMessage } from '@/services/aiHint'
 import type { AiResult } from '@/types/domain'
@@ -130,6 +155,11 @@ const gradedCount = computed(() => roster.value.filter((item) => item.submission
 const targetAssignmentId = computed(() => typeof route.query.assignmentId === 'string' ? route.query.assignmentId : '')
 const targetCourseId = computed(() => typeof route.query.courseId === 'string' ? route.query.courseId : '')
 const formatTime = formatDateTime
+const batchPanelOpen = ref(false); const batchRubric = ref(''); const batchThreshold = ref(0.75); const batchLoading = ref(false); const batchError = ref(''); const batchDraft = ref<BatchGradingDraftVO | null>(null)
+const batchCandidates = computed(() => roster.value.flatMap((item) => item.submission && item.submission.gradeStatus?.code !== 'PUBLISHED' ? [item.submission] : []))
+function openBatchGrading() { batchPanelOpen.value = !batchPanelOpen.value; batchError.value = ''; if (!batchRubric.value) batchRubric.value = selectedAssignment.value?.description?.trim() || '概念准确、步骤完整、边界情况与表达规范；结合满分按完成质量给出建议。' }
+function batchStudentName(submissionId: string) { return roster.value.find((item) => item.submission?.submissionId === submissionId)?.studentName || submissionId }
+
 function assignmentTone(item: AssignmentDetailVO) { return item.assignmentStatus.code === 'PUBLISHED' ? 'green' : item.assignmentStatus.code === 'CLOSED' ? 'gray' : 'amber' }
 function assignmentLabel(item: AssignmentDetailVO) { return item.assignmentStatus.code === 'DRAFT' && item.source === 'AI' ? 'AI 草稿' : item.assignmentStatus.label }
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
@@ -172,6 +202,27 @@ function openAssignmentForm() { Object.assign(assignmentForm, { open: true, assi
 function addQuestion() { assignmentForm.questions.push(newQuestion()) }
 function removeQuestion(index: number) { assignmentForm.questions.splice(index, 1) }
 function choiceQuestion(type: AssignmentQuestionType) { return ['SINGLE_CHOICE', 'MULTI_CHOICE', 'TRUE_FALSE'].includes(type) }
+async function generateBatchGrading() {
+  if (!batchCandidates.value.length || !batchRubric.value.trim()) return
+  batchLoading.value = true; batchError.value = ''
+  try {
+    batchDraft.value = await aiApi.batchGradingDraft({
+      submissionIds: batchCandidates.value.map((item) => item.submissionId),
+      rubric: batchRubric.value.trim(),
+      reviewThreshold: batchThreshold.value,
+      instruction: '只生成建议，不保存、不发布成绩；异常答案必须说明复核原因。',
+    })
+  } catch (caught) { batchError.value = aiErrorMessage(caught) }
+  finally { batchLoading.value = false }
+}
+function adoptBatchSuggestion(item: BatchGradingDraftItemVO) {
+  const submission = batchCandidates.value.find((candidate) => candidate.submissionId === item.submissionId)
+  if (!submission) return
+  open(submission)
+  score.value = item.suggestedScore ?? null
+  comment.value = item.comment
+}
+
 function resetQuestion(question: AssignmentQuestion) {
   if (question.questionType === 'TRUE_FALSE') { question.options = ['正确', '错误']; question.correctAnswers = ['0']; return }
   if (choiceQuestion(question.questionType)) { question.options = ['', '', '', '']; question.correctAnswers = ['0']; return }
@@ -246,4 +297,20 @@ watch([targetAssignmentId, targetCourseId], () => { void load() })
 .roster-main { min-width: 0; }
 .roster-main p { margin: 4px 0 0; }
 .roster-meta { margin: 12px 0 !important; color: var(--muted); font-size: 13px; }
-@media (max-width: 760px) { .roster-grid { grid-template-columns: 1fr; } }</style>
+@media (max-width: 760px) { .roster-grid { grid-template-columns: 1fr; } }
+.batch-grading-launch { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 16px; padding: 16px; border: 1px solid #cfe0f5; background: linear-gradient(120deg,#f0f7ff,#fff 62%,#f5f3ff); }
+.batch-grading-launch > div { display: grid; gap: 5px; }
+.batch-grading-launch strong { color: var(--ink); }
+.batch-grading-launch p, .batch-grading-panel p { margin: 0; color: var(--muted); font-size: 12px; }
+.ai-batch-chip { display: inline-flex; align-items: center; gap: 5px; width: fit-content; color: #2458bd; font-size: 11px; font-weight: 800; }
+.batch-grading-panel { display: grid; gap: 14px; margin-bottom: 18px; padding: 18px; border: 1px solid #cbd9ed; background: #f8fbff; }
+.batch-grading-panel h3 { margin: 0 0 4px; color: var(--ink); font-size: 16px; }
+.safety-note { display: inline-flex; align-items: center; gap: 5px; color: #15704f; font-size: 12px; font-weight: 750; }
+.batch-settings { display: grid; grid-template-columns: minmax(160px,.35fr) 1fr; gap: 14px; align-items: end; }
+.batch-generate { display: flex; justify-content: flex-end; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
+.batch-summary { display: flex; flex-wrap: wrap; gap: 10px; }.batch-summary span { padding: 8px 10px; border: 1px solid var(--line); background: #fff; }.batch-summary strong { color: var(--ink); }.batch-summary .review { color: #9a5c00; background: #fff8e7; border-color: #f4d795; }
+.batch-results { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; max-height: 420px; overflow: auto; }
+.batch-result { display: grid; gap: 10px; padding: 14px; border: 1px solid #cfe3d9; background: #fff; }.batch-result.review { border-color: #f1cf86; background: #fffdfa; }.batch-result p { margin: 3px 0 0; }.batch-comment { line-height: 1.55; }
+.confidence { display: grid; gap: 5px; color: var(--muted); font-size: 11px; }.confidence i { height: 5px; overflow: hidden; border-radius: 99px; background: #e2e8f0; }.confidence b { display: block; height: 100%; border-radius: inherit; background: #3974dd; }.review-reasons { margin: 0; padding-left: 17px; color: #946200; font-size: 11px; line-height: 1.55; }
+@media (max-width:760px) { .batch-grading-launch { align-items: stretch; flex-direction: column; }.batch-settings,.batch-results { grid-template-columns:1fr; }.batch-generate { justify-content:space-between; } }
+</style>

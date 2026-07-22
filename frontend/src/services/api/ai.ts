@@ -5,7 +5,7 @@
 import { demoDelay } from '../runtime'
 import { get, isRealMode, post, postEventStream } from './client'
 import { db, nextId, notFound, nowIso } from './demo/db'
-import type { AiActionEvent, AiCitationVO, AiDraftVO, AssistantChatRequest, AiKnowledgeBaseStatusVO, AiServiceStatusVO, AiStreamEvent, CourseQaRequest, LessonSummaryRequest, PaperSuggestionRequest } from './types'
+import type { AiActionEvent, AiCitationVO, AiDraftVO, AssistantChatRequest, AiKnowledgeBaseStatusVO, AiServiceStatusVO, AiStreamEvent, BatchGradingDraftRequest, BatchGradingDraftVO, CourseQaRequest, LessonSummaryRequest, PaperSuggestionRequest } from './types'
 
 function draft(draftType: string, businessId: string, content: string, citations: AiCitationVO[] = []): AiDraftVO {
   return {
@@ -64,6 +64,10 @@ export const aiApi = {
     if (isRealMode()) return post<AiActionEvent>(`/api/v1/assistant-actions/${action.actionId}/cancel`)
     return demoDelay({ ...action, status: 'CANCELLED', requiresConfirmation: false })
   },
+  async retryAction(action: AiActionEvent): Promise<AiActionEvent> {
+    if (isRealMode()) return post<AiActionEvent>(`/api/v1/assistant-actions/${action.actionId}/retry`)
+    return demoDelay({ ...action, actionId: nextId(), status: 'WAITING_CONFIRMATION', requiresConfirmation: true, errorCode: null, errorMessage: null, confirmedAt: null, executedAt: null, createdAt: nowIso() })
+  },
   async listActions(limit = 20): Promise<AiActionEvent[]> {
     if (isRealMode()) return get<AiActionEvent[]>('/api/v1/assistant-actions', { limit })
     return demoDelay([])
@@ -106,6 +110,29 @@ export const aiApi = {
   },
 
   /** AI 服务状态（管理员）。配置来自后端环境变量，前端只读取状态。 */
+  async teachingPackagePlan(courseId: string, instruction?: string): Promise<AiDraftVO> {
+    if (isRealMode()) return post<AiDraftVO>(`/api/v1/ai/courses/${courseId}/teaching-package-plan`, { instruction: instruction ?? null })
+    const course = db.courses.find((item) => item.courseId === courseId) ?? notFound('课程不存在。')
+    return demoDelay(draft('TEACHING_PACKAGE_PLAN', courseId,
+      `《${course.name}》教学包执行计划：\n1. 资料梳理：读取已发布课时与资料，核对引用。\n2. 教案设计：生成教学目标、重难点与课堂活动预览。\n3. 课时摘要：逐课时生成摘要草稿。\n4. 作业草稿：生成作业但不发布。\n5. 题库题目：生成 AI 草稿题库并人工复核。\n6. 公告草稿：生成课程公告但不通知学生。\n\n每一步都需要教师确认，发布作业、题库和公告时再次确认。${instruction ? `\n补充要求：${instruction}` : ''}`,
+      lessonCitations(courseId)))
+  },
+  async adminOperationsBrief(instruction?: string): Promise<AiDraftVO> {
+    if (isRealMode()) return post<AiDraftVO>('/api/v1/ai/admin/operations-brief', { instruction: instruction ?? null })
+    return demoDelay(draft('ADMIN_OPERATIONS_BRIEF', db.session.userId || 'admin',
+      `今日运营简报\n核心指标：平台用户、运行课程、待审核课程与开放预警已完成汇总。\n异常信号：当前演示数据未发现 AI 服务中断；开放预警需要教师持续跟进。\n处理建议：优先核对待审核课程与高等级预警。教师审批、课程下线和批量通知必须进入强确认与完整审计。${instruction ? `\n补充要求：${instruction}` : ''}`))
+  },
+
+  async warningInterventionPlan(warningId: string, instruction?: string): Promise<AiDraftVO> {
+    if (isRealMode()) return post<AiDraftVO>(`/api/v1/ai/warnings/${warningId}/intervention-plan`, { instruction: instruction ?? null })
+    const warning = db.warnings.find((item) => item.warningId === warningId) ?? notFound('预警不存在。')
+    return demoDelay(draft(
+      'RISK_INTERVENTION_PLAN',
+      warningId,
+      `干预计划草稿：\n1. 学生提醒：以尊重、具体的方式说明“${warning.summary}”。\n2. 补救材料：复习对应课时核心概念并完成一组基础练习。\n3. 补交任务：安排可完成的小任务与明确截止时间。\n4. 复查：教师在约定时间核对学习进度与提交结果。\n\n本计划不会自动通知学生或创建任务，须教师逐项确认。${instruction ? `\n补充要求：${instruction}` : ''}`,
+    ))
+  },
+
   async adminStatus(): Promise<AiServiceStatusVO> {
     if (isRealMode()) return get<AiServiceStatusVO>('/api/v1/ai/admin/status')
     return demoDelay({
@@ -130,6 +157,39 @@ export const aiApi = {
       submissionId,
       `${tone}。针对《${assignment?.title ?? '本次作业'}》，建议肯定学生已完成的核心部分，同时指出需要补充的证据或测试样例。可写为：思路基本清楚，建议进一步完善边界条件说明，并补充一组反例验证。`,
     ))
+  },
+
+  async batchGradingDraft(body: BatchGradingDraftRequest): Promise<BatchGradingDraftVO> {
+    if (isRealMode()) return post<BatchGradingDraftVO>('/api/v1/ai/submissions/batch-grading-draft', body)
+    const threshold = body.reviewThreshold ?? 0.75
+    const items = body.submissionIds.map((submissionId) => {
+      const submission = db.submissions.find((item) => item.submissionId === submissionId) ?? notFound('提交不存在。')
+      const assignment = db.assignments.find((item) => item.assignmentId === submission.assignmentId) ?? notFound('作业不存在。')
+      const contentLength = submission.content?.trim().length ?? 0
+      const confidence = contentLength >= 80 ? 0.86 : contentLength >= 40 ? 0.72 : 0.48
+      const anomalyCodes = contentLength === 0 ? ['EMPTY_CONTENT'] : contentLength < 40 ? ['SHORT_ANSWER'] : []
+      if (confidence < threshold) anomalyCodes.push('LOW_CONFIDENCE')
+      const reviewReasons = anomalyCodes.map((code) => code === 'EMPTY_CONTENT'
+        ? '提交正文为空或仅包含附件，需要人工查看原始文件'
+        : code === 'SHORT_ANSWER' ? '答案内容较短，自动评分依据不足' : `置信度低于人工复核阈值 ${Math.round(threshold * 100)}%`)
+      return {
+        submissionId,
+        assignmentId: submission.assignmentId,
+        maxScore: assignment.maxScore,
+        suggestedScore: submission.score ?? Math.round(assignment.maxScore * (confidence >= threshold ? 0.82 : 0.68)),
+        comment: `依据“${body.rubric}”生成的评语建议：已完成主要任务，建议进一步补充边界情况、过程依据和自检说明。`,
+        confidence,
+        reviewRequired: anomalyCodes.length > 0,
+        anomalyCodes,
+        reviewReasons,
+        citations: [{ resourceType: 'SUBMISSION', resourceId: submissionId, title: assignment.title, locator: `submission:${submissionId}` }],
+      }
+    })
+    return demoDelay({
+      requestId: nextId(), rubric: body.rubric, reviewThreshold: threshold,
+      totalCount: items.length, reviewCount: items.filter((item) => item.reviewRequired).length,
+      status: 'DRAFT', items, createdAt: nowIso(),
+    })
   },
 
   /** 预警解读草稿（教师）。真实模式请求后端；仅供参考，处理须教师人工确认。 */

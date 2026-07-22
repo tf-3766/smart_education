@@ -54,15 +54,20 @@ public class CourseKnowledgeBaseService {
 
     public AiKnowledgeBaseStatusVO sync(AiCourseContextResponse context) {
         VectorStore store = requireVectorStore();
-        FilterExpressionBuilder filters = new FilterExpressionBuilder();
-        store.delete(filters.eq("courseId", context.courseId()).build());
-        List<Document> documents = documents(context);
+        String syncVersion = contentHash(context);
+        List<Document> documents = documents(context, syncVersion);
         for (int start = 0; start < documents.size(); start += EMBEDDING_BATCH_SIZE) {
             int end = Math.min(start + EMBEDDING_BATCH_SIZE, documents.size());
             store.add(documents.subList(start, end));
         }
+        // Only remove the previous version after every new chunk was embedded.
+        // A provider outage can therefore leave a mixed-but-readable index, never an empty one.
+        FilterExpressionBuilder filters = new FilterExpressionBuilder();
+        store.delete(filters.and(
+                filters.eq("courseId", String.valueOf(context.courseId())),
+                filters.ne("syncVersion", syncVersion)).build());
         syncStates.put(context.courseId(),
-                new SyncState(documents.size(), OffsetDateTime.now(ZoneOffset.UTC), contentHash(context)));
+                new SyncState(documents.size(), OffsetDateTime.now(ZoneOffset.UTC), syncVersion));
         return status(context.courseId());
     }
 
@@ -99,9 +104,9 @@ public class CourseKnowledgeBaseService {
             return Retrieval.unavailable();
         }
         FilterExpressionBuilder filters = new FilterExpressionBuilder();
-        FilterExpressionBuilder.Op filter = filters.eq("courseId", courseId);
+        FilterExpressionBuilder.Op filter = filters.eq("courseId", String.valueOf(courseId));
         if (lessonId != null) {
-            filter = filters.and(filter, filters.eq("lessonId", lessonId));
+            filter = filters.and(filter, filters.eq("lessonId", String.valueOf(lessonId)));
         }
         List<Document> documents;
         try {
@@ -132,7 +137,7 @@ public class CourseKnowledgeBaseService {
         return store;
     }
 
-    private List<Document> documents(AiCourseContextResponse context) {
+    private List<Document> documents(AiCourseContextResponse context, String syncVersion) {
         List<Document> documents = new ArrayList<>();
         for (AiLessonRef lesson : context.lessons()) {
             if (lesson.content() == null || lesson.content().isBlank()) continue;
@@ -141,6 +146,7 @@ public class CourseKnowledgeBaseService {
                 String id = documentId("course-%d-lesson-%d-chunk-%d".formatted(context.courseId(), lesson.lessonId(), index));
                 Map<String, Object> metadata = new LinkedHashMap<>();
                 metadata.put("courseId", context.courseId());
+                metadata.put("syncVersion", syncVersion);
                 metadata.put("lessonId", lesson.lessonId());
                 metadata.put("resourceType", "LESSON");
                 metadata.put("resourceId", String.valueOf(lesson.lessonId()));
@@ -162,6 +168,7 @@ public class CourseKnowledgeBaseService {
             for (int index = 0; index < materialChunks.size(); index++) {
                 Map<String, Object> metadata = new LinkedHashMap<>();
                 metadata.put("courseId", context.courseId());
+                metadata.put("syncVersion", syncVersion);
                 metadata.put("lessonId", material.lessonId() == null ? 0L : material.lessonId());
                 metadata.put("resourceType", "MATERIAL");
                 metadata.put("resourceId", String.valueOf(material.materialId()));

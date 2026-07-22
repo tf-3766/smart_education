@@ -1,0 +1,6 @@
+allowBuilds:
+  core-js: true
+  esbuild: true
+  vue-demi: true
+confirmModulesPurge: false
+verifyDepsBeforeRun: false

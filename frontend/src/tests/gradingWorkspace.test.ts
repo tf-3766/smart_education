@@ -104,4 +104,24 @@ describe('作业批改工作台', () => {
     const textarea = wrapper.get('#gw-grade-comment').element as HTMLTextAreaElement
     expect(textarea.value.length).toBeGreaterThan(0)
   })
+  it('按评分标准批量生成建议，并将低置信度答案送入逐份人工复核', async () => {
+    freshDemo()
+    const { wrapper } = await mountGrading()
+    await openRoster(wrapper)
+
+    await clickByText(wrapper, 'button', '辅助批改 1 份')
+    expect(wrapper.text()).toContain('批量辅助批改设置')
+    expect(wrapper.text()).toContain('不会批量保存或发布成绩')
+
+    await clickByText(wrapper, 'button', '生成批改建议')
+    await settle(500)
+    expect(wrapper.text()).toContain('需人工复核')
+    expect(wrapper.findAll('[data-test="batch-grade-result"]')).toHaveLength(1)
+    expect(wrapper.text()).toContain('置信度')
+
+    await clickByText(wrapper, 'button', '打开原提交并人工确认')
+    expect(wrapper.text()).toContain('批改作业')
+    expect((wrapper.get('#gw-grade-comment').element as HTMLTextAreaElement).value.length).toBeGreaterThan(0)
+  })
+
 })

@@ -51,4 +51,32 @@ describe('教师端 AI 草稿接口 · 真实模式切换', () => {
     expect(String(fetchMock.mock.calls[1][0])).toContain('/api/v1/ai/courses/21001/knowledge-base/sync')
     expect(fetchMock.mock.calls[1][1].method).toBe('POST')
   })
+
+  it('教学包计划 POST 到课程真实端点', async () => {
+    const fetchMock = stub()
+    await aiApi.teachingPackagePlan('21001', '面向零基础学生')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/ai/courses/21001/teaching-package-plan')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ instruction: '面向零基础学生' })
+  })
+
+  it('管理员运营简报 POST 到管理员真实端点', async () => {
+    const fetchMock = stub()
+    await aiApi.adminOperationsBrief('优先检查服务异常')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/ai/admin/operations-brief')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ instruction: '优先检查服务异常' })
+  })
+  it('风险干预计划 POST 到预警真实端点', async () => {
+    const fetchMock = stub()
+    await aiApi.warningInterventionPlan('701', '三天后复查')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/ai/warnings/701/intervention-plan')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ instruction: '三天后复查' })
+  })
+
+  it('批量辅助批改 POST 结构化评分标准和复核阈值', async () => {
+    const fetchMock = stub()
+    await aiApi.batchGradingDraft({ submissionIds: ['32001', '32002'], rubric: '概念准确 60 分，示例完整 40 分', reviewThreshold: 0.8 })
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/ai/submissions/batch-grading-draft')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ submissionIds: ['32001', '32002'], rubric: '概念准确 60 分，示例完整 40 分', reviewThreshold: 0.8 })
+  })
+
 })

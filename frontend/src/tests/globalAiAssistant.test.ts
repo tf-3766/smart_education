@@ -44,10 +44,13 @@ describe('global AI assistant mascot', () => {
   it('restores persisted pending actions after a page reload', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/components/GlobalAiAssistant.vue'), 'utf8')
 
-    expect(source).toContain('aiApi.listActions(20)')
+    expect(source).toContain('aiApi.listActions(50)')
     expect(source).toContain('class="pending-strip"')
     expect(source).toContain('function showPendingActions()')
     expect(source).toContain('void loadPersistedActions()')
+    expect(source).toContain('class="action-stages"')
+    expect(source).toContain('@click="retryAction(action)"')
+    expect(source).toContain('aiApi.retryAction(action)')
   })
 
   it('requires an explicit confirmation phrase for strong-confirm actions', () => {
@@ -58,4 +61,16 @@ describe('global AI assistant mascot', () => {
     expect(source).toContain("=== '确认执行'")
     expect(source).toContain('!canConfirmAction(action)')
   })
+
+  it('accepts workflow prompts dispatched by teacher and admin pages', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/GlobalAiAssistant.vue'), 'utf8')
+
+    expect(source).toContain("window.addEventListener('smart-education:ai-compose', composeFromPage)")
+    expect(source).toContain("window.removeEventListener('smart-education:ai-compose', composeFromPage)")
+  })
+  it('shows the complete guarded automation lifecycle including compensation', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/GlobalAiAssistant.vue'), 'utf8')
+    expect(source).toContain("['生成计划', '风险判断', '预览变化', '用户确认', '执行', '验证结果', '失败补偿']")
+  })
+
 })

@@ -2,9 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, type ProxyOptions } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-export default defineConfig(async () => {
-  const frappeui = (await import('frappe-ui/vite')).default
-
+export default defineConfig(() => {
   const apiProxy: ProxyOptions = {
     target: 'http://localhost:18080',
     changeOrigin: true,
@@ -14,15 +12,7 @@ export default defineConfig(async () => {
   }
 
   return {
-    plugins: [
-      frappeui({
-        frappeProxy: false,
-        lucideIcons: true,
-        jinjaBootData: false,
-        buildConfig: false,
-      }),
-      vue(),
-    ],
+    plugins: [vue()],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -49,14 +39,8 @@ export default defineConfig(async () => {
       // 单测始终跑演示模式：开发者本地 .env.local 可能设 VITE_API_MODE=real，
       // 不能让它把契约单测导向真实网关。
       env: { VITE_API_MODE: 'demo' },
-      // frappe-ui 发布的是未编译源码，挂载页面时需经 vite 管道转换。
-      server: { deps: { inline: ['frappe-ui'] } },
-      // 页面首次挂载要过 vite 转换管道，冷启动可达 15s。
       testTimeout: 30000,
     },
-    optimizeDeps: {
-      include: ['debug', 'feather-icons', 'socket.io-client', 'socket.io-parser'],
-      exclude: ['frappe-ui'],
-    },
+
   }
 })

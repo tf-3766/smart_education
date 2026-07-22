@@ -5,13 +5,22 @@
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="load" />
     <div class="filter-bar"><label class="filter-field"><span>课程</span><select v-model="courseId" class="select" @change="loadResources"><option v-for="course in courses" :key="course.courseId" :value="course.courseId">{{ course.name }}</option></select></label></div>
 
+    <div v-if="focusedBank" class="ai-draft-banner" role="status">
+      <Sparkles :size="19" />
+      <div><strong>已定位 AI 生成题库《{{ focusedBank.name }}》</strong><p>题目已加载在下方。你可以先检查、编辑，再确认发布。</p></div>
+      <AppButton v-if="focusedBank.status === 'DRAFT'" variant="primary" @click="confirmBank(focusedBank.bankId)">确认发布</AppButton>
+    </div>
+    <div v-else-if="focusedExam" class="ai-draft-banner" role="status">
+      <Sparkles :size="19" /><div><strong>已定位 AI 生成考试《{{ focusedExam.title }}》</strong><p>考试仍为草稿，请组卷检查后再发布。</p></div>
+    </div>
+
     <div class="grid cols-2">
       <section class="panel flush">
         <div class="panel-head"><h2>题库</h2><AppButton variant="secondary" @click="bankForm.open = true"><span class="row"><Plus :size="14" />新建题库</span></AppButton></div>
         <div class="table-scroll"><table class="table">
           <thead><tr><th>题库名称</th><th>状态</th></tr></thead>
           <tbody>
-            <tr v-for="bank in banks" :key="bank.bankId" :class="{ 'row-active': bank.bankId === selectedBankId }" style="cursor: pointer" @click="selectBank(bank.bankId)">
+            <tr v-for="bank in banks" :id="`question-bank-${bank.bankId}`" :key="bank.bankId" :class="{ 'row-active': bank.bankId === selectedBankId, 'deep-linked': bank.bankId === targetBankId }" style="cursor: pointer" @click="selectBank(bank.bankId)">
               <td class="cell-strong">{{ bank.name }}</td>
               <td><div class="row" style="gap: 8px; align-items: center"><StatusBadge :tone="bankTone(bank)" :label="bankLabel(bank)" /><button v-if="bank.status === 'DRAFT'" class="text-link" @click.stop="confirmBank(bank.bankId)">确认发布</button></div></td>
             </tr>
@@ -24,7 +33,7 @@
         <div class="table-scroll"><table class="table">
           <thead><tr><th>考试名称</th><th>窗口</th><th class="num">总分</th><th>状态</th><th>操作</th></tr></thead>
           <tbody>
-            <tr v-for="exam in exams" :key="exam.examId">
+            <tr v-for="exam in exams" :id="`exam-${exam.examId}`" :key="exam.examId" :class="{ 'deep-linked': exam.examId === targetExamId }">
               <td class="cell-strong">{{ exam.title }}</td><td>{{ formatTime(exam.startAt) }}</td><td class="num">{{ exam.totalScore }}</td>
               <td><StatusBadge :tone="exam.status === 'PUBLISHED' ? 'green' : 'amber'" :label="examLabel(exam)" /></td>
               <td class="cell-actions">
@@ -145,20 +154,26 @@
 
 <script setup lang="ts">
 import { formatDateTime } from '@/utils/datetime'
-import { computed, onMounted, reactive, ref } from 'vue'
-import { Plus } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { Plus, Sparkles } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'; import AiAssistButton from '@/components/AiAssistButton.vue'
 import { aiApi, examsApi, teacherCoursesApi } from '@/services/api'; import type { ExamAttemptVO, ExamVO, QuestionBankVO, QuestionVO, TeacherCourseListItemVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
 import { aiDraftToResult } from '@/services/aiDraft'
 import { aiErrorMessage } from '@/services/aiHint'
 import type { AiResult } from '@/types/domain'
 
+const route = useRoute()
 const state = usePageState(); const courses = ref<TeacherCourseListItemVO[]>([]); const courseId = ref(''); const banks = ref<QuestionBankVO[]>([]); const exams = ref<ExamVO[]>([])
 const selectedBankId = ref(''); const questions = ref<QuestionVO[]>([])
 const attemptExam = ref<ExamVO | null>(null); const attempts = ref<ExamAttemptVO[]>([])
 const grading = ref<ExamAttemptVO | null>(null); const manualScores = reactive<Record<string, number>>({}); const manualComments = reactive<Record<string, string>>({})
 const draftPapers = reactive<Record<string, string>>({})
 const message = ref('')
+const targetBankId = computed(() => String(route.query.bankId || ''))
+const targetExamId = computed(() => String(route.query.examId || ''))
+const focusedBank = computed(() => banks.value.find((bank) => bank.bankId === targetBankId.value) ?? null)
+const focusedExam = computed(() => exams.value.find((exam) => exam.examId === targetExamId.value) ?? null)
 const selectedBank = computed(() => banks.value.find((bank) => bank.bankId === selectedBankId.value) ?? null)
 
 const bankForm = reactive({ open: false, name: '', description: '' })
@@ -211,7 +226,32 @@ const questionValid = computed(() => {
   return questionForm.questionType === 'MULTIPLE_CHOICE' ? correct >= 2 : correct === 1
 })
 
-async function load() { const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 })); if (page) { courses.value = page.records; courseId.value ||= page.records[0]?.courseId ?? ''; await loadResources() } }
+async function load() {
+  const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 }))
+  if (!page) return
+  courses.value = page.records
+  let requestedCourseId = String(route.query.courseId || '')
+  if (!requestedCourseId && targetBankId.value) {
+    try {
+      requestedCourseId = (await examsApi.getBank(targetBankId.value)).courseId
+    } catch {
+      requestedCourseId = ''
+    }
+  }
+  if (!requestedCourseId && targetExamId.value) {
+    try {
+      requestedCourseId = (await examsApi.getExam(targetExamId.value)).courseId
+    } catch {
+      requestedCourseId = ''
+    }
+  }
+  courseId.value = courses.value.some((course) => course.courseId === requestedCourseId) ? requestedCourseId : (courseId.value || page.records[0]?.courseId || '')
+  await loadResources()
+  if (targetBankId.value && banks.value.some((bank) => bank.bankId === targetBankId.value)) await selectBank(targetBankId.value)
+  await nextTick()
+  const elementId = targetBankId.value ? `question-bank-${targetBankId.value}` : targetExamId.value ? `exam-${targetExamId.value}` : ''
+  if (elementId) document.getElementById(elementId)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
 async function loadResources() {
   if (!courseId.value) return
   selectedBankId.value = ''; questions.value = []; attemptExam.value = null; attempts.value = []
@@ -322,4 +362,14 @@ async function submitGrading() {
 }
 
 onMounted(load)
+watch(() => [route.query.courseId, route.query.bankId, route.query.examId], () => { void load() })
 </script>
+
+<style scoped>
+.ai-draft-banner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; margin: 14px 0; padding: 14px 16px; border: 1px solid #bcd5ff; border-radius: 14px; color: #174b91; background: linear-gradient(110deg, #eef6ff, #f7f5ff); box-shadow: 0 8px 24px rgba(37, 99, 235, .08); }
+.ai-draft-banner > svg { color: #3867e8; }
+.ai-draft-banner strong { display: block; font-size: 14px; }
+.ai-draft-banner p { margin: 3px 0 0; color: #64748b; font-size: 12px; }
+.deep-linked { outline: 2px solid #79a8ff; outline-offset: -2px; background: #eff6ff !important; }
+@media (max-width: 720px) { .ai-draft-banner { grid-template-columns: auto 1fr; } .ai-draft-banner :deep(.app-button) { grid-column: 1 / -1; } }
+</style>

@@ -2,6 +2,8 @@ dist/
 node_modules/
 .playwright-cli/
 output/
+auto-imports.d.ts
+components.d.ts
 *.log
 .env
 .env.*

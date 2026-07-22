@@ -75,6 +75,7 @@ describe('考试题库工作台', () => {
     await clickByText(wrapper, 'button', '阅卷')
     expect(wrapper.text()).toContain('列表推导式简洁高效')
     await wrapper.find('[data-test="grade-score"]').setValue(8)
+
     await wrapper.find('[data-test="grade-comment"]').setValue('思路正确，注意补充适用场景。')
     await clickByText(wrapper, 'button', '提交评分')
     await settle(900)
@@ -83,6 +84,18 @@ describe('考试题库工作台', () => {
     const attempt = db.attempts.find((item) => item.attemptId === '55001')!
     const shortAnswer = attempt.answers.find((answer) => answer.teacherComment)
     expect(shortAnswer?.teacherComment).toBe('思路正确，注意补充适用场景。')
+  })
+
+  it('从 AI 动作链接进入时自动加载、定位并展开对应草稿题库', async () => {
+    freshDemo()
+    const { wrapper } = await mountPage(QuestionBankPage, {
+      routePath: '/teacher/exams',
+      path: '/teacher/exams?bankId=51003',
+    })
+    await settle(900)
+    expect(wrapper.text()).toContain('已定位 AI 生成题库《AI 生成·第二章测验（草稿）》')
+    expect(wrapper.find('#question-bank-51003').classes()).toContain('deep-linked')
+    expect(wrapper.text()).toContain('题目 · AI 生成·第二章测验（草稿）')
   })
 
   it('AI 生成考试显示 AI 草稿来源', async () => {

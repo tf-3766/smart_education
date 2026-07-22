@@ -4,6 +4,10 @@
     <div v-if="message" class="toast">{{ message }}</div>
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="load" />
     <div class="filter-bar"><label class="filter-field"><span>课程</span><select v-model="courseId" class="select" @change="loadCourseData"><option v-for="course in courses" :key="course.courseId" :value="course.courseId">{{ course.name }}</option></select></label></div>
+    <div v-if="focusedAnnouncement" class="ai-draft-banner" role="status">
+      <Sparkles :size="19" /><div><strong>已定位 AI 公告草稿《{{ focusedAnnouncement.title }}》</strong><p>请检查正文和受众范围，确认后才会通知学生。</p></div>
+      <AppButton v-if="focusedAnnouncement.status === 'DRAFT'" variant="primary" @click="confirmAnnouncement(focusedAnnouncement)">确认发布</AppButton>
+    </div>
     <section class="discussion-board">
       <div class="discussion-board-head"><div><h2>班级讨论</h2><p>按发布时间展示课程成员发言，教师可回复、置顶或隐藏不当内容。</p></div><span class="count">共 {{ topics.length }} 个主题</span></div>
       <article v-for="topic in topics" :key="topic.topicId" class="discussion-post" data-test="topic-row">
@@ -25,7 +29,7 @@
       <div class="table-scroll"><table class="table">
         <thead><tr><th>公告</th><th>受众</th><th>状态</th><th>发布时间</th><th>操作</th></tr></thead>
         <tbody>
-          <tr v-for="item in announcements" :key="item.announcementId" data-test="announcement-row">
+          <tr v-for="item in announcements" :id="`announcement-${item.announcementId}`" :key="item.announcementId" data-test="announcement-row" :class="{ 'deep-linked': item.announcementId === targetAnnouncementId }">
             <td><span class="cell-strong">{{ item.title }}</span><span class="cell-sub">{{ item.content }}</span></td>
             <td>{{ audienceLabel(item.audience) }}</td>
             <td><StatusBadge :tone="announcementTone(item)" :label="announcementLabel(item)" /></td>
@@ -61,12 +65,16 @@
 
 <script setup lang="ts">
 import { formatDateTime } from '@/utils/datetime'
-import { onMounted, reactive, ref } from 'vue'
-import { Eye, EyeOff, MessageCircle, Pin, Plus } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { Eye, EyeOff, MessageCircle, Pin, Plus, Sparkles } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import UserAvatar from '@/components/UserAvatar.vue'
 import { announcementsApi, forumApi, teacherCoursesApi } from '@/services/api'
+const route = useRoute()
 import type { AnnouncementAudience, AnnouncementVO, ForumReplyVO, ForumTopicDetailVO, ForumTopicListItemVO, TeacherCourseListItemVO } from '@/services/api/types'
 import { usePageState } from '@/services/pageState'
+const targetAnnouncementId = computed(() => String(route.query.announcementId || ''))
+const focusedAnnouncement = computed(() => announcements.value.find((item) => item.announcementId === targetAnnouncementId.value) ?? null)
 const state = usePageState(); const courses = ref<TeacherCourseListItemVO[]>([]); const courseId = ref(''); const topics = ref<ForumTopicListItemVO[]>([]); const topicDetails = reactive<Record<string, ForumTopicDetailVO>>({}); const announcements = ref<AnnouncementVO[]>([])
 const message = ref('')
 const formatTime = formatDateTime
@@ -74,7 +82,16 @@ const audienceLabel = (value: AnnouncementAudience) => value === 'ALL' ? '课程
 const announcementTone = (item: AnnouncementVO) => item.status === 'PUBLISHED' ? 'green' : item.status === 'DRAFT' ? 'amber' : 'gray'
 const announcementLabel = (item: AnnouncementVO) => item.status === 'DRAFT' && item.source === 'AI' ? 'AI 草稿' : item.status === 'DRAFT' ? '草稿' : item.status === 'PUBLISHED' ? '已发布' : '已撤回'
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
-async function load() { const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 })); if (page) { courses.value = page.records; courseId.value ||= page.records[0]?.courseId ?? ''; await loadCourseData() } }
+async function load() {
+  const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 }))
+  if (!page) return
+  courses.value = page.records
+  const requestedCourseId = String(route.query.courseId || '')
+  courseId.value = page.records.some((item) => item.courseId === requestedCourseId) ? requestedCourseId : (courseId.value || page.records[0]?.courseId || '')
+  await loadCourseData()
+  await nextTick()
+  if (targetAnnouncementId.value) document.getElementById(`announcement-${targetAnnouncementId.value}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
 async function loadCourseData() { await Promise.all([loadTopics(), loadAnnouncements()]) }
 async function loadTopics() {
   if (!courseId.value) return
@@ -129,9 +146,17 @@ async function sendReply() {
   if (created) { replyContent.value = ''; flash('回复已发表'); await Promise.all([reloadReplies(), loadTopics()]) }
 }
 onMounted(load)
+watch(() => [route.query.courseId, route.query.announcementId], () => { void load() })
 </script>
 
 <style scoped>
+.ai-draft-banner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; margin: 14px 0; padding: 14px 16px; border: 1px solid #bcd5ff; border-radius: 14px; color: #174b91; background: linear-gradient(110deg, #eef6ff, #f7f5ff); }
+.ai-draft-banner > svg { color: #3867e8; }
+.ai-draft-banner strong { display: block; font-size: 14px; }
+.ai-draft-banner p { margin: 3px 0 0; color: #64748b; font-size: 12px; }
+.deep-linked { outline: 2px solid #79a8ff; outline-offset: -2px; background: #eff6ff !important; }
+@media (max-width: 720px) { .ai-draft-banner { grid-template-columns: auto 1fr; } }
+
 .discussion-board { border: 1px solid var(--line); background: #f4f6f9; }
 .discussion-board-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; background: #fff; border-bottom: 1px solid var(--line); }
 .discussion-board-head h2 { margin: 0; font-size: 19px; }

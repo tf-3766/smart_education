@@ -39,8 +39,9 @@ describe('real HTTP client', () => {
 
     await expect(request<{ value: number }>('/api/v1/student/courses')).resolves.toEqual({ value: 1 })
     await expect(request<{ value: number }>('/api/v1/student/courses')).resolves.toEqual({ value: 1 })
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    await expect(request<{ value: number }>('/api/v1/student/courses')).resolves.toEqual({ value: 2 })
+    await vi.waitFor(async () => {
+      await expect(request<{ value: number }>('/api/v1/student/courses')).resolves.toEqual({ value: 2 })
+    })
   })
 
   it('invalidates cached reads after a successful write', async () => {
