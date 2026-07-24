@@ -7,5 +7,5 @@ import jakarta.validation.constraints.Size;
 
 public record WarningHandleRequest(
         @NotNull WarningStatus action,
-        @Size(max = 500) String remark,
+        @Size(max = 4000) String remark,
         @NotNull @Min(0) Integer version) {}

@@ -18,6 +18,7 @@ import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import java.util.Set;
 
 @Service
 public class AuthorizedAiContextService {
@@ -30,9 +31,14 @@ public class AuthorizedAiContextService {
 
     public AiAssistantContextResponse assistantContext(
             String authorization, Long userId, String role, String traceId) {
+        return assistantContext(authorization, userId, role, traceId, Set.of("ALL"));
+    }
+
+    public AiAssistantContextResponse assistantContext(
+            String authorization, Long userId, String role, String traceId, Set<String> domains) {
         try {
             ApiResponse<AiAssistantContextResponse> response = contextClient.getAssistantContext(
-                    authorization, new AiAssistantContextRequest(userId, role, traceId));
+                    authorization, new AiAssistantContextRequest(userId, role, traceId, domains));
             return requireData(response);
         } catch (FeignException exception) {
             throw translate(exception);

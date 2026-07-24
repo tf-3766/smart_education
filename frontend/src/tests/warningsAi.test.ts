@@ -11,5 +11,7 @@ describe('teacher warning AI intervention flow', () => {
     expect(source).toContain('aiApi.warningInterventionPlan')
     expect(source).toContain('AI 学习干预计划草稿')
     expect(source).toContain('regenerateWarningDraft')
+    expect(source).toContain(':maxlength="4000"')
+    expect(source).toContain('最多 4000 字')
   })
 })

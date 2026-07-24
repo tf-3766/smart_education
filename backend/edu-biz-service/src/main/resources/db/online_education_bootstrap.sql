@@ -220,10 +220,10 @@ CREATE TABLE edu_course (
     updated_by BIGINT NOT NULL,
     deleted TINYINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    CONSTRAINT uk_course_code UNIQUE (course_code)
+    PRIMARY KEY (id)
 );
 
+CREATE INDEX idx_course_code ON edu_course (course_code, deleted, id);
 CREATE INDEX idx_course_owner_status ON edu_course (owner_teacher_id, deleted, status, updated_at);
 CREATE INDEX idx_course_review_queue ON edu_course (review_status, deleted, updated_at, id);
 CREATE INDEX idx_course_catalog ON edu_course (status, review_status, enrollment_open_at, enrollment_close_at, deleted);
@@ -648,7 +648,7 @@ CREATE TABLE edu_learning_warning (
     ai_explanation_draft_id BIGINT NULL,
     generated_at DATETIME(3) NOT NULL,
     handled_by BIGINT NULL,
-    handle_remark VARCHAR(500) NULL,
+    handle_remark VARCHAR(4000) NULL,
     handled_at DATETIME(3) NULL,
     created_at DATETIME(3) NOT NULL,
     created_by BIGINT NOT NULL,
@@ -921,7 +921,8 @@ INSERT INTO sys_user
 VALUES
     (1001, 'student', '$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u', '测试学生', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (1002, 'teacher', '$2b$10$4/jxzR1iDdnQVYlELBd2zuN3wCdDNlcAfjX4bX.4e08ggPOiLcieS', '测试教师', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
-    (1003, 'admin', '$2b$10$qklC5Vnw0Ov6Q3AVg1onj.DUeTJwQ0Zxh.o0fD0qkexIAF6y05yRG', '测试管理员', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
+    (1003, 'admin', '$2b$10$qklC5Vnw0Ov6Q3AVg1onj.DUeTJwQ0Zxh.o0fD0qkexIAF6y05yRG', '测试超级管理员', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (1014, 'admin_ops', '$2b$10$qklC5Vnw0Ov6Q3AVg1onj.DUeTJwQ0Zxh.o0fD0qkexIAF6y05yRG', '测试普通管理员', 'ENABLED', CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
 ON DUPLICATE KEY UPDATE
     display_name = VALUES(display_name),
     user_status = VALUES(user_status),
@@ -934,7 +935,8 @@ VALUES
     (4001, 1001, 2001, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (4002, 1002, 2002, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
     (4003, 1003, 2003, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
-    (4005, 1003, 2004, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
+    (4005, 1003, 2004, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0),
+    (4014, 1014, 2003, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0, 0, 0)
 ON DUPLICATE KEY UPDATE deleted = 0, updated_at = CURRENT_TIMESTAMP;
 
 
@@ -1242,3 +1244,34 @@ VALUES
     (38401, 38301, 37101, 'B', 5.00, '回答正确。',
      CURRENT_TIMESTAMP, 1001, CURRENT_TIMESTAMP, 1002, 0, 0)
 ON DUPLICATE KEY UPDATE answer_content = VALUES(answer_content), score = VALUES(score), deleted = 0, updated_at = CURRENT_TIMESTAMP;
+
+-- ============================================================================
+-- Acceptance showcase expansion: this is part of the canonical bootstrap.
+-- ============================================================================
+INSERT INTO sys_user (id,username,password_hash,display_name,user_status,created_at,created_by,updated_at,updated_by,deleted,version) VALUES
+(1101,'student_d','$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u','王晨','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(1102,'student_e','$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u','李欣怡','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(1103,'student_f','$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u','赵明远','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(1104,'student_g','$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u','孙雨桐','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(1105,'student_h','$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u','陈思涵','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(1020,'teacher_cs','$2b$10$4/jxzR1iDdnQVYlELBd2zuN3wCdDNlcAfjX4bX.4e08ggPOiLcieS','刘老师','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(1021,'teacher_math','$2b$10$4/jxzR1iDdnQVYlELBd2zuN3wCdDNlcAfjX4bX.4e08ggPOiLcieS','张老师','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0)
+ON DUPLICATE KEY UPDATE display_name=VALUES(display_name),deleted=0,updated_at=CURRENT_TIMESTAMP;
+INSERT INTO sys_user_role (id,user_id,role_id,created_at,created_by,updated_at,updated_by,deleted,version) VALUES
+(4111,1101,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4112,1102,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4113,1103,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4114,1104,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4115,1105,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4120,1020,2002,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4121,1021,2002,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0)
+ON DUPLICATE KEY UPDATE deleted=0,updated_at=CURRENT_TIMESTAMP;
+INSERT INTO edu_course (id,course_code,name,summary,cover_url,category_id,term,department,credit,owner_teacher_id,status,review_status,enrollment_open_at,enrollment_close_at,start_at,end_at,created_at,created_by,updated_at,updated_by,deleted,version) VALUES
+(22001,'DEMO-JAVA-001','Java 程序设计','面向对象、集合与异常处理的完整课程演示',NULL,1,'2026-FALL','计算机学院',3,1020,'PUBLISHED','APPROVED','2026-07-01','2026-10-31','2026-09-01','2027-01-20',CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22002,'DEMO-DATA-001','数据结构与算法','线性表、树、图和经典算法验收课程',NULL,1,'2026-FALL','计算机学院',4,1020,'PUBLISHED','APPROVED','2026-07-01','2026-10-31','2026-09-01','2027-01-20',CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22003,'DEMO-MATH-001','高等数学基础','极限、导数与积分的混合教学课程',NULL,1,'2026-FALL','理学院',4,1021,'PUBLISHED','APPROVED','2026-07-01','2026-10-31','2026-09-01','2027-01-20',CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0)
+ON DUPLICATE KEY UPDATE name=VALUES(name),status='PUBLISHED',review_status='APPROVED',deleted=0,updated_at=CURRENT_TIMESTAMP;
+INSERT INTO edu_course_teacher (id,course_id,teacher_id,role,status,created_at,created_by,updated_at,updated_by,deleted,version) VALUES (22101,22001,1020,'OWNER','ACTIVE',CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22102,22002,1020,'OWNER','ACTIVE',CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22103,22003,1021,'OWNER','ACTIVE',CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0) ON DUPLICATE KEY UPDATE status='ACTIVE',deleted=0,updated_at=CURRENT_TIMESTAMP;
+INSERT INTO edu_course_enrollment (id,course_id,student_id,status,enrolled_at,withdrawn_at,created_at,created_by,updated_at,updated_by,deleted,version) VALUES (22201,22001,1101,'ENROLLED',CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP,1101,CURRENT_TIMESTAMP,1101,0,0),(22202,22001,1102,'ENROLLED',CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP,1102,CURRENT_TIMESTAMP,1102,0,0),(22203,22001,1103,'ENROLLED',CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP,1103,CURRENT_TIMESTAMP,1103,0,0),(22204,22002,1101,'ENROLLED',CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP,1101,CURRENT_TIMESTAMP,1101,0,0),(22205,22002,1104,'ENROLLED',CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP,1104,CURRENT_TIMESTAMP,1104,0,0),(22206,22002,1105,'ENROLLED',CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP,1105,CURRENT_TIMESTAMP,1105,0,0),(22207,22003,1102,'ENROLLED',CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP,1102,CURRENT_TIMESTAMP,1102,0,0),(22208,22003,1103,'ENROLLED',CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP,1103,CURRENT_TIMESTAMP,1103,0,0) ON DUPLICATE KEY UPDATE status='ENROLLED',withdrawn_at=NULL,deleted=0,updated_at=CURRENT_TIMESTAMP;
+
+INSERT INTO edu_course_chapter (id,course_id,title,description,sort_order,status,published_at,created_at,created_by,updated_at,updated_by,deleted,version) VALUES
+(22301,22001,'第一章 Java 基础','变量、流程控制与方法',10,'PUBLISHED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22302,22001,'第二章 面向对象','封装、继承、多态',20,'PUBLISHED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22303,22002,'第一章 线性结构','数组、链表、栈与队列',10,'PUBLISHED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22304,22002,'第二章 树和图','二叉树、图遍历与最短路径',20,'PUBLISHED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22305,22003,'第一章 极限与连续','函数极限的基本计算',10,'PUBLISHED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0),(22306,22003,'第二章 微分学','导数与应用',20,'PUBLISHED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0)
+ON DUPLICATE KEY UPDATE title=VALUES(title),description=VALUES(description),status='PUBLISHED',deleted=0,updated_at=CURRENT_TIMESTAMP;
+
+INSERT INTO edu_course_lesson (id,course_id,chapter_id,title,content_type,content,video_url,estimated_minutes,sort_order,status,unlock_type,unlock_at,published_at,created_at,created_by,updated_at,updated_by,deleted,version) VALUES
+(22401,22001,22301,'Java 环境与第一个程序','RICH_TEXT','安装 JDK，编写并运行第一个 Java 程序。',NULL,25,10,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22402,22001,22301,'分支与循环','RICH_TEXT','使用条件判断和循环解决基础问题。',NULL,30,20,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22403,22001,22302,'类与对象','RICH_TEXT','从建模到对象协作。',NULL,35,10,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22404,22002,22303,'顺序表与链表','RICH_TEXT','比较两种线性表的访问和插入性能。',NULL,30,10,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22405,22002,22303,'栈和队列','RICH_TEXT','理解先进后出与先进先出。',NULL,25,20,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22406,22002,22304,'二叉树遍历','RICH_TEXT','掌握前序、中序、后序遍历。',NULL,40,10,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22407,22003,22305,'极限的概念','RICH_TEXT','认识函数极限和无穷小。',NULL,30,10,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0),(22408,22003,22305,'极限计算','RICH_TEXT','使用四则运算和夹逼准则。',NULL,35,20,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0),(22409,22003,22306,'导数及其应用','RICH_TEXT','求导并分析函数单调性。',NULL,35,10,'PUBLISHED','IMMEDIATE',NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0)
+ON DUPLICATE KEY UPDATE title=VALUES(title),content=VALUES(content),status='PUBLISHED',deleted=0,updated_at=CURRENT_TIMESTAMP;
+
+INSERT INTO sys_file (id,owner_user_id,original_name,object_key,storage_provider,file_size,mime_type,sha256,purpose,file_status,created_at,created_by,updated_at,updated_by,deleted,version) VALUES
+(22501,1020,'Java课程导学.md','demo/course/java-guide.md','LOCAL',566,'text/markdown; charset=UTF-8','56f97495b48738184b27f450e4534ed920f2b0f4129bf9a631bf3c85e989cd55','COURSE_MATERIAL','ACTIVE',CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22502,1020,'数据结构思维导图.md','demo/course/data-structure-map.md','LOCAL',974,'text/markdown; charset=UTF-8','ea0699e742cea2edb0c8ccabffe662e3878f956727309940ba68c4871e78e307','COURSE_MATERIAL','ACTIVE',CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22503,1021,'高数公式表.md','demo/course/calculus-formula.md','LOCAL',527,'text/markdown; charset=UTF-8','72ffe763f273ea2ffbec31e4bf263bde5911c9bdd0f00b3c3292c155fd8b4945','COURSE_MATERIAL','ACTIVE',CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0)
+ON DUPLICATE KEY UPDATE original_name=VALUES(original_name),object_key=VALUES(object_key),file_size=VALUES(file_size),mime_type=VALUES(mime_type),sha256=VALUES(sha256),file_status='ACTIVE',deleted=0,updated_at=CURRENT_TIMESTAMP;
+
+INSERT INTO edu_course_material (id,course_id,chapter_id,lesson_id,name,material_type,file_id,file_key,file_url,file_size,mime_type,visibility,status,sort_order,created_at,created_by,updated_at,updated_by,deleted,version) VALUES
+(22601,22001,22301,22401,'Java课程导学','DOCUMENT',22501,NULL,NULL,566,'text/markdown; charset=UTF-8','LESSON','PUBLISHED',10,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22602,22002,22303,22404,'数据结构思维导图','DOCUMENT',22502,NULL,NULL,974,'text/markdown; charset=UTF-8','LESSON','PUBLISHED',10,CURRENT_TIMESTAMP,1020,CURRENT_TIMESTAMP,1020,0,0),(22603,22003,22305,22407,'高数公式表','DOCUMENT',22503,NULL,NULL,527,'text/markdown; charset=UTF-8','CHAPTER','PUBLISHED',10,CURRENT_TIMESTAMP,1021,CURRENT_TIMESTAMP,1021,0,0)
+ON DUPLICATE KEY UPDATE name=VALUES(name),file_id=VALUES(file_id),file_size=VALUES(file_size),mime_type=VALUES(mime_type),status='PUBLISHED',deleted=0,updated_at=CURRENT_TIMESTAMP;

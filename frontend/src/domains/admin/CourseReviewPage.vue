@@ -6,6 +6,19 @@
       <button v-for="tab in filters" :key="tab.value" type="button" :class="{ active: reviewFilter === tab.value }" :aria-selected="reviewFilter === tab.value" role="tab" @click="setFilter(tab.value)">{{ tab.label }}</button>
     </div></div>
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="load" />
+    <section v-if="reviews.length" class="panel ai-governance-panel">
+      <div class="spread wrap"><div><strong>AI P1 · 课程合规检查</strong><p class="muted">核对审核状态、课时与资料完整度；结果仅作为管理员逐课审核依据。</p></div><AppButton variant="secondary" :loading="complianceLoading" @click="runComplianceCheck">检查 {{ Math.min(reviews.length, 50) }} 门</AppButton></div>
+      <AiGenerationProgress :active="complianceLoading" label="正在检查课程合规性" class="push-top" />
+      <div v-if="governanceDraft" class="governance-results push-top"><div class="spread"><strong>成功 {{ governanceDraft.successCount }} · 失败 {{ governanceDraft.failureCount }} · 需复核 {{ governanceDraft.reviewCount }}</strong><small>{{ governanceDraft.status === 'FRAMEWORK_ONLY' ? '规则兜底模式' : 'AI 草稿' }}</small></div><div v-for="item in governanceDraft.courseCompliance" :key="item.courseId" class="notice push-top"><div><strong>{{ item.courseName }} · 准备度 {{ item.readinessScore }}%</strong><p>课时 {{ item.lessonCount }} · 资料 {{ item.materialCount }}<template v-if="item.reasons.length">；{{ item.reasons.join('；') }}</template></p><small v-if="item.evidence.length" class="muted">依据：{{ item.evidence.join('；') }}</small></div><StatusBadge :tone="item.failed ? 'red' : item.reviewRequired ? 'amber' : 'green'" :label="item.failed ? '检查失败' : item.reviewRequired ? '需复核' : '可进入审核'" /></div></div>
+      <div v-if="governanceDraft?.courseCompliance.length" class="version-snapshot push-top">
+        <small v-for="item in governanceDraft.courseCompliance" :key="`version-${item.courseId}`" class="muted">
+          {{ item.courseCode || item.courseId }} · 目标版本 {{ item.targetVersion ?? '-' }} · 分类 {{ item.categoryId ?? '-' }} · 学期 {{ item.term ?? '-' }} · 院系 {{ item.department ?? '-' }} · 学分 {{ item.credit ?? '-' }}
+          · 课程 {{ item.startAt ? formatTime(item.startAt) : '-' }} 至 {{ item.endAt ? formatTime(item.endAt) : '-' }}
+          · 选课 {{ item.enrollmentOpenAt ? formatTime(item.enrollmentOpenAt) : '-' }} 至 {{ item.enrollmentCloseAt ? formatTime(item.enrollmentCloseAt) : '-' }}
+          · 简介 {{ item.summary ?? '-' }}
+        </small>
+      </div>
+    </section>
     <div class="grid cols-2">
       <section class="panel flush">
         <div class="panel-head"><h2>课程列表</h2><span class="count">共 {{ reviews.length }} 门</span></div>
@@ -33,8 +46,8 @@
 
 <script setup lang="ts">
 import { formatDateTime } from '@/utils/datetime'
-import { onMounted, ref } from 'vue'; import AppButton from '@/components/AppButton.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'
-import { courseReviewsApi } from '@/services/api'; import type { CourseReviewDetailVO, CourseReviewListItemVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
+import { onMounted, ref } from 'vue'; import AiGenerationProgress from '@/components/AiGenerationProgress.vue'; import AppButton from '@/components/AppButton.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'
+import { aiApi, courseReviewsApi } from '@/services/api'; import type { AdminGovernanceDraftVO, CourseReviewDetailVO, CourseReviewListItemVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
 
 type ReviewFilter = '' | 'PENDING' | 'APPROVED' | 'REJECTED'
 const filters: { value: ReviewFilter; label: string }[] = [
@@ -44,6 +57,7 @@ const filters: { value: ReviewFilter; label: string }[] = [
   { value: '', label: '全部' },
 ]
 const state = usePageState(); const reviews = ref<CourseReviewListItemVO[]>([]); const currentId = ref(''); const detail = ref<CourseReviewDetailVO | null>(null); const reason = ref(''); const message = ref(''); const reviewFilter = ref<ReviewFilter>('PENDING')
+const complianceLoading = ref(false); const governanceDraft = ref<AdminGovernanceDraftVO | null>(null)
 const formatTime = formatDateTime
 const reviewTone = (code: string) => code === 'APPROVED' ? 'green' : code === 'REJECTED' ? 'red' : code === 'PENDING' ? 'amber' : 'gray'
 async function load() {
@@ -57,5 +71,10 @@ async function load() {
 function setFilter(value: ReviewFilter) { if (reviewFilter.value === value) return; reviewFilter.value = value; currentId.value = ''; void load() }
 async function select(id: string) { currentId.value = id; reason.value = ''; const data = await state.run(() => courseReviewsApi.detail(id)); if (data) detail.value = data }
 async function decide(action: 'approve' | 'reject') { if (!currentId.value) return; const result = await state.run(() => action === 'approve' ? courseReviewsApi.approve(currentId.value, { remark: reason.value || null }) : courseReviewsApi.reject(currentId.value, { reason: reason.value })); if (result) { message.value = action === 'approve' ? '课程审核已通过' : '课程已驳回'; await load() } }
+async function runComplianceCheck() { complianceLoading.value = true; try { governanceDraft.value = await aiApi.adminGovernanceDraft({ courseIds: reviews.value.slice(0, 50).map((course) => course.courseId) }) } catch (error) { message.value = error instanceof Error ? error.message : '课程合规检查失败，请稍后重试' } finally { complianceLoading.value = false } }
 onMounted(load)
 </script>
+
+<style scoped>
+.version-snapshot { display: grid; gap: 4px; }
+</style>

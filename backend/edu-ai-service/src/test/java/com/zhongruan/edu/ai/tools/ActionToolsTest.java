@@ -10,15 +10,22 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhongruan.edu.ai.api.vo.AiActionVO;
+import com.zhongruan.edu.ai.api.vo.AdminGovernanceDraftVO;
+import com.zhongruan.edu.ai.api.vo.AiServiceStatusVO;
+import com.zhongruan.edu.ai.application.AiApplicationService;
 import com.zhongruan.edu.common.api.ApiResponse;
 import com.zhongruan.edu.feign.ai.AiActionPlanRequest;
 import com.zhongruan.edu.feign.ai.AiActionResponse;
 import com.zhongruan.edu.feign.ai.BizAiActionFeignClient;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import java.util.Arrays;
+import org.springframework.ai.tool.annotation.Tool;
+import reactor.core.publisher.Mono;
 
 class ActionToolsTest {
     @Test
@@ -115,6 +122,66 @@ class ActionToolsTest {
                 .contains("932001")
                 .contains("86.50")
                 .contains("\"publishNow\":false");
+    }
+
+    @Test
+    void ordinaryAdministratorCannotPlanTeacherRegistrationReview() {
+        BizAiActionFeignClient client = mock(BizAiActionFeignClient.class);
+        AdminActionTools tools = new AdminActionTools(
+                client, "Bearer admin", 1005L, "ADMIN", "request-admin", new ObjectMapper(), ignored -> {});
+
+        assertThat(tools.planTeacherRegistrationReview("9001", "APPROVE"))
+                .contains("仅限超级管理员");
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void ordinaryAdministratorToolSetDoesNotRegisterUserGovernanceMethods() {
+        List<String> toolNames = Arrays.stream(AdminPlatformTools.class.getMethods())
+                .map(method -> method.getAnnotation(Tool.class))
+                .filter(annotation -> annotation != null)
+                .map(Tool::name)
+                .toList();
+
+        assertThat(toolNames)
+                .contains("planTermEnrollmentWindow", "draftCourseComplianceReview", "draftAdminOperationsBrief")
+                .doesNotContain("planTeacherRegistrationReview", "draftAdminGovernanceReview");
+    }
+
+    @Test
+    void administratorCanQueryLiveAiServiceStatus() {
+        AiApplicationService service = mock(AiApplicationService.class);
+        when(service.status()).thenReturn(new AiServiceStatusVO(
+                "UP", "Spring AI", "1.1.8", "openai", "qwen-plus", true, true, OffsetDateTime.now()));
+
+        assertThat(new AdminAiStatusTools(service).status())
+                .contains("服务=UP", "qwen-plus", "模型已配置=true", "向量库已配置=true");
+    }
+
+    @Test
+    void administratorCanTriggerGovernanceDraftFromNaturalLanguageTool() {
+        AiApplicationService service = mock(AiApplicationService.class);
+        AdminGovernanceDraftVO draft = new AdminGovernanceDraftVO(
+                "draft-1", "DRAFT", 1, 1, 0, 1,
+                List.of(new AdminGovernanceDraftVO.TeacherReviewItem(
+                        "9001", 2, "teacher_li", "李老师", OffsetDateTime.now(),
+                        "李老师", "MANUAL_REVIEW", 0.7, true,
+                        List.of("IDENTITY_EVIDENCE_REQUIRED"), List.of("需要人工核验"), List.of("待审核快照"))),
+                List.of(), OffsetDateTime.now());
+        when(service.adminGovernanceDraft(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.just(draft));
+        var events = new ArrayList<AiActionVO>();
+        AdminGovernanceTools tools = new AdminGovernanceTools(
+                service, "Bearer admin", 1003L, "SUPER_ADMIN", "trace-1", new ObjectMapper(), events::add);
+
+        String result = tools.draftAdminGovernanceReview("9001", "", "核验教师身份");
+
+        assertThat(result).contains("draft-1").contains("MANUAL_REVIEW");
+        assertThat(events).singleElement().satisfies(event -> {
+            assertThat(event.capabilityId()).isEqualTo("admin.teacher-registration.batch-precheck");
+            assertThat(event.status()).isEqualTo("DRAFT_CREATED");
+            assertThat(event.requiresConfirmation()).isFalse();
+        });
     }
 
     private AiActionResponse action(String id, String capabilityId, String title) {

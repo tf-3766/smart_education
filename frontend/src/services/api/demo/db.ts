@@ -138,6 +138,8 @@ export interface MaterialRow {
   fileUrl?: string | null
   fileSize?: number | null
   mimeType?: string | null
+  extractedText?: string | null
+  extractionStatus?: string | null
   visibility: string
   status: string
   sortOrder: number
@@ -472,8 +474,8 @@ function seed(): DemoDb {
       { lessonId: '23005', courseId: '21003', chapterId: '22004', title: '顺序表', contentType: 'TEXT', content: '顺序表以连续存储实现线性表。', estimatedMinutes: 40, sortOrder: 1, status: 'DRAFT', unlockType: 'IMMEDIATE', version: 0 },
     ],
     materials: [
-      { materialId: '24001', courseId: '21001', chapterId: '22001', name: '讲义《Python 基础》', materialType: 'DOCUMENT', fileId: '71001', fileSize: 1048576, mimeType: 'application/pdf', visibility: 'ENROLLED_ONLY', status: 'PUBLISHED', sortOrder: 1, version: 0 },
-      { materialId: '24002', courseId: '21002', name: '课程参考资料', materialType: 'LINK', fileUrl: 'https://example.com/ai-intro-readings', visibility: 'PUBLIC', status: 'PUBLISHED', sortOrder: 1, version: 0 },
+      { materialId: '24001', courseId: '21001', chapterId: '22001', name: '讲义《Python 基础》', materialType: 'DOCUMENT', fileId: '71001', fileSize: 1048576, mimeType: 'application/pdf', extractedText: 'Python 基础讲义正文，包含变量、类型、控制流与函数。', extractionStatus: 'COMPLETED', visibility: 'ENROLLED_ONLY', status: 'PUBLISHED', sortOrder: 1, version: 0 },
+      { materialId: '24002', courseId: '21002', name: '课程参考资料', materialType: 'LINK', fileUrl: 'https://example.com/ai-intro-readings', extractedText: '人工智能导论参考资料正文。', extractionStatus: 'COMPLETED', visibility: 'PUBLIC', status: 'PUBLISHED', sortOrder: 1, version: 0 },
     ],
     enrollments: [
       { enrollmentId: '26001', courseId: '21001', studentId: '4', status: 'ENROLLED', enrolledAt: daysFromNow(-44), version: 0 },

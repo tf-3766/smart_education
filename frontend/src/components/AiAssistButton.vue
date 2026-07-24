@@ -1,6 +1,6 @@
 <template>
   <AppButton variant="secondary" :loading="loading" :disabled="disabled">
-    <span class="row"><Sparkles :size="14" />{{ label }}</span>
+    <span class="row"><Sparkles :size="14" />{{ loading ? loadingLabel : label }}</span>
   </AppButton>
 </template>
 
@@ -9,5 +9,5 @@
 // @click、title 等经单根透传到底层原生 button；loading/disabled 为显式 props。
 import { Sparkles } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'
-defineProps<{ label: string; loading?: boolean; disabled?: boolean }>()
+withDefaults(defineProps<{ label: string; loading?: boolean; disabled?: boolean; loadingLabel?: string }>(), { loadingLabel: '正在生成…' })
 </script>

@@ -124,6 +124,15 @@ public class TeacherCourseController {
         return ApiResponse.success(service.update(user.userId(), courseId, body), trace(request));
     }
 
+    @DeleteMapping("/{courseId}")
+    public ApiResponse<Void> deleteDraft(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long courseId,
+            HttpServletRequest request) {
+        service.deleteDraft(user.userId(), courseId);
+        return ApiResponse.success(trace(request));
+    }
+
     @PostMapping("/{courseId}/submit-review")
     public ApiResponse<CourseDetailVO> submitReview(
             @AuthenticationPrincipal AuthenticatedUser user,

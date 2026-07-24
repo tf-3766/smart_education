@@ -6,19 +6,35 @@ import com.zhongruan.edu.biz.assignment.infrastructure.persistence.entity.Assign
 import com.zhongruan.edu.biz.assignment.infrastructure.persistence.mapper.AssignmentMapper;
 import com.zhongruan.edu.biz.assignment.infrastructure.persistence.mapper.AssignmentSubmissionMapper;
 import com.zhongruan.edu.biz.auth.infrastructure.persistence.entity.UserEntity;
+import com.zhongruan.edu.biz.auth.infrastructure.persistence.entity.RoleEntity;
+import com.zhongruan.edu.biz.auth.infrastructure.persistence.entity.UserRoleEntity;
+import com.zhongruan.edu.biz.auth.infrastructure.persistence.mapper.RoleMapper;
 import com.zhongruan.edu.biz.auth.infrastructure.persistence.mapper.UserMapper;
+import com.zhongruan.edu.biz.auth.infrastructure.persistence.mapper.UserRoleMapper;
 import com.zhongruan.edu.biz.course.application.service.CoursePermissionService;
 import com.zhongruan.edu.biz.course.domain.enums.EnrollmentStatus;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEnrollmentEntity;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseChapterEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseLessonEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseMaterialEntity;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.LessonLearningRecordEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.entity.CourseTeacherEntity;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseEnrollmentMapper;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseChapterMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseLessonMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseMaterialMapper;
 import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.CourseTeacherMapper;
+import com.zhongruan.edu.biz.course.infrastructure.persistence.mapper.LessonLearningRecordMapper;
+import com.zhongruan.edu.biz.grade.infrastructure.persistence.entity.GradeRecordEntity;
+import com.zhongruan.edu.biz.grade.infrastructure.persistence.mapper.GradeRecordMapper;
+import com.zhongruan.edu.biz.platform.infrastructure.persistence.entity.AnnouncementEntity;
+import com.zhongruan.edu.biz.platform.infrastructure.persistence.mapper.AnnouncementMapper;
+import com.zhongruan.edu.biz.forum.infrastructure.persistence.entity.ForumTopicEntity;
+import com.zhongruan.edu.biz.forum.infrastructure.persistence.mapper.ForumTopicMapper;
+import com.zhongruan.edu.biz.notification.infrastructure.persistence.entity.NotificationEntity;
+import com.zhongruan.edu.biz.notification.infrastructure.persistence.mapper.NotificationMapper;
 import com.zhongruan.edu.biz.exam.infrastructure.persistence.entity.ExamEntity;
 import com.zhongruan.edu.biz.exam.infrastructure.persistence.entity.QuestionEntity;
 import com.zhongruan.edu.biz.exam.infrastructure.persistence.mapper.ExamMapper;
@@ -40,6 +56,7 @@ import com.zhongruan.edu.feign.ai.AiAssistantContextRequest;
 import com.zhongruan.edu.feign.ai.AiAssistantContextResponse;
 import com.zhongruan.edu.feign.ai.AiCourseContextRequest;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
+import com.zhongruan.edu.feign.ai.AiChapterRef;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
 import com.zhongruan.edu.feign.ai.AiMaterialRef;
 import com.zhongruan.edu.feign.ai.AiPaperContextRequest;
@@ -47,6 +64,7 @@ import com.zhongruan.edu.feign.ai.AiPaperContextResponse;
 import com.zhongruan.edu.feign.ai.AiQuestionRef;
 import com.zhongruan.edu.feign.ai.AiResourceContextRequest;
 import com.zhongruan.edu.feign.ai.AiSubmissionContextResponse;
+import com.zhongruan.edu.feign.ai.AiTeacherRegistrationCandidate;
 import com.zhongruan.edu.feign.ai.AiWarningContextResponse;
 import com.zhongruan.edu.feign.ai.AiWarningEvidenceRef;
 import com.zhongruan.edu.feign.ai.BizAiContextFeignClient;
@@ -77,6 +95,7 @@ public class InternalAiContextController implements BizAiContextFeignClient {
     private final CourseMapper courseMapper;
     private final CourseTeacherMapper courseTeacherMapper;
     private final CourseEnrollmentMapper courseEnrollmentMapper;
+    private final CourseChapterMapper courseChapterMapper;
     private final CourseLessonMapper courseLessonMapper;
     private final CourseMaterialMapper courseMaterialMapper;
     private final CoursePermissionService coursePermissionService;
@@ -88,6 +107,13 @@ public class InternalAiContextController implements BizAiContextFeignClient {
     private final ExamMapper examMapper;
     private final TermEnrollmentWindowMapper termEnrollmentWindowMapper;
     private final UserMapper userMapper;
+    private final RoleMapper roleMapper;
+    private final UserRoleMapper userRoleMapper;
+    private final LessonLearningRecordMapper lessonLearningRecordMapper;
+    private final GradeRecordMapper gradeRecordMapper;
+    private final AnnouncementMapper announcementMapper;
+    private final ForumTopicMapper forumTopicMapper;
+    private final NotificationMapper notificationMapper;
     private final MaterialTextExtractionService extractionService;
     private final HttpServletRequest servletRequest;
 
@@ -95,6 +121,7 @@ public class InternalAiContextController implements BizAiContextFeignClient {
             CourseMapper courseMapper,
             CourseTeacherMapper courseTeacherMapper,
             CourseEnrollmentMapper courseEnrollmentMapper,
+            CourseChapterMapper courseChapterMapper,
             CourseLessonMapper courseLessonMapper,
             CourseMaterialMapper courseMaterialMapper,
             CoursePermissionService coursePermissionService,
@@ -106,11 +133,19 @@ public class InternalAiContextController implements BizAiContextFeignClient {
             ExamMapper examMapper,
             TermEnrollmentWindowMapper termEnrollmentWindowMapper,
             UserMapper userMapper,
+            RoleMapper roleMapper,
+            UserRoleMapper userRoleMapper,
+            LessonLearningRecordMapper lessonLearningRecordMapper,
+            GradeRecordMapper gradeRecordMapper,
+            AnnouncementMapper announcementMapper,
+            ForumTopicMapper forumTopicMapper,
+            NotificationMapper notificationMapper,
             MaterialTextExtractionService extractionService,
             HttpServletRequest servletRequest) {
         this.courseMapper = courseMapper;
         this.courseTeacherMapper = courseTeacherMapper;
         this.courseEnrollmentMapper = courseEnrollmentMapper;
+        this.courseChapterMapper = courseChapterMapper;
         this.courseLessonMapper = courseLessonMapper;
         this.courseMaterialMapper = courseMaterialMapper;
         this.coursePermissionService = coursePermissionService;
@@ -122,6 +157,13 @@ public class InternalAiContextController implements BizAiContextFeignClient {
         this.examMapper = examMapper;
         this.termEnrollmentWindowMapper = termEnrollmentWindowMapper;
         this.userMapper = userMapper;
+        this.roleMapper = roleMapper;
+        this.userRoleMapper = userRoleMapper;
+        this.lessonLearningRecordMapper = lessonLearningRecordMapper;
+        this.gradeRecordMapper = gradeRecordMapper;
+        this.announcementMapper = announcementMapper;
+        this.forumTopicMapper = forumTopicMapper;
+        this.notificationMapper = notificationMapper;
         this.extractionService = extractionService;
         this.servletRequest = servletRequest;
     }
@@ -134,6 +176,9 @@ public class InternalAiContextController implements BizAiContextFeignClient {
         boolean student = STUDENT_ROLE.equals(user.activeRole());
         boolean teacher = TEACHER_ROLE.equals(user.activeRole());
         boolean admin = ADMIN_ROLES.contains(user.activeRole());
+        boolean superAdmin = "SUPER_ADMIN".equals(user.activeRole());
+        Set<String> domains = request.domains();
+        boolean allDomains = domains != null && domains.contains("ALL");
         if (!student && !teacher && !admin) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
@@ -163,7 +208,7 @@ public class InternalAiContextController implements BizAiContextFeignClient {
         Map<Long, CourseEntity> courseById = courses.stream()
                 .collect(Collectors.toMap(CourseEntity::getId, Function.identity(), (left, right) -> left));
 
-        List<LearningWarningEntity> warnings = student
+        List<LearningWarningEntity> warnings = !requested(domains, allDomains, "WARNINGS") ? List.of() : student
                 ? learningWarningMapper.selectList(Wrappers.<LearningWarningEntity>lambdaQuery()
                         .eq(LearningWarningEntity::getStudentId, user.userId())
                         .orderByDesc(LearningWarningEntity::getGeneratedAt).last("LIMIT 50"))
@@ -172,19 +217,19 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                                 .in(LearningWarningEntity::getCourseId, courseIds)
                                 .orderByDesc(LearningWarningEntity::getGeneratedAt).last("LIMIT 50"))
                         : List.of();
-        List<AssignmentEntity> assignments = courseIds.isEmpty() || admin
+        List<AssignmentEntity> assignments = !requested(domains, allDomains, "ASSIGNMENTS") || courseIds.isEmpty() || admin
                 ? List.of()
                 : assignmentMapper.selectList(Wrappers.<AssignmentEntity>lambdaQuery()
                         .in(AssignmentEntity::getCourseId, courseIds)
                         .eq(student, AssignmentEntity::getStatus, PUBLISHED)
                         .orderByAsc(AssignmentEntity::getDueAt).last("LIMIT 50"));
-        List<ExamEntity> exams = courseIds.isEmpty() || admin
+        List<ExamEntity> exams = !requested(domains, allDomains, "EXAMS") || courseIds.isEmpty() || admin
                 ? List.of()
                 : examMapper.selectList(Wrappers.<ExamEntity>lambdaQuery()
                         .in(ExamEntity::getCourseId, courseIds)
                         .eq(student, ExamEntity::getStatus, PUBLISHED)
                         .orderByAsc(ExamEntity::getStartAt).last("LIMIT 50"));
-        List<String> windows = termEnrollmentWindowMapper
+        List<String> windows = !requested(domains, allDomains, "WINDOWS") ? List.of() : termEnrollmentWindowMapper
                 .selectList(Wrappers.<TermEnrollmentWindowEntity>lambdaQuery()
                         .orderByAsc(TermEnrollmentWindowEntity::getEnrollmentOpenAt))
                 .stream()
@@ -197,8 +242,8 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                         value(course.getTerm()), value(course.getStatus())))
                 .toList();
         List<String> warningFacts = warnings.stream()
-                .map(warning -> "%s：级别 %s，状态 %s，%s；建议：%s%s".formatted(
-                        courseLabel(courseById, warning.getCourseId()), value(warning.getWarningLevel()),
+                .map(warning -> "%s：预警ID %s，级别 %s，状态 %s，%s；建议：%s%s".formatted(
+                        courseLabel(courseById, warning.getCourseId()), warning.getId(), value(warning.getWarningLevel()),
                         value(warning.getWarningStatus()), value(warning.getSummary()), value(warning.getSuggestion()),
                         teacher ? "；学生ID " + warning.getStudentId() : ""))
                 .toList();
@@ -214,24 +259,35 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                         courseLabel(courseById, exam.getCourseId()), value(exam.getTitle()), value(exam.getStatus()),
                         value(exam.getStartAt()), value(exam.getEndAt()), value(exam.getDurationMinutes())))
                 .toList();
-        List<String> metrics = admin ? List.of(
+        List<String> metrics = admin && requested(domains, allDomains, "METRICS") ? List.of(
                 "课程总数：" + courseMapper.selectCount(Wrappers.<CourseEntity>lambdaQuery()),
                 "开放学习预警：" + learningWarningMapper.selectCount(Wrappers.<LearningWarningEntity>lambdaQuery()
                         .eq(LearningWarningEntity::getWarningStatus, "OPEN")),
                 "作业总数：" + assignmentMapper.selectCount(Wrappers.<AssignmentEntity>lambdaQuery()),
-                "考试总数：" + examMapper.selectCount(Wrappers.<ExamEntity>lambdaQuery())) : List.of();
-        List<String> pendingTeachers = admin
+                "考试总数：" + examMapper.selectCount(Wrappers.<ExamEntity>lambdaQuery()),
+                "指标口径说明：上述数量直接实时统计业务表；管理员上下文中明细未提供不代表底层表为空，"
+                        + "不得据此判断指标失真。",
+                "课程业务口径：同一课程代码跨教师或学期多次开课属于正常业务；"
+                        + "DRAFT 未进入审核、OFFLINE 计入课程总数均不构成异常。",
+                "异常信号口径：当前上下文未提供经规则引擎确认的异常信号；"
+                        + "不得仅凭数量、状态分布、名称重复或缺少未授权明细推断异常。") : List.of();
+        List<UserEntity> pendingTeacherEntities = superAdmin && requested(domains, allDomains, "USERS")
                 ? userMapper.selectList(Wrappers.<UserEntity>lambdaQuery()
                         .eq(UserEntity::getUserStatus, "PENDING")
                         .orderByAsc(UserEntity::getCreatedAt)
                         .last("LIMIT 100"))
-                    .stream()
-                    .map(candidate -> "%s（用户名 %s，用户ID %s，版本 %s）".formatted(
-                            value(candidate.getDisplayName()), value(candidate.getUsername()),
-                            candidate.getId(), candidate.getVersion()))
-                    .toList()
                 : List.of();
-        List<String> submissionFacts = teacher && !courseIds.isEmpty()
+        List<String> pendingTeachers = pendingTeacherEntities.stream()
+                .map(candidate -> "%s（用户名 %s，用户ID %s，版本 %s）".formatted(
+                        value(candidate.getDisplayName()), value(candidate.getUsername()),
+                        candidate.getId(), candidate.getVersion()))
+                .toList();
+        List<AiTeacherRegistrationCandidate> pendingTeacherCandidates = pendingTeacherEntities.stream()
+                .map(candidate -> new AiTeacherRegistrationCandidate(
+                        candidate.getId(), candidate.getUsername(), candidate.getDisplayName(),
+                        candidate.getVersion(), offset(candidate.getCreatedAt())))
+                .toList();
+        List<String> submissionFacts = teacher && !courseIds.isEmpty() && requested(domains, allDomains, "SUBMISSIONS")
                 ? assignmentSubmissionMapper.selectList(Wrappers.<AssignmentSubmissionEntity>lambdaQuery()
                         .in(AssignmentSubmissionEntity::getCourseId, courseIds)
                         .in(AssignmentSubmissionEntity::getStatus, "SUBMITTED", "GRADED")
@@ -245,10 +301,93 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                     .toList()
                 : List.of();
 
+        List<String> progressFacts = (student || teacher) && !courseIds.isEmpty()
+                && requested(domains, allDomains, "PROGRESS")
+                ? lessonLearningRecordMapper.selectList(Wrappers.<LessonLearningRecordEntity>lambdaQuery()
+                        .in(LessonLearningRecordEntity::getCourseId, courseIds)
+                        .eq(student, LessonLearningRecordEntity::getStudentId, user.userId())
+                        .orderByDesc(LessonLearningRecordEntity::getLastStudiedAt)
+                        .last("LIMIT 100"))
+                    .stream()
+                    .map(item -> "%s：课时ID %s，状态 %s，学习 %s 秒，最近学习 %s%s".formatted(
+                            courseLabel(courseById, item.getCourseId()), item.getLessonId(), value(item.getStatus()),
+                            value(item.getStudySeconds()), value(item.getLastStudiedAt()),
+                            teacher ? "，学生ID " + item.getStudentId() : ""))
+                    .toList()
+                : List.of();
+        List<String> gradeFacts = (student || teacher) && !courseIds.isEmpty()
+                && requested(domains, allDomains, "GRADES")
+                ? gradeRecordMapper.selectList(Wrappers.<GradeRecordEntity>lambdaQuery()
+                        .in(GradeRecordEntity::getCourseId, courseIds)
+                        .eq(student, GradeRecordEntity::getStudentId, user.userId())
+                        .eq(student, GradeRecordEntity::getGradeStatus, PUBLISHED)
+                        .orderByDesc(GradeRecordEntity::getPublishedAt)
+                        .last("LIMIT 100"))
+                    .stream()
+                    .map(item -> "%s：%s ID %s，成绩 %s/%s，状态 %s，评语 %s%s".formatted(
+                            courseLabel(courseById, item.getCourseId()), value(item.getSourceType()),
+                            item.getSourceId(), value(item.getScore()), value(item.getMaxScore()),
+                            value(item.getGradeStatus()), value(item.getComment()),
+                            teacher ? "，学生ID " + item.getStudentId() : ""))
+                    .toList()
+                : List.of();
+        List<AnnouncementEntity> visibleAnnouncements = requested(domains, allDomains, "ANNOUNCEMENTS")
+                ? announcementMapper.selectList(Wrappers.<AnnouncementEntity>lambdaQuery()
+                        .orderByDesc(AnnouncementEntity::getCreatedAt).last("LIMIT 100"))
+                : List.of();
+        List<String> announcementFacts = visibleAnnouncements.stream()
+                .filter(item -> admin
+                        || (student && PUBLISHED.equals(item.getStatus())
+                                && Set.of("ALL", "STUDENT").contains(item.getAudience())
+                                && (item.getCourseId() == null || courseIds.contains(item.getCourseId())))
+                        || (teacher && ((item.getCourseId() != null && courseIds.contains(item.getCourseId()))
+                                || (item.getCourseId() == null && PUBLISHED.equals(item.getStatus())
+                                        && Set.of("ALL", "TEACHER").contains(item.getAudience())))))
+                .map(item -> "%s公告《%s》：状态 %s，受众 %s，来源 %s，%s".formatted(
+                        item.getCourseId() == null ? "平台" : courseLabel(courseById, item.getCourseId()),
+                        value(item.getTitle()), value(item.getStatus()), value(item.getAudience()),
+                        value(item.getSource()), value(item.getContent())))
+                .toList();
+        List<String> forumFacts = !requested(domains, allDomains, "FORUM") ? List.of() : forumTopicMapper.selectList(
+                        Wrappers.<ForumTopicEntity>lambdaQuery().orderByDesc(ForumTopicEntity::getUpdatedAt).last("LIMIT 100"))
+                .stream()
+                .filter(item -> admin || (courseIds.contains(item.getCourseId())
+                        && (!student || !"HIDDEN".equals(item.getStatus()))))
+                .map(item -> "%s讨论《%s》：状态 %s，回复 %s，置顶 %s，%s".formatted(
+                        courseLabel(courseById, item.getCourseId()), value(item.getTitle()),
+                        value(item.getStatus()), value(item.getReplyCount()), value(item.getPinned()), value(item.getContent())))
+                .toList();
+        List<String> notificationFacts = !requested(domains, allDomains, "NOTIFICATIONS") ? List.of()
+                : notificationMapper.selectList(Wrappers.<NotificationEntity>lambdaQuery()
+                        .eq(NotificationEntity::getRecipientUserId, user.userId())
+                        .orderByDesc(NotificationEntity::getCreatedAt).last("LIMIT 100"))
+                .stream()
+                .map(item -> "《%s》：分类 %s，状态 %s，来源 %s，%s".formatted(
+                        value(item.getTitle()), value(item.getCategory()), value(item.getStatus()),
+                        value(item.getSourceType()), value(item.getContent())))
+                .toList();
+        List<UserEntity> userEntities = superAdmin && requested(domains, allDomains, "USERS")
+                ? userMapper.selectList(Wrappers.<UserEntity>lambdaQuery()
+                        .orderByDesc(UserEntity::getUpdatedAt).last("LIMIT 100"))
+                : List.of();
+        Map<Long, String> rolesByUserId = rolesByUserId(userEntities);
+        List<String> userFacts = !userEntities.isEmpty()
+                ? java.util.stream.Stream.concat(
+                    java.util.stream.Stream.of(userRoleSummary(userEntities, rolesByUserId)),
+                    userEntities
+                    .stream()
+                    .map(item -> "%s（用户名 %s，用户ID %s，角色 %s，状态 %s，版本 %s）".formatted(
+                            value(item.getDisplayName()), value(item.getUsername()), item.getId(),
+                            rolesByUserId.getOrDefault(item.getId(), "未分配"),
+                            value(item.getUserStatus()), item.getVersion())))
+                    .toList()
+                : List.of();
+
         return ApiResponse.success(new AiAssistantContextResponse(
                 user.userId(), user.username(), user.activeRole(), OffsetDateTime.now(ZoneOffset.UTC),
                 windows, courseFacts, warningFacts, assignmentFacts, examFacts, metrics,
-                pendingTeachers, submissionFacts),
+                pendingTeachers, submissionFacts, pendingTeacherCandidates, progressFacts, gradeFacts,
+                announcementFacts, forumFacts, notificationFacts, userFacts),
                 RequestTrace.from(servletRequest));
     }
 
@@ -303,6 +442,8 @@ public class InternalAiContextController implements BizAiContextFeignClient {
             throw new BusinessException(CommonErrorCode.FORBIDDEN, "当前用户不能访问该资料");
         }
 
+        List<AiLessonRef> visibleLessons = lessons(request.courseId(), includeDraft, user.userId());
+        List<AiMaterialRef> visibleMaterials = materials(request.courseId(), includeDraft, user.userId());
         AiCourseContextResponse response = new AiCourseContextResponse(
                 course.getId(),
                 course.getCourseCode(),
@@ -312,8 +453,12 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                 course.getOwnerTeacherId(),
                 teacherMember,
                 enrolled,
-                lessons(request.courseId(), includeDraft, user.userId()),
-                materials(request.courseId(), includeDraft, user.userId()));
+                visibleLessons,
+                visibleMaterials,
+                course.getSummary(), course.getCategoryId(), course.getTerm(), course.getDepartment(),
+                course.getCredit(), offset(course.getEnrollmentOpenAt()), offset(course.getEnrollmentCloseAt()),
+                offset(course.getStartAt()), offset(course.getEndAt()), course.getVersion(),
+                chapters(request.courseId(), includeDraft, visibleLessons, visibleMaterials));
 
         return ApiResponse.success(response, RequestTrace.from(servletRequest));
     }
@@ -426,8 +571,60 @@ public class InternalAiContextController implements BizAiContextFeignClient {
         return course == null ? "课程ID " + courseId : course.getName() + "（" + course.getCourseCode() + "）";
     }
 
+    private Map<Long, String> rolesByUserId(List<UserEntity> users) {
+        if (users == null || users.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> roleCodesById = roleMapper.selectList(Wrappers.<RoleEntity>lambdaQuery()
+                        .eq(RoleEntity::getEnabled, 1))
+                .stream()
+                .collect(Collectors.toMap(RoleEntity::getId, RoleEntity::getRoleCode));
+        Set<Long> userIds = users.stream().map(UserEntity::getId).collect(Collectors.toSet());
+        return userRoleMapper.selectList(Wrappers.<UserRoleEntity>lambdaQuery()
+                        .in(UserRoleEntity::getUserId, userIds))
+                .stream()
+                .map(relation -> Map.entry(relation.getUserId(), roleCodesById.get(relation.getRoleId())))
+                .filter(entry -> entry.getValue() != null)
+                .sorted(Map.Entry.comparingByValue())
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.joining("/"))));
+    }
+
+    private String userRoleSummary(List<UserEntity> users, Map<Long, String> rolesByUserId) {
+        long studentCount = users.stream()
+                .filter(user -> hasRole(rolesByUserId.get(user.getId()), "STUDENT"))
+                .count();
+        long teacherCount = users.stream()
+                .filter(user -> hasRole(rolesByUserId.get(user.getId()), "TEACHER"))
+                .count();
+        long administratorCount = users.stream()
+                .filter(user -> hasRole(rolesByUserId.get(user.getId()), "ADMIN")
+                        || hasRole(rolesByUserId.get(user.getId()), "SUPER_ADMIN"))
+                .count();
+        long pendingTeacherCount = users.stream()
+                .filter(user -> "PENDING".equals(user.getUserStatus()))
+                .filter(user -> hasRole(rolesByUserId.get(user.getId()), "TEACHER"))
+                .count();
+        return "用户角色汇总：用户总数 %d；STUDENT %d；TEACHER %d；ADMIN/SUPER_ADMIN 用户 %d；待审核教师 %d。"
+                .formatted(users.size(), studentCount, teacherCount, administratorCount, pendingTeacherCount);
+    }
+
+    private boolean hasRole(String roles, String expectedRole) {
+        return roles != null && java.util.Arrays.stream(roles.split("/"))
+                .anyMatch(expectedRole::equals);
+    }
+
     private String value(Object value) {
         return value == null || String.valueOf(value).isBlank() ? "未设置" : String.valueOf(value);
+    }
+
+    private boolean requested(Set<String> domains, boolean allDomains, String domain) {
+        return allDomains || domains.contains(domain);
+    }
+
+    private OffsetDateTime offset(java.time.LocalDateTime value) {
+        return value == null ? null : value.atOffset(ZoneOffset.UTC);
     }
 
     private boolean isTeacherMember(Long userId, Long courseId) {
@@ -474,6 +671,26 @@ public class InternalAiContextController implements BizAiContextFeignClient {
                 .toList();
     }
 
+    private List<AiChapterRef> chapters(
+            Long courseId, boolean includeDraft, List<AiLessonRef> visibleLessons, List<AiMaterialRef> visibleMaterials) {
+        Set<Long> visibleChapterIds = java.util.stream.Stream.concat(
+                        visibleLessons.stream().map(AiLessonRef::chapterId),
+                        visibleMaterials.stream().map(AiMaterialRef::chapterId))
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        var query = Wrappers.<CourseChapterEntity>lambdaQuery()
+                .eq(CourseChapterEntity::getCourseId, courseId)
+                .orderByAsc(CourseChapterEntity::getSortOrder)
+                .orderByAsc(CourseChapterEntity::getId);
+        if (!includeDraft) query.eq(CourseChapterEntity::getStatus, PUBLISHED);
+        return courseChapterMapper.selectList(query).stream()
+                .filter(chapter -> includeDraft || visibleChapterIds.contains(chapter.getId()))
+                .map(chapter -> new AiChapterRef(
+                        chapter.getId(), chapter.getTitle(), chapter.getDescription(),
+                        chapter.getSortOrder(), chapter.getStatus()))
+                .toList();
+    }
+
     private List<AiMaterialRef> materials(Long courseId, boolean includeDraft, Long userId) {
         var query = Wrappers.<CourseMaterialEntity>lambdaQuery()
                 .eq(CourseMaterialEntity::getCourseId, courseId)
@@ -489,9 +706,14 @@ public class InternalAiContextController implements BizAiContextFeignClient {
     }
 
     private AiMaterialRef toAiMaterialRef(CourseMaterialEntity material) {
-        ExtractedText extracted = material.getFileId() == null
-                ? new ExtractedText("", "NO_FILE", "外部链接或未关联平台文件", false)
-                : extractionService.extract(material.getFileId());
+        ExtractedText extracted;
+        try {
+            extracted = material.getFileId() == null
+                    ? new ExtractedText("", "NO_FILE", "外部链接或未关联平台文件", false)
+                    : extractionService.extract(material.getFileId());
+        } catch (RuntimeException exception) {
+            extracted = new ExtractedText("", "FILE_UNAVAILABLE", "资料文件暂不可读取，请教师重新上传", false);
+        }
         return new AiMaterialRef(
                 material.getId(), material.getChapterId(), material.getLessonId(), material.getName(),
                 material.getMaterialType(), material.getFileKey(), material.getFileUrl(), material.getVisibility(),

@@ -103,14 +103,18 @@ class WarningApiIntegrationTest {
                         .header("Authorization", bearer(otherTeacher)))
                 .andExpect(status().isForbidden());
 
+        String aiInterventionRemark = "AI干预计划".repeat(100);
         mockMvc.perform(post("/api/v1/teacher/warnings/{warningId}/handle", warningId)
                         .header("Authorization", bearer(teacher))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"action\":\"HANDLED\",\"remark\":\"followed up\",\"version\":%d}".formatted(warningVersion)))
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "action", "HANDLED",
+                                "remark", aiInterventionRemark,
+                                "version", warningVersion))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.warningStatus.code").value("HANDLED"))
                 .andExpect(jsonPath("$.data.handledBy").value("1002"))
-                .andExpect(jsonPath("$.data.handleRemark").value("followed up"))
+                .andExpect(jsonPath("$.data.handleRemark").value(aiInterventionRemark))
                 .andExpect(jsonPath("$.data.handledAt").exists());
     }
 

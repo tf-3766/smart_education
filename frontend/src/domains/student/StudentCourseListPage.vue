@@ -37,6 +37,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { studentLearningApi } from '@/services/api'
 import type { StudentCourseListItemVO } from '@/services/api/types'
 import { usePageState } from '@/services/pageState'
+import { confirmDialog } from '@/services/confirmDialog'
 
 const router = useRouter()
 const state = usePageState()
@@ -48,7 +49,7 @@ async function load() {
   if (page) courses.value = page.records ?? []
 }
 async function quit(course: StudentCourseListItemVO) {
-  if (!window.confirm(`确认退出《${course.name}》？退课后学习记录保留，但需重新选课才能继续学习。`)) return
+  if (!(await confirmDialog(`确认退出《${course.name}》？退课后学习记录保留，但需重新选课才能继续学习。`, { title: '退出课程', confirmLabel: '确认退出' }))) return
   busy.value = course.courseId
   try {
     const result = await state.run(() => studentLearningApi.withdraw(course.courseId))

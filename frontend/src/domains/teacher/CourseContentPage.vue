@@ -20,6 +20,7 @@
         <li v-for="(step, index) in packageSteps" :key="step.title"><span>{{ index + 1 }}</span><div><strong>{{ step.title }}</strong><p>{{ step.hint }}</p></div></li>
       </ol>
       <label class="workflow-instruction"><span>补充要求（可选）</span><input v-model="packageInstruction" class="input" placeholder="例如：面向零基础学生，控制在 2 学时" /></label>
+      <AiGenerationProgress :active="packageLoading" label="正在生成教学包执行计划" />
       <p v-if="packageError" class="form-error" role="alert">{{ packageError }}</p>
       <AiResultPanel v-if="packagePlan" :result="packagePlan" :allow-adopt="false" />
       <footer class="workflow-actions">
@@ -129,7 +130,7 @@
     </AppModal>
     <AppModal :open="Boolean(summaryLesson)" title="AI 课时摘要" :description="summaryLesson ? `根据《${summaryLesson.title}》的课时说明和已发布资料生成摘要草稿。` : ''" @close="closeSummary">
       <p class="muted">摘要不会自动改写课时或资料，教师确认后可复制到课程公告、导学说明等位置。</p>
-      <p v-if="aiLoading" class="notice push-top">正在读取课时及其资料并生成摘要…</p>
+      <AiGenerationProgress :active="aiLoading" label="正在生成课时摘要草稿" class="push-top" />
       <p v-if="aiError" class="form-error" role="alert">{{ aiError }}</p>
       <AiResultPanel v-if="aiDraft" :result="aiDraft" :allow-adopt="false" class="push-top" @regenerate="summaryLesson && draftSummary(summaryLesson)" />
       <div class="form-actions"><AppButton variant="secondary" @click="closeSummary">关闭</AppButton></div>
@@ -147,11 +148,12 @@ import { formatDateTime } from '@/utils/datetime'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowRight, Plus, ShieldCheck, Sparkles } from 'lucide-vue-next'
-import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'; import AiAssistButton from '@/components/AiAssistButton.vue'
+import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiGenerationProgress from '@/components/AiGenerationProgress.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'; import AiAssistButton from '@/components/AiAssistButton.vue'
 import { aiApi, courseContentApi, filesApi, teacherCoursesApi } from '@/services/api'; import type { AiKnowledgeBaseStatusVO, ChapterDetailVO, CourseDetailVO, CourseMaterialVO, LessonDetailVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
 import { aiDraftToResult } from '@/services/aiDraft'
 import { aiErrorMessage } from '@/services/aiHint'
 import type { AiResult } from '@/types/domain'
+import { confirmDialog } from '@/services/confirmDialog'
 
 const route = useRoute(); const courseId = String(route.params.courseId)
 const state = usePageState(); const course = ref<CourseDetailVO | null>(null); const chapters = ref<ChapterDetailVO[]>([]); const message = ref('')
@@ -239,7 +241,7 @@ async function chapterAction(chapterId: string, action: 'publish' | 'offline') {
 }
 
 async function removeChapter(chapter: ChapterDetailVO) {
-  if (!window.confirm(`删除章节「${chapter.title}」？其中的课时将一并不可见。`)) return
+  if (!(await confirmDialog(`删除章节「${chapter.title}」？其中的课时将一并不可见。`, { confirmLabel: '确认删除' }))) return
   const result = await state.run(async () => { await courseContentApi.deleteChapter(chapter.chapterId); return true })
   if (result) { if (selectedChapterId.value === chapter.chapterId) { selectedChapterId.value = ''; lessons.value = [] } flash('章节已删除'); await load() }
 }
@@ -294,7 +296,7 @@ async function lessonAction(lessonId: string, action: 'publish' | 'offline') {
 }
 
 async function removeLesson(lesson: LessonDetailVO) {
-  if (!window.confirm(`删除课时「${lesson.title}」？`)) return
+  if (!(await confirmDialog(`删除课时「${lesson.title}」？`, { confirmLabel: '确认删除' }))) return
   const result = await state.run(async () => { await courseContentApi.deleteLesson(lesson.lessonId); return true })
   if (result) { flash('课时已删除'); await reloadLessons() }
 }
@@ -406,7 +408,7 @@ async function materialAction(material: CourseMaterialVO, status: 'PUBLISHED' | 
 }
 
 async function removeMaterial(material: CourseMaterialVO) {
-  if (!window.confirm(`删除资料「${material.name}」？`)) return
+  if (!(await confirmDialog(`删除资料「${material.name}」？`, { confirmLabel: '确认删除' }))) return
 
   const result = await state.run(async () => { await courseContentApi.deleteMaterial(material.materialId); return true })
   if (result) { flash('资料已删除'); await load() }
@@ -416,17 +418,20 @@ onMounted(load)
 </script>
 
 <style scoped>
-.ai-workflow-panel { display: grid; gap: 16px; margin-bottom: 18px; padding: 20px; border: 1px solid #bfd4f5; border-radius: 16px; background: linear-gradient(120deg, #f4f8ff 0%, #fff 55%, #f7f5ff 100%); box-shadow: 0 10px 28px rgba(37,99,235,.07); }
-.workflow-copy h2 { margin: 8px 0 4px; color: var(--ink); font-size: 20px; }
-.workflow-copy p, .workflow-steps p { margin: 0; color: var(--muted); font-size: 12px; }
-.ai-workflow-chip { display: inline-flex; gap: 6px; align-items: center; width: fit-content; padding: 4px 8px; border-radius: 999px; color: #2458bd; background: #e6efff; font-size: 11px; font-weight: 700; }
+.ai-workflow-panel { position: relative; isolation: isolate; display: grid; gap: 16px; margin-bottom: 18px; padding: 22px; overflow: hidden; border: 1px solid rgba(255,255,255,.72); border-radius: 16px; background: linear-gradient(132deg, rgba(242,250,255,.72), rgba(221,242,255,.50) 50%, rgba(242,247,255,.64)); box-shadow: inset 0 1px 0 rgba(255,255,255,.78), 0 8px 8px rgba(34,91,156,.10); backdrop-filter: blur(18px) saturate(135%); -webkit-backdrop-filter: blur(18px) saturate(135%); }
+.ai-workflow-panel::before { content: ''; position: absolute; z-index: -1; width: 42%; height: 130%; top: -68%; right: -8%; border-radius: 50%; background: rgba(255,255,255,.46); filter: blur(18px); pointer-events: none; }
+.workflow-copy h2 { margin: 8px 0 4px; color: #17335b; font-size: 20px; letter-spacing: -.015em; }
+.workflow-copy p, .workflow-steps p { margin: 0; color: #526b8d; font-size: 12px; }
+.ai-workflow-chip { display: inline-flex; gap: 6px; align-items: center; width: fit-content; padding: 5px 9px; border-radius: 999px; color: #1557bf; background: rgba(224,240,255,.66); box-shadow: inset 0 1px 0 rgba(255,255,255,.78); font-size: 11px; font-weight: 700; }
 .workflow-steps { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-.workflow-steps li { display: grid; grid-template-columns: 24px minmax(0,1fr); gap: 8px; padding: 10px; border: 1px solid #dfe8f5; background: rgba(255,255,255,.85); }
-.workflow-steps li > span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: #3568db; font-size: 11px; font-weight: 800; }
-.workflow-steps strong { display: block; color: #273548; font-size: 12px; }
-.workflow-instruction { display: grid; gap: 6px; color: #475569; font-size: 12px; }
-.workflow-actions { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
-.workflow-actions > span { display: inline-flex; gap: 6px; align-items: center; color: #64748b; font-size: 11px; }
+.workflow-steps li { display: grid; grid-template-columns: 26px minmax(0,1fr); gap: 8px; padding: 11px; border: 1px solid rgba(255,255,255,.68); border-radius: 10px; background: rgba(255,255,255,.36); box-shadow: inset 0 1px 0 rgba(255,255,255,.62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.workflow-steps li > span { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 9px; color: #fff; background: #2d6cdf; box-shadow: inset 0 1px 0 rgba(255,255,255,.32); font-size: 11px; font-weight: 800; }
+.workflow-steps strong { display: block; color: #213d65; font-size: 12px; }
+.workflow-instruction { display: grid; gap: 6px; color: #385878; font-size: 12px; }
+.workflow-instruction :deep(.input) { border-color: rgba(114,177,246,.64); background: rgba(248,252,255,.54); box-shadow: inset 0 1px 1px rgba(47,108,181,.08), 0 1px 0 rgba(255,255,255,.62); }
+.workflow-instruction :deep(.input:focus) { background: rgba(255,255,255,.66); }
+.workflow-actions { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding-top: 2px; border-top: 1px solid rgba(255,255,255,.46); }
+.workflow-actions > span { display: inline-flex; gap: 6px; align-items: center; color: #526b8d; font-size: 11px; }
 @media (max-width: 1080px) { .workflow-steps { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (max-width: 680px) { .workflow-steps { grid-template-columns: 1fr; } .workflow-actions { align-items: stretch; flex-direction: column; } }
 </style>

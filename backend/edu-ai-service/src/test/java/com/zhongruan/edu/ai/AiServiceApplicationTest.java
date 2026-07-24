@@ -9,6 +9,7 @@ import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
 import com.zhongruan.edu.common.security.JwtTokenService;
 import com.zhongruan.edu.feign.ai.AiCourseContextResponse;
+import com.zhongruan.edu.feign.ai.AiAssistantContextResponse;
 import com.zhongruan.edu.feign.ai.AiLessonRef;
 import com.zhongruan.edu.feign.ai.AiMaterialRef;
 import com.zhongruan.edu.feign.ai.AiPaperContextResponse;
@@ -16,8 +17,10 @@ import com.zhongruan.edu.feign.ai.AiQuestionRef;
 import com.zhongruan.edu.feign.ai.AiSubmissionContextResponse;
 import com.zhongruan.edu.feign.ai.AiWarningContextResponse;
 import com.zhongruan.edu.feign.ai.AiWarningEvidenceRef;
+import com.zhongruan.edu.feign.ai.AiTeacherRegistrationCandidate;
 import com.zhongruan.edu.feign.ai.BizAiContextFeignClient;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -263,6 +266,97 @@ class AiServiceApplicationTest {
                 .expectBody()
                 .jsonPath("$.code").isEqualTo("FORBIDDEN");
     }
+
+    @Test
+    void adminGovernanceDraftPrechecksTeachersAndCoursesWithoutWritingBusinessData() {
+        when(contextClient.getAssistantContext(anyString(), any())).thenReturn(ApiResponse.success(
+                new AiAssistantContextResponse(
+                        1003L, "admin", "SUPER_ADMIN", OffsetDateTime.now(),
+                        List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                        List.of("张老师（用户名 teacher_zhang，用户ID 1002，版本 3）"), List.of(),
+                        List.of(new AiTeacherRegistrationCandidate(
+                                1002L, "teacher_zhang", "张老师", 3, OffsetDateTime.parse("2026-07-20T08:00:00Z")))),
+                "ai-test-trace"));
+        when(contextClient.getCourseContext(anyString(), any())).thenReturn(ApiResponse.success(
+                new AiCourseContextResponse(
+                        21001L, "JAVA-101", "Java 程序设计", "DRAFT", "PENDING", 1002L,
+                        false, false,
+                        List.of(new AiLessonRef(23001L, 22001L, "第一章", "PUBLISHED", "TEXT", "正文", 1)),
+                        List.of(),
+                        "面向本科生的 Java 基础课程", 11L, "2026 秋季", "计算机学院", new BigDecimal("3.0"),
+                        OffsetDateTime.parse("2026-08-20T00:00:00Z"),
+                        OffsetDateTime.parse("2026-09-10T00:00:00Z"),
+                        OffsetDateTime.parse("2026-09-15T00:00:00Z"),
+                        OffsetDateTime.parse("2027-01-10T00:00:00Z"), 7),
+                "ai-test-trace"));
+
+        String adminToken = token(1003L, "admin", "SUPER_ADMIN", "admin:access");
+        webTestClient.post()
+                .uri("/api/v1/ai/admin/governance-review-draft")
+                .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"teacherUserIds\":[\"1002\"],\"courseIds\":[\"21001\"]}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.data.totalCount").isEqualTo(2)
+                .jsonPath("$.data.status").isEqualTo("FRAMEWORK_ONLY")
+                .jsonPath("$.data.teacherReviews[0].userId").isEqualTo("1002")
+                .jsonPath("$.data.teacherReviews[0].targetVersion").isEqualTo(3)
+                .jsonPath("$.data.teacherReviews[0].username").isEqualTo("teacher_zhang")
+                .jsonPath("$.data.teacherReviews[0].reviewRequired").isEqualTo(true)
+                  .jsonPath("$.data.courseCompliance[0].courseId").isEqualTo("21001")
+                  .jsonPath("$.data.courseCompliance[0].targetVersion").isEqualTo(7)
+                  .jsonPath("$.data.courseCompliance[0].summary").isEqualTo("面向本科生的 Java 基础课程")
+                  .jsonPath("$.data.courseCompliance[0].categoryId").isEqualTo("11")
+                  .jsonPath("$.data.courseCompliance[0].term").isEqualTo("2026 秋季")
+                  .jsonPath("$.data.courseCompliance[0].department").isEqualTo("计算机学院")
+                  .jsonPath("$.data.courseCompliance[0].credit").isEqualTo(3.0)
+                  .jsonPath("$.data.courseCompliance[0].enrollmentOpenAt").isEqualTo("2026-08-20T00:00:00Z")
+                  .jsonPath("$.data.courseCompliance[0].enrollmentCloseAt").isEqualTo("2026-09-10T00:00:00Z")
+                  .jsonPath("$.data.courseCompliance[0].startAt").isEqualTo("2026-09-15T00:00:00Z")
+                  .jsonPath("$.data.courseCompliance[0].endAt").isEqualTo("2027-01-10T00:00:00Z")
+                  .jsonPath("$.data.courseCompliance[0].issueCodes[0]").isEqualTo("NO_MATERIALS")
+                  .jsonPath("$.data.courseCompliance[0].reviewRequired").isEqualTo(true);
+      }
+
+      @Test
+      void adminGovernanceDraftReportsMissingAndInvalidCourseMetadata() {
+          when(contextClient.getAssistantContext(anyString(), any())).thenReturn(ApiResponse.success(
+                  new AiAssistantContextResponse(
+                          1003L, "admin", "SUPER_ADMIN", OffsetDateTime.now(),
+                          List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
+                  "ai-test-trace"));
+          when(contextClient.getCourseContext(anyString(), any())).thenReturn(ApiResponse.success(
+                  new AiCourseContextResponse(
+                          21002L, "META-INVALID", "元数据不完整课程", "PUBLISHED", "APPROVED", 1002L,
+                          false, false,
+                          List.of(new AiLessonRef(23002L, 22002L, "有效课时", "PUBLISHED", "TEXT", "正文", 1)),
+                          List.of(new AiMaterialRef(
+                                  24002L, 22002L, 23002L, "有效资料", "DOCUMENT", "material.pdf", null,
+                                  "ENROLLED", "PUBLISHED", "资料正文", "EXTRACTED", "正文")),
+                          null, null, "", "", BigDecimal.ZERO,
+                          OffsetDateTime.parse("2026-09-01T00:00:00Z"), null,
+                          OffsetDateTime.parse("2026-10-01T00:00:00Z"),
+                          OffsetDateTime.parse("2026-09-30T00:00:00Z"), 2),
+                  "ai-test-trace"));
+
+          String adminToken = token(1003L, "admin", "SUPER_ADMIN", "admin:access");
+          webTestClient.post()
+                  .uri("/api/v1/ai/admin/governance-review-draft")
+                  .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .bodyValue("{\"courseIds\":[\"21002\"]}")
+                  .exchange()
+                  .expectStatus().isOk()
+                  .expectBody()
+                  .jsonPath("$.data.courseCompliance[0].readinessScore").isEqualTo(25)
+                  .jsonPath("$.data.courseCompliance[0].issueCodes").value(org.hamcrest.Matchers.hasItems(
+                          "MISSING_SUMMARY", "MISSING_CATEGORY", "MISSING_TERM", "MISSING_DEPARTMENT",
+                          "INVALID_CREDIT", "INVALID_COURSE_WINDOW", "MISSING_ENROLLMENT_WINDOW"))
+                  .jsonPath("$.data.courseCompliance[0].categoryId").doesNotExist()
+                  .jsonPath("$.data.courseCompliance[0].enrollmentCloseAt").doesNotExist();
+      }
 
     private String token(Long userId, String username, String role, String permission) {
         return jwtTokenService.issue(userId, username, role, Set.of(role), Set.of(permission)).value();

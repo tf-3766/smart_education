@@ -7,7 +7,7 @@
 
     <div v-if="message" class="toast">{{ message }}</div>
     <div class="filter-bar">
-      <label class="filter-field"><span>课程</span><select v-model="courseId" class="select" @change="loadWarnings"><option v-for="course in courses" :key="course.courseId" :value="course.courseId">{{ course.name }}</option></select></label>
+      <label class="filter-field"><span>课程</span><select v-model="courseId" class="select" @change="loadWarnings"><option v-if="!courses.length" value="" disabled>暂无可管理课程</option><option v-for="course in courses" :key="course.courseId" :value="course.courseId">{{ course.name }}</option></select></label>
       <label class="filter-field"><span>状态</span><select v-model="status" class="select" @change="loadWarnings"><option value="">全部状态</option><option value="OPEN">待处理</option><option value="HANDLED">已处理</option><option value="IGNORED">已忽略</option></select></label>
     </div>
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="loadWarnings" />
@@ -35,12 +35,14 @@
             <AiAssistButton label="生成风险解读" :loading="aiLoadingId === warning.warningId" @click="draftExplanation(warning)" />
             <AiAssistButton label="生成干预计划" :loading="aiLoadingId === warning.warningId" @click="draftInterventionPlan(warning)" />
           </div></div>
+          <AiGenerationProgress :active="aiLoadingId === warning.warningId" :label="aiLoadingLabel || '正在生成预警草稿'" class="push-top" />
           <p v-if="aiErrors[warning.warningId]" class="form-error" style="margin-top: 10px">{{ aiErrors[warning.warningId] }}</p>
         </div>
-        <AiResultPanel v-else :result="aiDrafts[warning.warningId]" :adopt-label="warning.warningStatus.code === 'OPEN' ? '采用为干预记录' : undefined" class="push-top" @adopt="remarks[warning.warningId] = $event" @regenerate="regenerateWarningDraft(warning)" />
+        <AiResultPanel v-else :result="aiDrafts[warning.warningId]" :adopt-label="warning.warningStatus.code === 'OPEN' ? '采用为干预记录' : undefined" class="push-top" @adopt="adoptWarningRemark(warning.warningId, $event)" @regenerate="regenerateWarningDraft(warning)" />
 
         <template v-if="warning.warningStatus.code === 'OPEN'">
-          <textarea v-model="remarks[warning.warningId]" class="textarea push-top" placeholder="填写干预记录或忽略原因" />
+          <textarea v-model="remarks[warning.warningId]" :maxlength="4000" class="textarea push-top" placeholder="填写干预记录或忽略原因" />
+          <small class="muted">{{ (remarks[warning.warningId] || '').length }} / 4000，最多 4000 字</small>
           <div class="row push-top"><AppButton variant="secondary" @click="handleWarning(warning, 'IGNORED')">忽略预警</AppButton><AppButton variant="primary" @click="handleWarning(warning, 'HANDLED')">记录干预并关闭</AppButton></div>
         </template>
         <div v-else-if="warning.handleRemark" class="notice push-top"><div><strong>处理记录</strong><p>{{ warning.handleRemark }}</p></div></div>
@@ -54,6 +56,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Activity, CircleCheck, TriangleAlert } from 'lucide-vue-next'
 import AiAssistButton from '@/components/AiAssistButton.vue'
+import AiGenerationProgress from '@/components/AiGenerationProgress.vue'
 import { useRoute } from 'vue-router'
 import AppButton from '@/components/AppButton.vue'
 import AppMetric from '@/components/AppMetric.vue'
@@ -79,9 +82,11 @@ const remarks = reactive<Record<string, string>>({})
 const aiDrafts = reactive<Record<string, AiResult>>({})
 const aiErrors = reactive<Record<string, string>>({})
 const aiLoadingId = ref('')
+const aiLoadingLabel = ref('')
 const aiDraftKinds = reactive<Record<string, 'explanation' | 'intervention'>>({})
 async function draftExplanation(warning: LearningWarningVO) {
   aiLoadingId.value = warning.warningId
+  aiLoadingLabel.value = '正在生成风险解读'
   aiErrors[warning.warningId] = ''
   try {
     const draft = await aiApi.warningExplanation(warning.warningId)
@@ -89,11 +94,12 @@ async function draftExplanation(warning: LearningWarningVO) {
     aiDraftKinds[warning.warningId] = 'explanation'
   } catch (caught) {
     aiErrors[warning.warningId] = aiErrorMessage(caught)
-  } finally { aiLoadingId.value = '' }
+  } finally { aiLoadingId.value = ''; aiLoadingLabel.value = '' }
 }
 const selectedWarningId = computed(() => typeof route.query.warningId === 'string' ? route.query.warningId : '')
 async function draftInterventionPlan(warning: LearningWarningVO) {
   aiLoadingId.value = warning.warningId
+  aiLoadingLabel.value = '正在生成学习干预计划'
   aiErrors[warning.warningId] = ''
   try {
     const draft = await aiApi.warningInterventionPlan(warning.warningId)
@@ -101,11 +107,15 @@ async function draftInterventionPlan(warning: LearningWarningVO) {
     aiDraftKinds[warning.warningId] = 'intervention'
   } catch (caught) {
     aiErrors[warning.warningId] = aiErrorMessage(caught)
-  } finally { aiLoadingId.value = '' }
+  } finally { aiLoadingId.value = ''; aiLoadingLabel.value = '' }
 }
 function regenerateWarningDraft(warning: LearningWarningVO) {
   if (aiDraftKinds[warning.warningId] === 'intervention') void draftInterventionPlan(warning)
   else void draftExplanation(warning)
+}
+function adoptWarningRemark(warningId: string, content: string) {
+  remarks[warningId] = content.slice(0, 4000)
+  if (content.length > 4000) flash('AI 干预计划已按记录上限保留前 4000 字')
 }
 
 const selectedCourseId = computed(() => typeof route.query.courseId === 'string' ? route.query.courseId : '')
@@ -116,7 +126,7 @@ const courseName = (id: string) => courses.value.find((item) => item.courseId ==
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
 
 async function load() {
-  const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 }))
+  const page = await state.run(() => teacherCoursesApi.listFormal({ page: 1, size: 100 }))
   if (!page) return
   courses.value = page.records
   courseId.value = page.records.some((item) => item.courseId === selectedCourseId.value)

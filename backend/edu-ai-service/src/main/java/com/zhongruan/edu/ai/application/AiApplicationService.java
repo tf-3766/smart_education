@@ -2,23 +2,31 @@ package com.zhongruan.edu.ai.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhongruan.edu.ai.api.vo.AiActionVO;
+import com.zhongruan.edu.ai.api.vo.AdminGovernanceDraftVO;
 import com.zhongruan.edu.ai.api.vo.BatchGradingDraftVO;
 import com.zhongruan.edu.ai.api.vo.AiCitationVO;
 import com.zhongruan.edu.ai.api.vo.AiDraftVO;
 import com.zhongruan.edu.ai.api.vo.AiKnowledgeBaseStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiServiceStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
+import com.zhongruan.edu.ai.api.vo.AiCapabilityVO;
 import com.zhongruan.edu.ai.context.AuthorizedAiContextService;
 import com.zhongruan.edu.ai.generation.AiTextGenerator;
 import com.zhongruan.edu.ai.knowledge.CourseKnowledgeBaseService;
 import com.zhongruan.edu.ai.tools.AdminActionTools;
+import com.zhongruan.edu.ai.tools.AdminGovernanceTools;
+import com.zhongruan.edu.ai.tools.AdminPlatformTools;
+import com.zhongruan.edu.ai.tools.AdminAiStatusTools;
 import com.zhongruan.edu.ai.tools.CourseAuthoringTools;
 import com.zhongruan.edu.ai.tools.CourseContextTools;
 import com.zhongruan.edu.ai.tools.CourseKnowledgeTools;
 import com.zhongruan.edu.ai.tools.PlatformUtilityTools;
 import com.zhongruan.edu.ai.tools.RoleScopedPlatformTools;
 import com.zhongruan.edu.ai.tools.TeacherActionTools;
+import com.zhongruan.edu.ai.tools.TeacherCourseWorkflowTools;
+import com.zhongruan.edu.ai.tools.TeacherDraftTools;
 import com.zhongruan.edu.common.exception.BusinessException;
+import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.feign.ai.AiAssistantContextResponse;
 import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
 import com.zhongruan.edu.feign.ai.BizAiActionFeignClient;
@@ -31,6 +39,7 @@ import com.zhongruan.edu.feign.ai.AiQuestionRef;
 import com.zhongruan.edu.feign.ai.AiSubmissionContextResponse;
 import com.zhongruan.edu.feign.ai.AiWarningContextResponse;
 import com.zhongruan.edu.feign.ai.AiWarningEvidenceRef;
+import com.zhongruan.edu.feign.ai.AiTeacherRegistrationCandidate;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -109,8 +118,8 @@ public class AiApplicationService {
                         instruction += " 当教师/管理员明确要求生成题库、作业、考试或公告时，先用 searchCourseKnowledge 检索资料，再调用对应写工具"
                                 + "（generateQuestionBank / generateAssignment / generateExam / draftAnnouncement）落库为待确认草稿，"
                                 + "并提示其到对应页面确认发布，不得谎称已正式发布。"
-                                + "当一次请求包含教案、摘要、作业、题目、公告等多个交付物时，第一轮只输出分步执行计划、风险和预期变化，不调用写工具；"
-                                + "后续必须等用户明确确认当前步骤，每轮最多调用一个写工具，完成并验证当前草稿后再询问是否进入下一步。";
+                                + "当教师一个明确命令包含多个安全草稿交付物时，先说明计划与依据，再可在同一轮连续创建所需 AI 草稿；"
+                                + "任何正式发布、评分或通知仍必须逐项等待人工确认，不得把草稿创建描述成正式生效。";
                     }
                     String prompt = systemPrompt(context, instruction, !retrieval.matched());
                     if (retrieval.matched()) {
@@ -177,7 +186,9 @@ public class AiApplicationService {
             String question,
             String requestedConversationId,
             String traceId) {
-        if (courseId != null && Set.of("STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN").contains(role)) {
+        if (courseId != null
+                && Set.of("STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN").contains(role)
+                && !isGlobalAssistantQuestion(question, role)) {
             return courseQa(authorization, userId, role, courseId, lessonId, question, requestedConversationId, traceId);
         }
         String requestId = UUID.randomUUID().toString();
@@ -185,32 +196,46 @@ public class AiApplicationService {
                 ? requestId : requestedConversationId.trim();
         String conversationId = "user-%s:role-%s:assistant:%s".formatted(userId, role, clientConversation);
         String roleScope = switch (role) {
-            case "STUDENT" -> "帮助学生理解本人课程、学习任务、作业考试、学习进度和本人预警；不得访问其他学生数据。";
-            case "TEACHER" -> "帮助教师完成其负责课程的建设、资料发布、作业批改、考试组卷、讨论管理和学情干预；正式发布必须由教师确认。";
-            case "ADMIN", "SUPER_ADMIN" -> "帮助管理员理解用户审核、选课时间、平台治理、统计监控和 AI 服务状态；不得代替管理员执行高风险操作。";
+            case "STUDENT" -> "学生助手严格只读问答：仅解释本人课程、课时资料、作业考试、进度、已发布成绩、本人预警、公告讨论和通知；禁止创建草稿、修改、发布或规划任何写操作，也不得访问其他学生数据。";
+            case "TEACHER" -> "教师助手覆盖负责课程的问答与自动流。教师明确要求时，可以先读取授权课程和资料，再自动创建题库、作业、考试、公告等 AI 草稿；发布、评分等正式写操作只能创建待确认计划。";
+            case "ADMIN" -> "管理员助手覆盖课程治理、内容治理、选课窗口、运营统计和 AI 服务状态；不具备教师注册预审/审批权限。高风险写操作只能创建待强确认计划。";
+            case "SUPER_ADMIN" -> "超级管理员助手覆盖用户与教师注册治理、课程和内容治理、选课窗口、运营统计及 AI 服务状态；高风险写操作只能创建待强确认计划。";
             default -> "仅回答平台公开使用说明。";
         };
-        return Mono.fromCallable(() -> contextService.assistantContext(authorization, userId, role, traceId))
+        Set<String> requestedDomains = assistantDomains(question, role);
+        return Mono.fromCallable(() -> contextService.assistantContext(
+                        authorization, userId, role, traceId, requestedDomains))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMapMany(context -> {
                     Sinks.Many<AiStreamEvent> actionEvents = Sinks.many().unicast().onBackpressureBuffer();
                     String systemPrompt = """
                             你是“知行教学云”的全局教学智能助手。%s
+                            %s
                             当前角色：%s
                             当前页面：%s（%s）
+                            AI 服务状态：provider=%s，model=%s，模型已配置=%s，向量库已配置=%s。
                             下方事实由业务服务按照当前 JWT 身份和角色从真实数据库实时读取，必须优先据此回答；
                             需要选课时间、本人课程、本人预警、作业、考试或平台指标时，可调用对应只读工具核对。
                             不得虚构未提供的数据，不得把其他用户信息归到当前用户；资料型课程问题应进入具体课程后使用课程 RAG。
                             当前能力目录只表示真正可用的能力；缺少执行能力时应说明限制，不得承诺已执行。
+                            学生角色绝对不得调用任何草稿或动作工具。教师和管理员可在用户明确命令下连续创建多个安全的 AI 草稿；
+                            但发布、评分、审批、选课窗口变更等正式动作必须逐项创建待确认计划，不能把一次确认扩展到后续动作。
                             对已经接入动作执行器的写操作，只能调用计划工具创建 WAITING_CONFIRMATION 计划；
                             不得把计划描述成已经执行，必须等待用户点击正式确认卡。不得绕过业务服务的权限和状态校验。
-                            多步骤写请求必须先展示完整计划、风险和预期变化；用户明确确认当前步骤后，每轮最多创建一个动作计划，
+                            多步骤正式写请求必须先展示完整计划、风险和预期变化；用户明确确认当前步骤后，每轮最多创建一个动作计划，
                             返回执行结果并验证后再继续下一步。不得把用户对一个步骤的确认扩展为对后续步骤的授权。
                             回答简洁、可操作，说明数据为空或尚未设置的情况，不展示内部推理，不声称已执行未实际发生的写操作。
 
                             当前授权数据库快照：
                             %s
-                            """.formatted(roleScope, role, text(pageTitle), text(pagePath), assistantFacts(context));
+
+                            当前角色能力与页面入口：
+                            %s
+                            """.formatted(roleScope, adminOperationGuardrails(role), role,
+                                    text(pageTitle), text(pagePath), generator.provider(),
+                                    text(generator.model()), generator.configured(), knowledgeBase.configured(),
+                                    assistantFacts(context, requestedDomains),
+                                    capabilityRegistry.policySummary(role, null));
                     Flux<AiStreamEvent> modelEvents = generator.stream(
                                     systemPrompt,
                                     question.trim(),
@@ -221,9 +246,18 @@ public class AiApplicationService {
                                             authorization,
                                             userId,
                                             requestId,
-                                            action -> actionEvents.tryEmitNext(event("action", requestId, action))))
+                                            traceId,
+                                            action -> actionEvents.tryEmitNext(event("action", requestId, action)),
+                                    toolName -> actionEvents.tryEmitNext(event("tool", requestId, new ToolData(
+                                                    toolName, "COMPLETED", role,
+                                                    "课程创作自动流已完成该工具步骤", List.of())))))
                             .filter(chunk -> chunk != null && !chunk.isEmpty())
                             .map(chunk -> event("delta", requestId, chunk))
+                            .onErrorResume(error -> isExplicitReadOnlyQuestion(question)
+                                    ? Flux.just(event("delta", requestId,
+                                            "外部模型暂时不可用，已改用实时授权数据快照完成本次只读查询。\n\n"
+                                                    + assistantFacts(context, requestedDomains)))
+                                    : Flux.error(error))
                             .doFinally(signal -> actionEvents.tryEmitComplete());
                     return Flux.concat(
                             Flux.just(event("meta", requestId, new Meta(
@@ -231,7 +265,8 @@ public class AiApplicationService {
                                     conversationId, generator.configured()))),
                             Flux.just(event("tool", requestId, new ToolData(
                                     "authorizedPlatformContext", "COMPLETED", role,
-                                    "已从业务数据库读取当前账号的授权事实", List.of()))),
+                                    "已按最小事实域读取当前账号授权数据：" + requestedDomainSummary(requestedDomains),
+                                    List.of()))),
                             Flux.just(event("capability", requestId, capabilityRegistry.available(role, null))),
                             Flux.merge(actionEvents.asFlux(), modelEvents),
                             Flux.just(event("done", requestId, new Done("COMPLETED"))));
@@ -649,9 +684,11 @@ public class AiApplicationService {
                             不得虚构明细，不得执行教师审批、课程下线、批量通知或任何写操作；
                             高风险建议必须标注“需要强确认和完整审计”。管理员补充要求：%s
 
+                            %s
+
                             当前授权数据库快照：
                             %s
-                            """.formatted(text(customInstruction), assistantFacts(context));
+                            """.formatted(text(customInstruction), adminOperationGuardrails(role), assistantFacts(context));
                     String content = generator.generate(
                             system,
                             "请输出简洁、可扫描的中文每日运营简报，并把建议与事实依据分开。");
@@ -659,6 +696,247 @@ public class AiApplicationService {
                 })
                 .subscribeOn(Schedulers.boundedElastic());
     }
+
+    public List<AiCapabilityVO> capabilities(String role, Long courseId) {
+        return capabilityRegistry.available(role, courseId);
+    }
+
+    public Mono<AdminGovernanceDraftVO> adminGovernanceDraft(
+            String authorization,
+            Long userId,
+            String role,
+            List<Long> teacherUserIds,
+            List<Long> courseIds,
+            String criteria,
+            String traceId) {
+        return Mono.fromCallable(() -> {
+                    if (!"SUPER_ADMIN".equals(role) && teacherUserIds != null && !teacherUserIds.isEmpty()) {
+                        throw new BusinessException(
+                                CommonErrorCode.FORBIDDEN, "教师注册批量预审仅限超级管理员");
+                    }
+                    int total = teacherUserIds.size() + courseIds.size();
+                    if (total == 0 || total > 50) {
+                        throw new BusinessException(
+                                CommonErrorCode.PARAM_VALIDATION_ERROR,
+                                "教师与课程合计必须选择 1 到 50 项");
+                    }
+                    AiAssistantContextResponse snapshot = contextService.assistantContext(
+                            authorization, userId, role, traceId);
+                    List<AdminGovernanceDraftVO.TeacherReviewItem> teacherReviews = teacherUserIds.stream()
+                            .distinct()
+                            .map(id -> teacherGovernanceItem(id, snapshot.pendingTeacherCandidates(), criteria))
+                            .toList();
+                    List<AdminGovernanceDraftVO.CourseComplianceItem> courseCompliance = courseIds.stream()
+                            .distinct()
+                            .map(id -> courseGovernanceItem(
+                                    authorization, userId, role, id, criteria, traceId))
+                            .toList();
+                    int failureCount = (int) courseCompliance.stream()
+                            .filter(AdminGovernanceDraftVO.CourseComplianceItem::failed).count();
+                    boolean modelAttempted = generator.configured()
+                            && (teacherReviews.stream().anyMatch(item -> "MANUAL_REVIEW".equals(item.recommendation()))
+                                    || courseCompliance.stream().anyMatch(item -> !item.failed()));
+                    int reviewCount = (int) teacherReviews.stream()
+                            .filter(AdminGovernanceDraftVO.TeacherReviewItem::reviewRequired).count()
+                            + (int) courseCompliance.stream()
+                                    .filter(AdminGovernanceDraftVO.CourseComplianceItem::reviewRequired).count();
+                    return new AdminGovernanceDraftVO(
+                            UUID.randomUUID().toString(),
+                            modelAttempted ? "DRAFT" : "FRAMEWORK_ONLY",
+                            teacherReviews.size() + courseCompliance.size(),
+                            teacherReviews.size() + courseCompliance.size() - failureCount,
+                            failureCount,
+                            reviewCount,
+                            teacherReviews,
+                            courseCompliance,
+                            now());
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private AdminGovernanceDraftVO.TeacherReviewItem teacherGovernanceItem(
+            Long userId, List<AiTeacherRegistrationCandidate> pendingTeachers, String criteria) {
+        AiTeacherRegistrationCandidate candidate = pendingTeachers.stream()
+                .filter(item -> userId.equals(item.userId()))
+                .findFirst()
+                .orElse(null);
+        if (candidate == null) {
+            return new AdminGovernanceDraftVO.TeacherReviewItem(
+                    String.valueOf(userId), null, null, null, null,
+                    "未在当前待审核快照中找到该教师", "NOT_ELIGIBLE", 1D, true,
+                    List.of("NOT_PENDING"),
+                    List.of("账号可能已被其他管理员处理或目标 ID 不属于待审核教师，请刷新列表"),
+                    List.of("当前授权待审核教师快照中无此 ID"));
+        }
+        String candidateLabel = "%s（用户名 %s，用户ID %s，版本 %s）".formatted(
+                text(candidate.displayName()), text(candidate.username()), candidate.userId(), candidate.version());
+        List<String> reasons = new ArrayList<>();
+        reasons.add("账号仍处于待审核状态；正式通过或驳回必须由管理员逐项确认");
+        if (criteria != null && !criteria.isBlank()) {
+            reasons.add("人工复核标准：" + truncate(criteria.trim(), 300));
+        }
+        List<String> riskCodes = new ArrayList<>(List.of("IDENTITY_EVIDENCE_REQUIRED"));
+        GovernanceSuggestion suggestion = governanceSuggestion(
+                "你是教师注册预审助手。只能补充风险信号，不得自动批准或驳回。只输出 JSON："
+                        + "{\"confidence\":0到1,\"riskCodes\":[\"代码\"],\"reasons\":[\"原因\"]}",
+                "候选教师：" + candidateLabel + "\n注册时间：" + text(candidate.createdAt())
+                        + "\n人工标准：" + instruction(criteria));
+        double confidence = 0.65D;
+        if (suggestion != null) {
+            confidence = clamp(suggestion.confidence());
+            if (suggestion.riskCodes() != null) riskCodes.addAll(suggestion.riskCodes());
+            if (suggestion.reasons() != null) reasons.addAll(suggestion.reasons());
+        }
+        return new AdminGovernanceDraftVO.TeacherReviewItem(
+                String.valueOf(userId), candidate.version(), candidate.username(), candidate.displayName(),
+                candidate.createdAt(), candidateLabel, "MANUAL_REVIEW", confidence, true,
+                distinct(riskCodes), distinct(reasons), List.of(candidateLabel));
+    }
+
+    private AdminGovernanceDraftVO.CourseComplianceItem courseGovernanceItem(
+            String authorization, Long userId, String role, Long courseId, String criteria, String traceId) {
+        try {
+            AiCourseContextResponse context = contextService.courseContext(
+                    authorization, userId, role, courseId, null, AiContextPurpose.COURSE_QA, traceId);
+            return courseComplianceItem(context, criteria);
+        } catch (RuntimeException error) {
+            return AdminGovernanceDraftVO.CourseComplianceItem.unavailable(
+                    String.valueOf(courseId), "无法读取授权课程事实，请刷新后重试或逐课检查");
+        }
+    }
+
+    private AdminGovernanceDraftVO.CourseComplianceItem courseComplianceItem(
+            AiCourseContextResponse context, String criteria) {
+        List<String> codes = new ArrayList<>();
+        List<String> reasons = new ArrayList<>();
+        int score = 100;
+        if (context.materials().isEmpty()) {
+            codes.add("NO_MATERIALS");
+            reasons.add("课程尚无可供审核的资料，RAG 问答和依据核验不完整");
+            score -= 35;
+        }
+        if (context.lessons().isEmpty()) {
+            codes.add("NO_LESSONS");
+            reasons.add("课程尚未配置课时，无法核验教学内容结构");
+            score -= 35;
+        } else if (context.lessons().stream().noneMatch(
+                lesson -> lesson.content() != null && !lesson.content().isBlank())) {
+            codes.add("NO_LESSON_CONTENT");
+            reasons.add("课时存在但没有可核验的正文内容");
+            score -= 20;
+        }
+        if (!context.materials().isEmpty() && context.materials().stream().noneMatch(
+                material -> material.extractedText() != null && !material.extractedText().isBlank())) {
+            codes.add("MATERIAL_TEXT_UNAVAILABLE");
+            reasons.add("课程资料存在但没有可核验的抽取正文");
+            score -= 20;
+        }
+        if (!"APPROVED".equals(context.reviewStatus())) {
+            codes.add("REVIEW_NOT_APPROVED");
+            reasons.add("课程审核状态不是 APPROVED，不能视为已完成合规审核");
+            score -= 15;
+        }
+        if (!Set.of("DRAFT", "PUBLISHED", "ARCHIVED").contains(context.courseStatus())) {
+            codes.add("UNKNOWN_STATUS");
+            reasons.add("课程状态不在受支持的生命周期内");
+            score -= 15;
+        }
+        if (context.summary() == null || context.summary().isBlank()) {
+            codes.add("MISSING_SUMMARY");
+            reasons.add("课程简介为空，无法核验课程目标与内容范围");
+            score -= 10;
+        }
+        if (context.categoryId() == null) {
+            codes.add("MISSING_CATEGORY");
+            reasons.add("课程未设置分类");
+            score -= 10;
+        }
+        if (context.term() == null || context.term().isBlank()) {
+            codes.add("MISSING_TERM");
+            reasons.add("课程未设置学期");
+            score -= 10;
+        }
+        if (context.department() == null || context.department().isBlank()) {
+            codes.add("MISSING_DEPARTMENT");
+            reasons.add("课程未设置开课院系");
+            score -= 10;
+        }
+        if (context.credit() == null || context.credit().compareTo(BigDecimal.ZERO) <= 0) {
+            codes.add("INVALID_CREDIT");
+            reasons.add("课程学分缺失或不大于 0");
+            score -= 10;
+        }
+        if (context.startAt() == null || context.endAt() == null) {
+            codes.add("MISSING_COURSE_WINDOW");
+            reasons.add("课程开始或结束时间未完整设置");
+            score -= 10;
+        } else if (!context.endAt().isAfter(context.startAt())) {
+            codes.add("INVALID_COURSE_WINDOW");
+            reasons.add("课程结束时间必须晚于开始时间");
+            score -= 15;
+        }
+        if (context.enrollmentOpenAt() == null || context.enrollmentCloseAt() == null) {
+            codes.add("MISSING_ENROLLMENT_WINDOW");
+            reasons.add("选课开放或截止时间未完整设置");
+            score -= 10;
+        } else if (!context.enrollmentCloseAt().isAfter(context.enrollmentOpenAt())) {
+            codes.add("INVALID_ENROLLMENT_WINDOW");
+            reasons.add("选课截止时间必须晚于开放时间");
+            score -= 15;
+        }
+        List<String> evidence = new ArrayList<>();
+        evidence.add("课程状态=" + context.courseStatus() + "，审核状态=" + context.reviewStatus());
+        evidence.add("版本=" + text(context.version()) + "，学期=" + text(context.term())
+                + "，分类=" + text(context.categoryId()) + "，院系=" + text(context.department())
+                + "，学分=" + text(context.credit()));
+        evidence.add("简介=" + truncate(context.summary(), 500));
+        evidence.add("课程时间=" + text(context.startAt()) + " 至 " + text(context.endAt())
+                + "，选课时间=" + text(context.enrollmentOpenAt()) + " 至 " + text(context.enrollmentCloseAt()));
+        evidence.add("课时数=" + context.lessons().size() + "，资料数=" + context.materials().size());
+        context.lessons().stream().limit(3).forEach(item -> evidence.add(
+                "课时：" + item.title() + "；正文片段=" + truncate(item.content(), 500)));
+        context.materials().stream().limit(3).forEach(item -> evidence.add(
+                "资料：" + item.name() + "，抽取状态=" + text(item.extractionStatus())
+                        + "；正文片段=" + truncate(item.extractedText(), 500)));
+        GovernanceSuggestion suggestion = governanceSuggestion(
+                "你是课程合规预审助手。规则问题不可删除，只能基于证据补充风险。只输出 JSON："
+                        + "{\"confidence\":0到1,\"riskCodes\":[\"代码\"],\"reasons\":[\"原因\"]}",
+                String.join("\n", evidence) + "\n管理员标准：" + instruction(criteria));
+        if (suggestion != null) {
+            if (suggestion.riskCodes() != null) codes.addAll(suggestion.riskCodes());
+            if (suggestion.reasons() != null) reasons.addAll(suggestion.reasons());
+        }
+        codes = distinct(codes);
+        reasons = distinct(reasons);
+        String recommendation = codes.isEmpty() ? "READY_FOR_ADMIN_REVIEW" : "REMEDIATE_AND_REVIEW";
+        return new AdminGovernanceDraftVO.CourseComplianceItem(
+                String.valueOf(context.courseId()), context.version(), context.courseCode(), context.courseName(),
+                context.courseStatus(), context.reviewStatus(), context.summary(),
+                context.categoryId() == null ? null : String.valueOf(context.categoryId()),
+                context.term(), context.department(), context.credit(), context.enrollmentOpenAt(),
+                context.enrollmentCloseAt(), context.startAt(), context.endAt(),
+                context.lessons().size(), context.materials().size(),
+                Math.max(score, 0), recommendation, false, !codes.isEmpty(), codes, reasons, evidence);
+    }
+
+    private GovernanceSuggestion governanceSuggestion(String systemPrompt, String userPrompt) {
+        if (!generator.configured()) return null;
+        try {
+            return objectMapper.readValue(
+                    jsonObject(generator.generate(systemPrompt, userPrompt)), GovernanceSuggestion.class);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private double clamp(Double value) {
+        return value == null ? 0.5D : Math.max(0D, Math.min(1D, value));
+    }
+
+    private List<String> distinct(List<String> values) {
+        return values.stream().filter(value -> value != null && !value.isBlank()).distinct().toList();
+    }
+
     public AiServiceStatusVO status() {
         return new AiServiceStatusVO(
                 "UP",
@@ -679,36 +957,93 @@ public class AiApplicationService {
         return "user-%s:course-%s:%s".formatted(userId, courseId, clientValue);
     }
     private String assistantFacts(AiAssistantContextResponse context) {
+        return assistantFacts(context, Set.of("ALL"));
+    }
+
+    private String assistantFacts(AiAssistantContextResponse context, Set<String> requestedDomains) {
         return """
                 快照时间：%s
-                学期选课时间：
+                已授权数据计数：选课窗口 %s、课程 %s、预警 %s、作业 %s、考试 %s、平台指标 %s、
+                待审核教师 %s、作业提交 %s、学习进度 %s、成绩 %s、公告 %s、讨论 %s、通知 %s、用户明细 %s。
+                以下只包含本次问题所需且经当前 JWT 授权的事实；标记“未请求”的事实域不得推断为没有数据。
+                课程：
                 %s
-                当前账号可见课程：
+                选课窗口：
                 %s
-                当前授权学习预警：
+                预警：
                 %s
-                当前授权作业：
+                作业：
                 %s
-                当前授权考试：
+                考试：
                 %s
-                平台汇总指标：
+                作业提交：
                 %s
-                待审核教师注册：
+                学习进度：
                 %s
-                当前授权作业提交：
+                成绩：
+                %s
+                公告：
+                %s
+                讨论：
+                %s
+                通知：
+                %s
+                平台指标：
+                %s
+                待审核教师：
+                %s
+                用户明细：
                 %s
                 """.formatted(
-                context.generatedAt(), section(context.enrollmentWindows()), section(context.courses()),
-                section(context.warnings()), section(context.assignments()), section(context.exams()),
-                section(context.platformMetrics()), section(context.pendingTeacherRegistrations()),
-                section(context.submissions()));
+                context.generatedAt(), domainCount(requestedDomains, "WINDOWS", context.enrollmentWindows()),
+                context.courses().size(), domainCount(requestedDomains, "WARNINGS", context.warnings()),
+                domainCount(requestedDomains, "ASSIGNMENTS", context.assignments()),
+                domainCount(requestedDomains, "EXAMS", context.exams()),
+                domainCount(requestedDomains, "METRICS", context.platformMetrics()),
+                domainCount(requestedDomains, "USERS", context.pendingTeacherRegistrations()),
+                domainCount(requestedDomains, "SUBMISSIONS", context.submissions()),
+                domainCount(requestedDomains, "PROGRESS", context.learningProgress()),
+                domainCount(requestedDomains, "GRADES", context.grades()),
+                domainCount(requestedDomains, "ANNOUNCEMENTS", context.announcements()),
+                domainCount(requestedDomains, "FORUM", context.forumActivity()),
+                domainCount(requestedDomains, "NOTIFICATIONS", context.notifications()),
+                domainCount(requestedDomains, "USERS", context.users()), section(context.courses()),
+                domainSection(requestedDomains, "WINDOWS", context.enrollmentWindows()),
+                domainSection(requestedDomains, "WARNINGS", context.warnings()),
+                domainSection(requestedDomains, "ASSIGNMENTS", context.assignments()),
+                domainSection(requestedDomains, "EXAMS", context.exams()),
+                domainSection(requestedDomains, "SUBMISSIONS", context.submissions()),
+                domainSection(requestedDomains, "PROGRESS", context.learningProgress()),
+                domainSection(requestedDomains, "GRADES", context.grades()),
+                domainSection(requestedDomains, "ANNOUNCEMENTS", context.announcements()),
+                domainSection(requestedDomains, "FORUM", context.forumActivity()),
+                domainSection(requestedDomains, "NOTIFICATIONS", context.notifications()),
+                domainSection(requestedDomains, "METRICS", context.platformMetrics()),
+                domainSection(requestedDomains, "USERS", context.pendingTeacherRegistrations()),
+                domainSection(requestedDomains, "USERS", context.users()));
     }
 
     private String section(List<String> values) {
         return values == null || values.isEmpty()
-                ? "- 无"
-                : values.stream().limit(100).map(value -> "- " + truncate(value, 600))
+                ? "- 当前授权范围无数据"
+                : values.stream().limit(30).map(value -> "- " + truncate(value, 600))
                         .reduce((left, right) -> left + "\n" + right).orElse("- 无");
+    }
+
+    private String domainSection(Set<String> requestedDomains, String domain, List<String> values) {
+        return requestedDomains.contains("ALL") || requestedDomains.contains(domain)
+                ? section(values)
+                : "- 未请求此事实域";
+    }
+
+    private String domainCount(Set<String> requestedDomains, String domain, List<?> values) {
+        return requestedDomains.contains("ALL") || requestedDomains.contains(domain)
+                ? String.valueOf(values == null ? 0 : values.size())
+                : "未请求";
+    }
+
+    private String requestedDomainSummary(Set<String> requestedDomains) {
+        return requestedDomains.isEmpty() ? "基础课程范围" : String.join("、", requestedDomains);
     }
 
     private boolean isAuthoringRole(String role) {
@@ -743,17 +1078,32 @@ public class AiApplicationService {
             String authorization,
             Long userId,
             String requestId,
-            java.util.function.Consumer<AiActionVO> actionObserver) {
+            String traceId,
+            java.util.function.Consumer<AiActionVO> actionObserver,
+            java.util.function.Consumer<String> toolObserver) {
         List<Object> tools = new ArrayList<>();
         tools.add(platformUtilityTools);
-        tools.add(new RoleScopedPlatformTools(context));
+        java.util.Collections.addAll(tools, RoleScopedPlatformTools.forRole(context, role));
         if ("TEACHER".equals(role)) {
+            tools.add(new TeacherCourseWorkflowTools(
+                    contextService, knowledgeBase, authoringClient, authorization, userId, role,
+                    requestId, traceId, objectMapper, actionObserver, toolObserver));
+            tools.add(new TeacherDraftTools(
+                    this, authorization, userId, role, traceId, actionObserver));
             tools.add(new TeacherActionTools(
                     actionClient, authorization, userId, role, requestId, objectMapper, actionObserver));
         }
-        if (Set.of("ADMIN", "SUPER_ADMIN").contains(role)) {
+        if ("ADMIN".equals(role)) {
+            tools.add(new AdminAiStatusTools(this));
+            tools.add(new AdminPlatformTools(
+                    this, actionClient, authorization, userId, requestId, traceId, objectMapper, actionObserver));
+        }
+        if ("SUPER_ADMIN".equals(role)) {
+            tools.add(new AdminAiStatusTools(this));
             tools.add(new AdminActionTools(
                     actionClient, authorization, userId, role, requestId, objectMapper, actionObserver));
+            tools.add(new AdminGovernanceTools(
+                    this, authorization, userId, role, requestId, objectMapper, actionObserver));
         }
         return tools.toArray();
     }
@@ -861,6 +1211,87 @@ public class AiApplicationService {
         return value == null || value.isBlank() ? "无" : value.trim();
     }
 
+    private String adminOperationGuardrails(String role) {
+        if (!Set.of("ADMIN", "SUPER_ADMIN").contains(role)) {
+            return "";
+        }
+        String supportedActions = "SUPER_ADMIN".equals(role)
+                ? "学期选课窗口调整、教师注册审批"
+                : "学期选课窗口调整";
+        return """
+                管理员事实与动作边界：
+                - 聚合指标是业务表的实时统计结果；预警、作业、考试等明细列表为空可能只是当前角色未取得明细，
+                  不得把未提供明细解释为底层表为空或指标失真。只有上下文明确提供两种口径及其差异时才能报告指标不一致。
+                - 同一课程代码跨教师或学期多次开课属于正常业务；DRAFT 未进入审核、OFFLINE 计入课程总数均不是异常。
+                  只有事实被明确标记为经规则确认的异常信号时，才能放入“异常项”；其他现象最多列为待核验观察。
+                - 数量和状态分布只能逐字引用平台指标或明确汇总事实，不得自行统计或补全数量，也不得用总数减分项推导缺失状态。
+                - 当前角色已接入正式执行器的管理员动作仅有：%s。预警重算、课程归档、课程下线、批量通知、
+                  公告受众修改均未接入动作执行器，只能建议人工或开发侧核验，不得设计“确认执行 A/B/C”等伪操作入口。
+                - 只有工具真实返回 actionId、风险等级、预览和确认策略时，才能声称计划处于 WAITING_CONFIRMATION；
+                  纯文字建议不是待确认动作，不得声称处于 WAITING_CONFIRMATION。
+                - 合法课程状态仅为 DRAFT、PENDING_REVIEW、PUBLISHED、ONGOING、FINISHED、OFFLINE；
+                  ARCHIVED 不是合法课程状态，不得建议将课程改为 ARCHIVED。
+                """.formatted(supportedActions);
+    }
+
+    private Set<String> assistantDomains(String question, String role) {
+        String value = question == null ? "" : question.toLowerCase(java.util.Locale.ROOT);
+        Set<String> domains = new java.util.LinkedHashSet<>();
+        if (containsAny(value, "选课", "开放时间", "截止时间", "学期窗口")) domains.add("WINDOWS");
+        if (containsAny(value, "预警", "风险", "干预", "补救")) domains.add("WARNINGS");
+        if (containsAny(value, "作业", "任务", "截止", "批改")) domains.add("ASSIGNMENTS");
+        if (containsAny(value, "考试", "组卷", "题库", "测验")) domains.add("EXAMS");
+        if (containsAny(value, "进度", "学习时长", "完成课时")) domains.add("PROGRESS");
+        if (containsAny(value, "成绩", "分数", "评语")) domains.add("GRADES");
+        if (containsAny(value, "提交", "批改", "答案")) domains.add("SUBMISSIONS");
+        if (containsAny(value, "公告", "通知")) {
+            domains.add("ANNOUNCEMENTS");
+            domains.add("NOTIFICATIONS");
+        }
+        if (containsAny(value, "讨论", "论坛", "互动", "内容治理")) domains.add("FORUM");
+        if (containsAny(value, "用户", "教师注册", "教师审核", "待审核教师", "审批教师", "教师审批", "所有教师", "账号")) {
+            domains.add("USERS");
+        }
+        if (containsAny(value, "指标", "统计", "运营", "简报", "概况", "概览", "综合")) domains.add("METRICS");
+        if (containsAny(value, "今日运营简报", "平台综合概况", "完整运营概况")) {
+            domains.addAll(Set.of("WINDOWS", "ANNOUNCEMENTS", "FORUM", "METRICS"));
+            if ("SUPER_ADMIN".equals(role)) domains.add("USERS");
+        }
+        if ("STUDENT".equals(role) && containsAny(value, "完整学习概览", "我的学习全貌")) {
+            domains.addAll(Set.of("WINDOWS", "WARNINGS", "ASSIGNMENTS", "EXAMS", "PROGRESS", "GRADES",
+                    "ANNOUNCEMENTS", "NOTIFICATIONS", "FORUM"));
+        }
+        if ("TEACHER".equals(role) && containsAny(value, "完整教学概况", "教学全貌")) {
+            domains.addAll(Set.of("WARNINGS", "ASSIGNMENTS", "EXAMS", "PROGRESS", "GRADES", "SUBMISSIONS",
+                    "ANNOUNCEMENTS", "NOTIFICATIONS", "FORUM"));
+        }
+        return Set.copyOf(domains);
+    }
+
+    private boolean isGlobalAssistantQuestion(String question, String role) {
+        String value = question == null ? "" : question.toLowerCase(java.util.Locale.ROOT);
+        if (containsAny(value, "全局", "平台", "汇总", "完整教学概况", "教学全貌", "待批改提交",
+                "完整学习概览", "我的学习全貌", "所有课程", "全部课程", "待审核教师", "所有教师",
+                "全部教师", "运营指标", "异常信号", "ai 服务状态", "ai服务状态")) {
+            return true;
+        }
+        return ("ADMIN".equals(role) || "SUPER_ADMIN".equals(role))
+                && containsAny(value, "用户", "运营", "教师审批", "教师审核", "选课窗口");
+    }
+
+    private boolean isExplicitReadOnlyQuestion(String question) {
+        String value = question == null ? "" : question.toLowerCase(java.util.Locale.ROOT);
+        return containsAny(value, "只查询", "不修改数据", "只读查询", "只查询不执行", "不执行任何操作");
+    }
+
+    private boolean containsAny(String value, String... candidates) {
+        return java.util.Arrays.stream(candidates).anyMatch(value::contains);
+    }
+
+    private String text(Object value) {
+        return value == null || String.valueOf(value).isBlank() ? "无" : String.valueOf(value);
+    }
+
     private String truncate(String value, int maxLength) {
         String normalized = text(value);
         return normalized.length() <= maxLength ? normalized : normalized.substring(0, maxLength) + "…";
@@ -895,6 +1326,11 @@ public class AiApplicationService {
             String comment,
             Double confidence,
             List<String> anomalies,
+            List<String> reasons) {}
+
+    private record GovernanceSuggestion(
+            Double confidence,
+            List<String> riskCodes,
             List<String> reasons) {}
 
     private record ToolData(

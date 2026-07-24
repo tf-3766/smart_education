@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import QuestionBankPage from '@/domains/teacher/QuestionBankPage.vue'
+import { aiApi } from '@/services/api'
 import { db } from '@/services/api/demo/db'
 import { clickByText, freshDemo, mountPage, settle } from './pageTestUtils'
 
@@ -64,6 +65,40 @@ describe('考试题库工作台', () => {
     await afterPaper.findAll('button').find((b) => b.text() === '发布试卷')!.trigger('click')
     await settle(900)
     expect(rowWith(wrapper, '联调考试')!.text()).toContain('PUBLISHED')
+  })
+
+  it('AI 组卷建议采用后回填勾选状态和建议分值', async () => {
+    freshDemo()
+    const { wrapper } = await mountQB()
+    await clickByText(wrapper, 'button', '新建考试')
+    await wrapper.find('[data-test="exam-title"]').setValue('AI 回填测试考试')
+    await wrapper.find('[data-test="exam-start"]').setValue('2026-08-01T09:00')
+    await wrapper.find('[data-test="exam-end"]').setValue('2026-08-01T11:00')
+    await wrapper.find('[data-test="exam-total"]').setValue(100)
+    await clickByText(wrapper, 'button', '保存考试')
+    await rowWith(wrapper, 'AI 回填测试考试')!.findAll('button').find((button) => button.text() === '组卷')!.trigger('click')
+    await settle(500)
+
+    const paperRows = wrapper.get('.modal-panel').findAll('tbody tr')
+    const firstId = paperRows[0].attributes('data-question-id')
+    const secondId = paperRows[1].attributes('data-question-id')
+    const suggestion = vi.spyOn(aiApi, 'paperSuggestion').mockResolvedValue({
+      requestId: 'paper-suggestion-test', draftType: 'PAPER_SUGGESTION', businessId: '21001',
+      content: `questionId=${firstId}；建议分值=40.00；理由：覆盖基础概念\nquestionId=${secondId}；建议分值=60.00；理由：检验综合能力`,
+      provider: 'test', model: 'test-model', status: 'DRAFT', citations: [], createdAt: new Date().toISOString(),
+    })
+    await clickByText(wrapper, 'button', 'AI 组卷建议')
+    await settle(300)
+    await clickByText(wrapper, 'button', '采用建议')
+    await settle()
+
+    const updatedRows = wrapper.get('.modal-panel').findAll('tbody tr')
+    expect((updatedRows[0].get('[data-test="paper-pick"]').element as HTMLInputElement).checked).toBe(true)
+    expect((updatedRows[0].get('[data-test="paper-score"]').element as HTMLInputElement).value).toBe('40')
+    expect((updatedRows[1].get('[data-test="paper-pick"]').element as HTMLInputElement).checked).toBe(true)
+    expect((updatedRows[1].get('[data-test="paper-score"]').element as HTMLInputElement).value).toBe('60')
+    expect(wrapper.get('.modal-panel').text()).toContain('合计 100 / 100 分')
+    suggestion.mockRestore()
   })
 
   it('答卷：查看提交并为简答题评分', async () => {

@@ -28,6 +28,23 @@ describe('global AI assistant mascot', () => {
     expect(source).toContain("event.type === 'action'")
     expect(source).toContain('class="action-result"')
     expect(source).toContain('class="citation-list"')
+    expect(source).toContain('aiApi.capabilities(courseId.value)')
+    expect(source).toContain('watch([courseId, () => session.currentRole]')
+  })
+
+  it('resolves the real course id from a student lesson route before asking the global assistant', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/GlobalAiAssistant.vue'), 'utf8')
+
+    expect(source).toContain('studentLearningApi.lessonDetail(lessonId.value)')
+    expect(source).toContain('resolvedCourseId.value = detail.courseId')
+    expect(source).toContain('courseId: courseId.value')
+  })
+
+  it('makes the student boundary read-only and exposes cross-page teacher authoring', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/GlobalAiAssistant.vue'), 'utf8')
+    expect(source).toContain('学生助手仅提供授权问答，不会创建、修改或发布任何业务数据。')
+    expect(source).toContain('根据我负责课程的资料和章节生成一套题，并创建 AI 草稿题库')
+    expect(source).toContain("session.isSuperAdmin ? ['批量预审待审核教师")
   })
 
   it('renders formal action preview with confirm and cancel controls', () => {

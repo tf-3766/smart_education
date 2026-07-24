@@ -77,10 +77,11 @@ public class CourseManagementService {
     public CourseDetailVO create(Long teacherId, CreateCourseRequest request) {
         validateTimes(request.enrollmentOpenAt(), request.enrollmentCloseAt(), request.startAt(), request.endAt());
         requireCategory(request.categoryId());
+        CourseEntity definition = approvedDefinition(request.courseCode());
         CourseEntity course = new CourseEntity();
-        course.setCourseCode(request.courseCode().trim());
-        course.setName(request.name().trim());
-        course.setSummary(trim(request.summary()));
+        course.setCourseCode(definition == null ? request.courseCode().trim() : definition.getCourseCode());
+        course.setName(definition == null ? request.name().trim() : definition.getName());
+        course.setSummary(definition == null ? trim(request.summary()) : definition.getSummary());
         course.setCoverUrl(trim(request.coverUrl()));
         course.setCategoryId(request.categoryId());
         course.setTerm(trim(request.term()));
@@ -103,7 +104,7 @@ public class CourseManagementService {
             owner.setStatus(CourseTeacherStatus.ACTIVE.name());
             courseTeacherMapper.insert(owner);
         } catch (DuplicateKeyException exception) {
-            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "课程编号已存在");
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "课程开课记录冲突，请刷新后重试");
         }
         return detail(course, null, true);
     }
@@ -153,6 +154,23 @@ public class CourseManagementService {
         applyUpdate(course, request);
         updateOrConflict(course);
         return detail(course, latestReviewReason(courseId), true);
+    }
+
+    @Transactional
+    public void deleteDraft(Long teacherId, Long courseId) {
+        requireOwner(teacherId, courseId);
+        CourseEntity course = requireCourse(courseId);
+        CourseStatus status = CourseStatus.valueOf(course.getStatus());
+        CourseReviewStatus reviewStatus = CourseReviewStatus.valueOf(course.getReviewStatus());
+        if (status != CourseStatus.DRAFT
+                || (reviewStatus != CourseReviewStatus.NOT_SUBMITTED && reviewStatus != CourseReviewStatus.REJECTED)) {
+            throw new BusinessException(CommonErrorCode.OPERATION_NOT_ALLOWED, "仅未提交或已驳回的课程草稿可以删除");
+        }
+        courseTeacherMapper.delete(Wrappers.<CourseTeacherEntity>lambdaQuery()
+                .eq(CourseTeacherEntity::getCourseId, courseId));
+        if (courseMapper.deleteById(courseId) != 1) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_CONFLICT, "课程草稿已被其他请求处理，请刷新后重试");
+        }
     }
 
     @Transactional
@@ -250,6 +268,7 @@ public class CourseManagementService {
     public List<CourseTemplateVO> listTemplates() {
         LinkedHashMap<String, CourseTemplateVO> templates = new LinkedHashMap<>();
         courseMapper.selectList(Wrappers.<CourseEntity>lambdaQuery()
+                        .eq(CourseEntity::getReviewStatus, CourseReviewStatus.APPROVED.name())
                         .orderByAsc(CourseEntity::getName)
                         .orderByAsc(CourseEntity::getId))
                 .forEach(course -> templates.putIfAbsent(
@@ -260,6 +279,31 @@ public class CourseManagementService {
                                 course.getName(),
                                 course.getSummary())));
         return templates.values().stream().limit(100).toList();
+    }
+
+    /**
+     * 课程编码标识课程定义，edu_course 的每一行则是一次具体开课。
+     * 同编码已有审核通过的定义时，新开课与后续审核都必须沿用其名称和简介。
+     */
+    void alignWithApprovedDefinition(CourseEntity course) {
+        CourseEntity definition = approvedDefinition(course.getCourseCode());
+        if (definition == null || definition.getId().equals(course.getId())) {
+            return;
+        }
+        course.setCourseCode(definition.getCourseCode());
+        course.setName(definition.getName());
+        course.setSummary(definition.getSummary());
+    }
+
+    private CourseEntity approvedDefinition(String courseCode) {
+        if (courseCode == null || courseCode.isBlank()) {
+            return null;
+        }
+        return courseMapper.selectOne(Wrappers.<CourseEntity>lambdaQuery()
+                .eq(CourseEntity::getCourseCode, courseCode.trim())
+                .eq(CourseEntity::getReviewStatus, CourseReviewStatus.APPROVED.name())
+                .orderByAsc(CourseEntity::getId)
+                .last("LIMIT 1"));
     }
 
     @Transactional(readOnly = true)
@@ -461,6 +505,13 @@ public class CourseManagementService {
         }
         if (query.getReviewStatus() != null) {
             wrapper.eq(CourseEntity::getReviewStatus, query.getReviewStatus().name());
+        }
+        if (Boolean.TRUE.equals(query.getFormalOnly())) {
+            wrapper.eq(CourseEntity::getReviewStatus, CourseReviewStatus.APPROVED.name())
+                    .in(CourseEntity::getStatus,
+                            CourseStatus.PUBLISHED.name(),
+                            CourseStatus.ONGOING.name(),
+                            CourseStatus.FINISHED.name());
         }
         if (query.getTerm() != null && !query.getTerm().isBlank()) {
             wrapper.eq(CourseEntity::getTerm, query.getTerm().trim());

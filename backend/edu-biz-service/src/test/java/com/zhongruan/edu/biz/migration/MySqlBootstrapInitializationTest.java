@@ -47,17 +47,18 @@ class MySqlBootstrapInitializationTest {
         String version = jdbcTemplate.queryForObject("SELECT VERSION()", String.class);
         assertTrue(version.startsWith("8."));
         assertEquals(
-                36,
+                38,
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()",
                         Integer.class));
-        assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
+        assertEquals(12, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
         assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_role", Integer.class));
         assertEquals(5, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_permission", Integer.class));
         assertPasswordMatches("student", "123456");
         assertPasswordMatches("teacher", "t123456");
         assertPasswordMatches("teacher2", "t123456");
         assertPasswordMatches("admin", "admin123");
+        assertPasswordMatches("admin_ops", "admin123");
         assertEquals(
                 1,
                 jdbcTemplate.queryForObject(
@@ -65,12 +66,35 @@ class MySqlBootstrapInitializationTest {
                                 + "WHERE ur.user_id = 1003 AND r.role_code = 'SUPER_ADMIN' AND ur.deleted = 0",
                         Integer.class));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_assignment", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_assignment_submission", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_grade_record", Integer.class));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_exam_attempt", Integer.class));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_course_category", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_term_enrollment_window", Integer.class));
         assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_announcement", Integer.class));
         assertEquals(11, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification", Integer.class));
         assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification_read", Integer.class));
         assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_notification_preference", Integer.class));
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM edu_ai_generation_record", Integer.class));
+        assertEquals(
+                0,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM information_schema.table_constraints "
+                                + "WHERE table_schema = DATABASE() AND table_name = 'edu_course' "
+                                + "AND constraint_name = 'uk_course_code' AND constraint_type = 'UNIQUE'",
+                        Integer.class));
+        assertEquals(
+                1,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics "
+                                + "WHERE table_schema = DATABASE() AND table_name = 'edu_course' "
+                                + "AND index_name = 'idx_course_code'",
+                        Integer.class));
+        assertEquals(
+                3,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM sys_file WHERE id IN (22501, 22502, 22503) AND file_status = 'ACTIVE'",
+                        Integer.class));
     }
 
     private void assertPasswordMatches(String username, String rawPassword) {

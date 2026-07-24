@@ -2,12 +2,13 @@
   <main class="login-page">
     <header class="login-topbar">
       <span class="login-topbrand">
+        <span class="login-topbrand-icon" aria-hidden="true"><BookOpenCheck :size="27" /></span>
         <span class="login-topbrand-name">知行教学云</span>
       </span>
     </header>
 
     <div class="login-shell">
-      <section class="login-card">
+      <section class="login-card" :class="{ 'login-card-register': mode === 'register' }">
         <template v-if="!session.isDemoMode">
           <div class="login-tabs" role="tablist">
             <button type="button" :class="['login-tab', { active: mode === 'login' }]" role="tab" :aria-selected="mode === 'login'" @click="switchMode('login')">登录</button>
@@ -93,6 +94,7 @@
             <AppButton type="submit" variant="primary" class="login-submit" :disabled="regSubmitting" @click.prevent="register">
               {{ regSubmitting ? '提交中…' : '注册 →' }}
             </AppButton>
+            <p class="register-login-link">已有账号？<button type="button" @click="backToLogin">去登录</button></p>
           </form>
         </template>
 
@@ -124,7 +126,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronRight, Eye, EyeOff, UserRound } from 'lucide-vue-next'
+import { BookOpenCheck, ChevronRight, Eye, EyeOff, UserRound } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'
 import { authApi } from '@/services/api'
 import { demoAccounts, roleHome, roleLabels, useSessionStore } from '@/stores/session'

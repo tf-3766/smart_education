@@ -107,7 +107,7 @@ describe('教师课程管理页 · 学期输入', () => {
     expect(wrapper.get('.modal-panel').text()).toContain('课程编码只能包含字母、数字')
   })
 
-  it('可从内置课程库选用模板回填，新建自定义课程沉淀进内置库', async () => {
+  it('可从内置课程库重复开课，自定义课程审核前不会提前沉淀进内置库', async () => {
     freshDemo()
     const { wrapper } = await mountPage(CourseManagePage, { path: '/teacher/courses' })
     await settle(500)
@@ -121,29 +121,37 @@ describe('教师课程管理页 · 学期输入', () => {
     expect((wrapper.get('#cm-code').element as HTMLInputElement).value).toBe('OS301')
     expect((wrapper.get('#cm-name').element as HTMLInputElement).value).toBe('操作系统原理')
 
-    // 改为自定义新课并创建 → 该课程进入内置库
-    await tplSelect.setValue('')
+    await clickByText(wrapper, 'button', '创建草稿')
+    await settle(800)
+    expect(db.courses.some((course) => course.courseCode === 'OS301' && course.ownerTeacherId === '2')).toBe(true)
+
+    await clickByText(wrapper, 'button', '新建课程')
+    await settle(300)
+
+    // 自定义新课只有管理员审核通过后才会成为可复用课程定义。
+    const reopenedTemplateSelect = wrapper.get('#cm-template')
+    await reopenedTemplateSelect.setValue('')
     await wrapper.get('#cm-code').setValue('NEW999')
     await wrapper.get('#cm-name').setValue('全新自定义课')
     await clickByText(wrapper, 'button', '创建草稿')
     await settle(800)
-    expect(db.courseTemplates.some((t) => t.courseCode === 'NEW999' && t.name === '全新自定义课')).toBe(true)
+    expect(db.courseTemplates.some((t) => t.courseCode === 'NEW999')).toBe(false)
   })
 
-  it('创建失败时保持弹窗打开并在弹窗内提示错误', async () => {
+  it('相同课程编码代表同一课程定义，不再因另一位教师已开课而报冲突', async () => {
     freshDemo()
     const { wrapper } = await mountPage(CourseManagePage, { path: '/teacher/courses' })
     await settle(500)
     await clickByText(wrapper, 'button', '新建课程')
 
-    await wrapper.get('#cm-code').setValue('PY101') // 与种子课程 21001 编码重复
-    await wrapper.get('#cm-name').setValue('重复编码课')
+    await wrapper.get('#cm-code').setValue('PY101')
+    await wrapper.get('#cm-name').setValue('不会覆盖定义的名称')
     await clickByText(wrapper, 'button', '创建草稿')
     await settle(500)
 
-    // 弹窗仍打开，且错误提示出现在弹窗内部（而非仅在被遮罩挡住的页面顶部）。
-    const panel = wrapper.get('.modal-panel')
-    expect(panel.text()).toContain('课程编码已存在')
+    expect(wrapper.find('.modal-panel').exists()).toBe(false)
+    const created = db.courses.filter((course) => course.courseCode === 'PY101').at(-1)
+    expect(created?.name).toBe('Python 程序设计')
   })
 
   it('可编辑课程信息，未编辑字段原样保留（后端 update 为整体覆盖）', async () => {
@@ -172,6 +180,37 @@ describe('教师课程管理页 · 学期输入', () => {
     expect(updated.endAt).toBeTruthy()
     expect(wrapper.find('.modal-panel').exists()).toBe(false)
     expect(wrapper.text()).toContain('课程信息已更新')
+  })
+
+  it('编辑草稿复用创建时的学分和管理员选课窗口，并可在弹窗内删除草稿', async () => {
+    freshDemo()
+    const managedWindow = db.termEnrollmentWindows[0]
+    const { wrapper } = await mountPage(CourseManagePage, { path: '/teacher/courses' })
+    await settle(500)
+    await clickByText(wrapper, 'button', '新建课程')
+    await settle(300)
+    await wrapper.get('#cm-code').setValue('EDIT-PRESERVE-01')
+    await wrapper.get('#cm-name').setValue('草稿复用测试课')
+    await wrapper.get('#cm-term').setValue(managedWindow.term)
+    await wrapper.get('#cm-credit').setValue(2)
+    await clickByText(wrapper, 'button', '创建草稿')
+    await settle(800)
+
+    const row = wrapper.findAll('tbody tr').find((item) => item.text().includes('草稿复用测试课'))!
+    await row.findAll('button').find((button) => button.text() === '编辑')!.trigger('click')
+    await settle(500)
+
+    expect((wrapper.get('#ce-credit').element as HTMLInputElement).value).toBe('2')
+    expect(wrapper.get('.modal-panel').text()).toContain('继续复用管理员统一选课时间')
+    expect(wrapper.find('#ce-enroll-open').exists()).toBe(false)
+    expect(wrapper.find('#ce-enroll-close').exists()).toBe(false)
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await clickByText(wrapper, 'button', '删除草稿')
+    await settle(700)
+    confirmSpy.mockRestore()
+    expect(db.courses.some((course) => course.courseCode === 'EDIT-PRESERVE-01')).toBe(false)
+    expect(wrapper.text()).toContain('课程草稿已删除')
   })
 
   it('编辑时选课截止早于开始被拦截且弹窗保持打开', async () => {

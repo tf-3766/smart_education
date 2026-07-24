@@ -21,6 +21,7 @@ public class CourseListQuery {
     private CourseStatus status;
     private CourseReviewStatus reviewStatus;
     private EnrollmentStatus enrollmentStatus;
+    private Boolean formalOnly;
 
     @Size(max = 32)
     private String term;
@@ -42,6 +43,8 @@ public class CourseListQuery {
     public void setReviewStatus(CourseReviewStatus reviewStatus) { this.reviewStatus = reviewStatus; }
     public EnrollmentStatus getEnrollmentStatus() { return enrollmentStatus; }
     public void setEnrollmentStatus(EnrollmentStatus enrollmentStatus) { this.enrollmentStatus = enrollmentStatus; }
+    public Boolean getFormalOnly() { return formalOnly; }
+    public void setFormalOnly(Boolean formalOnly) { this.formalOnly = formalOnly; }
     public String getTerm() { return term; }
     public void setTerm(String term) { this.term = term; }
     public Long getCategoryId() { return categoryId; }

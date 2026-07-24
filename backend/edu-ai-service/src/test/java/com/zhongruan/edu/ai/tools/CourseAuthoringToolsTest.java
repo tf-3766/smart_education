@@ -121,6 +121,54 @@ class CourseAuthoringToolsTest {
     }
 
     @Test
+    void normalizesCommonModelQuestionAndOptionShapesBeforePersisting() {
+        BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
+        when(client.createQuestionBank(any(), any())).thenReturn(ApiResponse.success(
+                new AiAuthoringResultResponse("QUESTION_BANK", "556", "兼容题库", 3), "trace"));
+        CourseAuthoringTools tools = new CourseAuthoringTools(client, "Bearer x", 99L, "TEACHER", 7L);
+        String modelJson = """
+                [
+                  {"type":"single_choice","question":"容器的主要职责是？","explanation":"管理依赖", "points":2,
+                   "difficulty":"medium","correctAnswer":"A","options":["A. 创建并装配对象","B. 编译源代码"]},
+                  {"questionType":"SINGLE_CHOICE","text":"哪项属于低耦合设计？","analysis":"依赖抽象", "score":3,
+                   "difficulty":"EASY","answer":"B","options":{"A":"依赖具体类","B":"依赖接口"}},
+                  {"type":"单选题","question":"哪个编号表示第一项？","correctAnswer":1,
+                   "difficulty":"中等","options":["第一项","第二项"]}
+                ]
+                """;
+
+        String result = tools.generateQuestionBank("兼容题库", "自动生成", modelJson);
+
+        assertThat(result).contains("556", "3 道题");
+        ArgumentCaptor<AiQuestionBankDraftRequest> captor =
+                ArgumentCaptor.forClass(AiQuestionBankDraftRequest.class);
+        verify(client).createQuestionBank(eq("Bearer x"), captor.capture());
+        assertThat(captor.getValue().questions()).satisfiesExactly(
+                first -> {
+                    assertThat(first.questionType()).isEqualTo("SINGLE_CHOICE");
+                    assertThat(first.stem()).isEqualTo("容器的主要职责是？");
+                    assertThat(first.difficulty()).isEqualTo("MEDIUM");
+                    assertThat(first.options()).extracting(AiQuestionOptionDraft::label)
+                            .containsExactly("A", "B");
+                    assertThat(first.options()).extracting(AiQuestionOptionDraft::correct)
+                            .containsExactly(true, false);
+                },
+                second -> {
+                    assertThat(second.stem()).isEqualTo("哪项属于低耦合设计？");
+                    assertThat(second.options()).extracting(AiQuestionOptionDraft::content)
+                            .containsExactly("依赖具体类", "依赖接口");
+                    assertThat(second.options()).extracting(AiQuestionOptionDraft::correct)
+                            .containsExactly(false, true);
+                },
+                third -> {
+                    assertThat(third.questionType()).isEqualTo("SINGLE_CHOICE");
+                    assertThat(third.difficulty()).isEqualTo("MEDIUM");
+                    assertThat(third.options()).extracting(AiQuestionOptionDraft::correct)
+                            .containsExactly(true, false);
+                });
+    }
+
+    @Test
     void emitsStructuredActionAfterDraftCreation() {
         BizAiAuthoringFeignClient client = mock(BizAiAuthoringFeignClient.class);
         when(client.createAssignment(any(), any()))

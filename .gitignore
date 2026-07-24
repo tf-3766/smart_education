@@ -52,6 +52,8 @@ backend/**/application-dev.properties
 logs/
 data/
 backups/
+.playwright-cli/
+output/
 
 # Microsoft Office lock files
 ~$*.docx

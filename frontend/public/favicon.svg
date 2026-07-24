@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="智慧教学平台">
+  <defs>
+    <linearGradient id="g" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#g)"/>
+  <path d="M12 24 32 14l20 10-20 10-20-10Zm7 7v10c8 7 18 7 26 0V31l-13 6-13-6Z" fill="#fff"/>
+  <path d="M51 27v15" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="51" cy="45" r="3" fill="#fff"/>
+</svg>

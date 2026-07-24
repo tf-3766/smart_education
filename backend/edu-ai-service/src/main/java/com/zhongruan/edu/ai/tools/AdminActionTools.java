@@ -13,6 +13,7 @@ public class AdminActionTools {
     private static final String TERM_WINDOW_CAPABILITY = "platform.term-enrollment-window.upsert";
     private static final String TEACHER_REVIEW_CAPABILITY = "admin.teacher-registration.review";
     private final AiActionToolSupport support;
+    private final boolean superAdmin;
 
     public AdminActionTools(
             BizAiActionFeignClient client,
@@ -24,6 +25,7 @@ public class AdminActionTools {
             Consumer<AiActionVO> observer) {
         this.support = new AiActionToolSupport(
                 client, authorization, userId, role, requestId, objectMapper, observer);
+        this.superAdmin = "SUPER_ADMIN".equals(role);
     }
 
     @Tool(
@@ -50,6 +52,9 @@ public class AdminActionTools {
     public String planTeacherRegistrationReview(
             @ToolParam(description = "待审核教师的用户 ID，必须来自授权上下文") String userId,
             @ToolParam(description = "审核决定，只能是 APPROVE 或 REJECT") String decision) {
+        if (!superAdmin) {
+            return "动作计划创建失败：教师注册审核仅限超级管理员。";
+        }
         if (userId == null || !userId.matches("\\d+")) {
             return "动作计划创建失败：缺少有效用户 ID，请先查询待审核教师。";
         }

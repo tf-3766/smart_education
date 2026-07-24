@@ -2,6 +2,7 @@ package com.zhongruan.edu.biz.course.api;
 
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -101,6 +102,49 @@ class CourseLifecycleApiIntegrationTest {
     }
 
     @Test
+    void ownerCanDeleteOnlyAnEditableDraftCourse() throws Exception {
+        String owner = login("teacher", "t123456");
+        String otherTeacher = login("teacher2", "t123456");
+        String courseId = createCourse(owner, "DELETE-DRAFT-001");
+
+        mockMvc.perform(delete("/api/v1/teacher/courses/{courseId}", courseId)
+                        .header("Authorization", bearer(otherTeacher)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(delete("/api/v1/teacher/courses/{courseId}", courseId)
+                        .header("Authorization", bearer(owner)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/teacher/courses/{courseId}", courseId)
+                        .header("Authorization", bearer(owner)))
+                .andExpect(status().isNotFound());
+
+        String pendingId = createCourse(owner, "DELETE-PENDING-001");
+        mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/submit-review", pendingId)
+                        .header("Authorization", bearer(owner)))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/v1/teacher/courses/{courseId}", pendingId)
+                        .header("Authorization", bearer(owner)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPERATION_NOT_ALLOWED"));
+    }
+
+    @Test
+    void formalTeacherCourseQueryExcludesDraftAndUnapprovedCourses() throws Exception {
+        String teacher = login("teacher", "t123456");
+        String draftCourseId = createCourse(teacher, "FORMAL-FILTER-DRAFT-001");
+
+        mockMvc.perform(get("/api/v1/teacher/courses")
+                        .param("formalOnly", "true")
+                        .param("size", "100")
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[*].courseId", not(hasItem(draftCourseId))))
+                .andExpect(jsonPath("$.data.records[*].reviewStatus.code", not(hasItem("NOT_SUBMITTED"))))
+                .andExpect(jsonPath("$.data.records[*].status.code", not(hasItem("DRAFT"))));
+    }
+
+    @Test
     void ownerCanAddCollaboratorButDuplicateRelationshipIsRejected() throws Exception {
         String token = login("teacher", "t123456");
         String courseId = createCourse(token, "ADD-COLLAB-001");
@@ -176,6 +220,54 @@ class CourseLifecycleApiIntegrationTest {
         mockMvc.perform(get("/api/v1/teacher/courses/term-windows").header("Authorization", bearer(teacher)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].term", hasItem("2026 秋季")));
+    }
+
+    @Test
+    void anotherTeacherCanOpenAnApprovedCourseDefinitionWithTheSameCourseCode() throws Exception {
+        String teacher = login("teacher2", "t123456");
+
+        mockMvc.perform(post("/api/v1/teacher/courses")
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "courseCode":"COURSE-PUBLISHED-001",
+                                  "name":"不应覆盖课程定义的名称",
+                                  "summary":"不应覆盖课程定义的简介",
+                                  "term":"2027 春季",
+                                  "credit":3.0
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.courseId").value(org.hamcrest.Matchers.not("21001")))
+                .andExpect(jsonPath("$.data.courseCode").value("COURSE-PUBLISHED-001"))
+                .andExpect(jsonPath("$.data.name").value("已发布测试课程"))
+                .andExpect(jsonPath("$.data.summary").value("用于学生学习闭环测试"))
+                .andExpect(jsonPath("$.data.ownerTeacherId").value("1004"));
+    }
+
+    @Test
+    void customCourseBecomesReusableTemplateOnlyAfterAdminApproval() throws Exception {
+        String teacher = login("teacher", "t123456");
+        String admin = login("admin", "admin123");
+        String courseId = createCourse(teacher, "NEW-CATALOG-001");
+
+        mockMvc.perform(get("/api/v1/teacher/courses/templates").header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].courseCode", not(hasItem("NEW-CATALOG-001"))));
+
+        mockMvc.perform(post("/api/v1/teacher/courses/{courseId}/submit-review", courseId)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/admin/course-reviews/{courseId}/approve", courseId)
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"remark\":\"课程定义通过\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/teacher/courses/templates").header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].courseCode", hasItem("NEW-CATALOG-001")));
     }
     @Test
     void reviewApprovalAndPublicationFormAnExplicitLifecycle() throws Exception {

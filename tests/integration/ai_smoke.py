@@ -25,6 +25,7 @@ CREDS = {
     "student": os.environ.get("STUDENT", "student:123456"),
     "teacher": os.environ.get("TEACHER", "teacher:t123456"),
     "admin": os.environ.get("ADMIN", "admin:admin123"),
+    "ordinary_admin": os.environ.get("ORDINARY_ADMIN", "admin_ops:admin123"),
 }
 
 USE_COLOR = sys.stdout.isatty()
@@ -78,8 +79,10 @@ def http(method, path, token=None, body=None, stream=False, timeout=90):
                 elif line.startswith("data:"):
                     cur["data"] = cur.get("data", "") + line[5:].strip()
                 if cur.get("event") in ("done", "error") and "data" in cur:
-                    events.append(cur); cur = {}
-                    if cur.get("event") == "error":
+                    completed = cur
+                    events.append(completed)
+                    cur = {}
+                    if completed.get("event") == "error":
                         break
         except Exception as e:
             events.append({"event": "_read_error", "data": f"{type(e).__name__}: {e}"})
@@ -109,6 +112,68 @@ def login(role):
     if code == 200 and isinstance(obj, dict) and data_of(obj):
         return data_of(obj).get("accessToken")
     return None
+
+
+def select_teacher_demo_context(contexts):
+    """优先选择可教学且拥有最多演示证据的课程，避免列表首项恰好是下线课程。"""
+    if not contexts:
+        return None
+
+    active_statuses = {"PUBLISHED", "IN_PROGRESS", "ONGOING"}
+
+    def score(item):
+        return (
+            100 if item.get("status") in active_statuses else 0,
+            8 if item.get("lessonId") else 0,
+            4 if item.get("submissionId") else 0,
+            2 if item.get("warningId") else 0,
+            1 if item.get("assignmentId") else 0,
+        )
+
+    return max(contexts, key=score)
+
+
+def discover_teacher_demo_context(token):
+    contexts = []
+    courses = records_of(http("GET", "/api/v1/teacher/courses?page=1&size=100", token=token)[1])
+    for course in courses:
+        course_id = course.get("courseId")
+        status = course.get("courseStatus") or course.get("status") or {}
+        status_code = status.get("code") if isinstance(status, dict) else status
+        lesson_id = None
+        chapters = data_of(http("GET", f"/api/v1/teacher/courses/{course_id}/chapters", token=token)[1]) or []
+        for chapter in chapters if isinstance(chapters, list) else []:
+            lessons = data_of(http(
+                "GET", f"/api/v1/teacher/chapters/{chapter.get('chapterId')}/lessons", token=token)[1]) or []
+            if lessons:
+                lesson_id = lessons[0].get("lessonId")
+                break
+
+        assignment_id = submission_id = None
+        assignments = records_of(http(
+            "GET", f"/api/v1/teacher/courses/{course_id}/assignments?page=1&size=100", token=token)[1])
+        for assignment in assignments:
+            if assignment_id is None:
+                assignment_id = assignment.get("assignmentId")
+            submissions = records_of(http(
+                "GET",
+                f"/api/v1/teacher/assignments/{assignment.get('assignmentId')}/submissions?page=1&size=100",
+                token=token)[1])
+            if submissions:
+                submission_id = submissions[0].get("submissionId")
+                break
+
+        warnings = records_of(http(
+            "GET", f"/api/v1/teacher/courses/{course_id}/warnings?page=1&size=100", token=token)[1])
+        contexts.append({
+            "courseId": course_id,
+            "status": status_code,
+            "lessonId": lesson_id,
+            "assignmentId": assignment_id,
+            "submissionId": submission_id,
+            "warningId": warnings[0].get("warningId") if warnings else None,
+        })
+    return select_teacher_demo_context(contexts)
 
 
 def parse_sse(events):
@@ -184,18 +249,12 @@ def main():
         else:
             report("FAIL", "② 课程答疑(SSE)", f"未收到 done/delta，事件={sorted(kinds)} HTTP={code}")
 
-    # 教师侧 ID 发现
-    tc = records_of(http("GET", "/api/v1/teacher/courses", token=ttok)[1])
-    tcid = tc[0].get("courseId") if tc else None
+    # 教师侧 ID 发现：扫描全部课程，优先选有课时、提交和预警的在教课程。
+    teacher_context = discover_teacher_demo_context(ttok) or {}
+    tcid = teacher_context.get("courseId")
 
     # 3. 课时摘要（教师）
-    lid = None
-    if tcid:
-        chapters = data_of(http("GET", f"/api/v1/teacher/courses/{tcid}/chapters", token=ttok)[1]) or []
-        for ch in (chapters if isinstance(chapters, list) else []):
-            lessons = data_of(http("GET", f"/api/v1/teacher/chapters/{ch.get('chapterId')}/lessons", token=ttok)[1]) or []
-            if lessons:
-                lid = lessons[0].get("lessonId"); break
+    lid = teacher_context.get("lessonId")
     if not lid:
         report("SKIP", "③ 课时摘要草稿", "教师课程下没有可用课时")
     else:
@@ -208,13 +267,7 @@ def main():
             report("FAIL", "③ 课时摘要草稿", f"HTTP {code} {trunc(obj)}")
 
     # 4. 批改评语（教师）— 需要一条提交
-    subid = None
-    if tcid:
-        assigns = records_of(http("GET", f"/api/v1/teacher/courses/{tcid}/assignments", token=ttok)[1])
-        for a in assigns:
-            subs = records_of(http("GET", f"/api/v1/teacher/assignments/{a.get('assignmentId')}/submissions", token=ttok)[1])
-            if subs:
-                subid = subs[0].get("submissionId"); break
+    subid = teacher_context.get("submissionId")
     if not subid:
         report("SKIP", "④ 批改评语草稿", "没有可批改的学生提交")
     else:
@@ -227,10 +280,7 @@ def main():
             report("FAIL", "④ 批改评语草稿", f"HTTP {code} {trunc(obj)}")
 
     # 5. 预警解读（教师）— 需要一条预警
-    wid = None
-    if tcid:
-        warnings = records_of(http("GET", f"/api/v1/teacher/courses/{tcid}/warnings", token=ttok)[1])
-        wid = warnings[0].get("warningId") if warnings else None
+    wid = teacher_context.get("warningId")
     if not wid:
         report("SKIP", "⑤ 预警解读草稿", "该课程暂无预警（可先在教师端生成预警再跑）")
     else:

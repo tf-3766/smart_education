@@ -40,6 +40,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AppButton from '@/components/AppButton.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'
 import { examsApi } from '@/services/api'; import type { ExamAttemptVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
+import { confirmDialog } from '@/services/confirmDialog'
 
 const route = useRoute(); const examId = String(route.params.examId)
 const state = usePageState(); const attempt = ref<ExamAttemptVO | null>(null); const message = ref('')
@@ -66,7 +67,7 @@ async function load() {
 
 async function submit() {
   if (!attempt.value) return
-  if (!window.confirm('确认交卷？交卷后不能修改答案。')) return
+  if (!(await confirmDialog('确认交卷？交卷后不能修改答案。', { title: '提交试卷', confirmLabel: '确认交卷' }))) return
   const answers = attempt.value.questions.map((question) => ({
     questionId: question.questionId,
     answerContent: question.questionType === 'MULTIPLE_CHOICE' ? [...(multiAnswers[question.questionId] ?? [])].sort().join(',') : textAnswers[question.questionId] ?? '',

@@ -11,13 +11,13 @@
         @keydown.esc.prevent="$emit('close')"
         @keydown.tab="trapFocus"
       >
-        <div class="spread" style="margin-bottom: 16px">
-          <div>
-            <h2 :id="titleId" class="modal-title" style="margin: 0">{{ title }}</h2>
-            <p v-if="description" class="muted" style="margin: 6px 0 0; font-size: 13px">{{ description }}</p>
+        <header class="modal-header">
+          <div class="modal-heading">
+            <h2 :id="titleId" class="modal-title">{{ title }}</h2>
+            <p v-if="description" class="modal-description">{{ description }}</p>
           </div>
-          <button class="text-link" style="font-size: 22px; line-height: 1" aria-label="关闭" @click="$emit('close')">×</button>
-        </div>
+          <button class="modal-close" aria-label="关闭" @click="$emit('close')">×</button>
+        </header>
         <slot />
       </section>
     </div>

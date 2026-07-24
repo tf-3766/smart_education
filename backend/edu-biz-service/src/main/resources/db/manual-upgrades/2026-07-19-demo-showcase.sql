@@ -1,17 +1,19 @@
 SET NAMES utf8mb4;
 -- Comprehensive idempotent demo data for the online education assistant platform.
--- Run after 2026-07-19-assignment-modes.sql. Passwords reuse documented local demo accounts.
+-- Bootstrap already contains the required schema. Passwords reuse documented local demo accounts.
 
 INSERT INTO sys_user (id, username, password_hash, display_name, user_status, created_at, created_by, updated_at, updated_by, deleted, version) VALUES
 (1010,'student_a','$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u','林晓雨','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),
 (1011,'student_b','$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u','周子航','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),
 (1012,'student_c','$2b$10$PdES/6jxHSkOMhYepC0Q2.9UCOkPGfR0XNt9T1.WBf9twstpDZ11u','陈嘉怡','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),
-(1013,'teacher_pending','$2b$10$4/jxzR1iDdnQVYlELBd2zuN3wCdDNlcAfjX4bX.4e08ggPOiLcieS','待审核教师','PENDING',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0)
+(1013,'teacher_pending','$2b$10$4/jxzR1iDdnQVYlELBd2zuN3wCdDNlcAfjX4bX.4e08ggPOiLcieS','待审核教师','PENDING',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),
+(1014,'admin_ops','$2b$10$qklC5Vnw0Ov6Q3AVg1onj.DUeTJwQ0Zxh.o0fD0qkexIAF6y05yRG','测试普通管理员','ENABLED',CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0)
 ON DUPLICATE KEY UPDATE display_name=VALUES(display_name), user_status=VALUES(user_status), deleted=0, updated_at=CURRENT_TIMESTAMP;
 
 INSERT INTO sys_user_role (id,user_id,role_id,created_at,created_by,updated_at,updated_by,deleted,version) VALUES
 (4010,1010,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4011,1011,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),
-(4012,1012,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4013,1013,2002,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0)
+(4012,1012,2001,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),(4013,1013,2002,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0),
+(4014,1014,2003,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0,0,0)
 ON DUPLICATE KEY UPDATE deleted=0,updated_at=CURRENT_TIMESTAMP;
 
 INSERT INTO edu_course_enrollment (id,course_id,student_id,status,enrolled_at,withdrawn_at,created_at,created_by,updated_at,updated_by,deleted,version) VALUES

@@ -463,6 +463,7 @@ export interface CourseListQuery extends PageQuery {
   status?: string
   reviewStatus?: string
   enrollmentStatus?: string
+  formalOnly?: boolean
   term?: string
   categoryId?: number
   sort?: string
@@ -1184,6 +1185,66 @@ export interface BatchGradingDraftVO {
   reviewCount: number
   status: 'DRAFT' | 'FRAMEWORK_ONLY'
   items: BatchGradingDraftItemVO[]
+  createdAt: string
+}
+
+export interface AdminGovernanceDraftRequest {
+  teacherUserIds?: string[]
+  courseIds?: string[]
+  criteria?: string | null
+}
+
+export interface AdminTeacherReviewItemVO {
+  userId: string
+  targetVersion: number | null
+  username: string | null
+  displayName: string | null
+  registeredAt: string | null
+  candidate: string
+  recommendation: 'MANUAL_REVIEW' | 'NOT_ELIGIBLE'
+  confidence: number
+  reviewRequired: boolean
+  riskCodes: string[]
+  reasons: string[]
+  evidence: string[]
+}
+
+export interface AdminCourseComplianceItemVO {
+  courseId: string
+  targetVersion: number | null
+  courseCode: string
+  courseName: string
+  courseStatus: string
+  reviewStatus: string
+  summary: string | null
+  categoryId: string | null
+  term: string | null
+  department: string | null
+  credit: number | null
+  enrollmentOpenAt: string | null
+  enrollmentCloseAt: string | null
+  startAt: string | null
+  endAt: string | null
+  lessonCount: number
+  materialCount: number
+  readinessScore: number
+  recommendation: 'READY_FOR_ADMIN_REVIEW' | 'REMEDIATE_AND_REVIEW' | 'UNAVAILABLE'
+  failed: boolean
+  reviewRequired: boolean
+  issueCodes: string[]
+  reasons: string[]
+  evidence: string[]
+}
+
+export interface AdminGovernanceDraftVO {
+  requestId: string
+  status: 'DRAFT' | 'FRAMEWORK_ONLY'
+  totalCount: number
+  successCount: number
+  failureCount: number
+  reviewCount: number
+  teacherReviews: AdminTeacherReviewItemVO[]
+  courseCompliance: AdminCourseComplianceItemVO[]
   createdAt: string
 }
 

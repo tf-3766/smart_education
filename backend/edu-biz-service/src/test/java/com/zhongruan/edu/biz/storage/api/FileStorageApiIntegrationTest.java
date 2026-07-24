@@ -124,6 +124,29 @@ class FileStorageApiIntegrationTest {
     }
 
     @Test
+    void showcaseDataStructureMaterialIsBackedByARealReadableFile() throws Exception {
+        Session student = login("student_d", "123456");
+
+        mockMvc.perform(get("/api/v1/student/materials/22602")
+                        .header("Authorization", bearer(student.token())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("数据结构思维导图"))
+                .andExpect(jsonPath("$.data.accessUrl").value("/api/v1/files/22502/content"));
+
+        mockMvc.perform(get("/api/v1/files/22502")
+                        .header("Authorization", bearer(student.token())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.objectKey").value("demo/course/data-structure-map.md"));
+
+        mockMvc.perform(get("/api/v1/files/22502/content")
+                        .header("Authorization", bearer(student.token())))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/markdown"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("顺序表")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("链表")));
+    }
+
+    @Test
     void avatarRejectsUnsafeTypeAndAnonymousUpload() throws Exception {
         Session student = login("student", "123456");
         MockMultipartFile text = new MockMultipartFile(

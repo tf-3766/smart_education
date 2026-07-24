@@ -5,6 +5,8 @@
 当前已完成学生/教师注册与教师审核、JWT 与角色权限、头像和修改密码、课程学习、协作教师邀请、学期选课窗口、作业成绩、论坛治理、预警、题库试卷与基础答题批阅、公告、课程分类、管理统计和统一 Gateway。AI 服务已接入 Spring AI 1.1.8，提供授权课程 RAG 问答 SSE、多轮会话记忆、课程工具调用、教师知识库同步、课时摘要、作业评语、风险解释、组卷建议和运行状态；默认不调用外部模型，未配置向量能力时自动回退到授权课时正文。尚未实现找回密码、刷新令牌、Token 黑名单和外部 MCP Server/Client。
 课程资料知识库已经接入 PDFBox、Apache Tika/POI 与可选 Tesseract OCR。默认可抽取 PDF 可选择文本以及 DOC/DOCX/PPT/PPTX 等 Office 正文；图片和扫描 PDF 可以使用本机 Tesseract，也可以使用 Compose 的 `ocr-app` profile 在 Biz 容器内安装并运行 Tesseract。外部 MCP Server/Client 仍未接入，当前 AI 工具能力来自 Spring AI 进程内 Tool Calling，接口已经按角色读取真实数据库上下文并为课程资料接入 Qdrant RAG。
 
+课程编码现在表示可复用的课程定义，`edu_course` 每行表示一次具体开课：不同教师可以使用同一编码分别开课；自定义课程只有在管理员审核通过后才进入内置课程库。Bootstrap 中的 Java 导学、数据结构思维导图和高数公式表都对应仓库内真实 Markdown 文件，Biz 启动时会复制到 `FILE_STORAGE_ROOT` 并把文件大小、MIME 与 SHA-256 回写为真实值。单份资料损坏不会再使整门课程的 AI 上下文和知识库同步失败。
+
 版本基线：JDK 21、Spring Boot 3.5.0、Spring Cloud 2025.0.0、Spring Cloud Alibaba 2025.0.0.0、Spring AI 1.1.8、MyBatis-Plus 3.5.12、MySQL 8.4。
 
 版本依据：[Spring Cloud Alibaba 2025.x 版本说明](https://sca.aliyun.com/docs/2025.x/overview/version-explain/)、[Spring Cloud Gateway WebFlux Starter](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-webflux/starter.html)。
@@ -123,9 +125,16 @@ java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.
 
 - 项目只使用 `backend/edu-biz-service/src/main/resources/db/online_education_bootstrap.sql` 初始化数据库；它包含完整表结构、测试账号和演示数据。
 - Compose 仅在首次创建 `smart-education-mysql-data` 数据卷时自动执行该脚本。若需要重新初始化，先停止 Compose，再删除该项目的 MySQL 数据卷后重新启动。
-- 2026-07-18 之前创建的本地数据卷可在备份后执行 manual-upgrades/2026-07-18_front_back_alignment.sql。
-- 需要多类型作业与结构化答案时，执行 manual-upgrades/2026-07-19-assignment-modes.sql；脚本可重复运行且不会删除旧作业或提交。
 - 需要完整验收演示数据时，再执行 `manual-upgrades/2026-07-19-demo-showcase.sql`；脚本会补充多名学生、待审核教师、课程进度、各类作业、题库、考试、讨论、公告、预警与通知，可重复执行。
+- Windows PowerShell 管道默认编码可能破坏演示中文。通过容器导入时必须显式使用 UTF-8：
+
+```powershell
+$OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+$demoSeed = "backend/edu-biz-service/src/main/resources/db/manual-upgrades/2026-07-19-demo-showcase.sql"
+Get-Content -Raw -Encoding UTF8 $demoSeed | docker exec -i -e MYSQL_PWD=$env:MYSQL_ROOT_PASSWORD smart-education-mysql mysql --default-character-set=utf8mb4 -uroot smart_education
+```
+
+先用 `backend/scripts/import-env.ps1` 将本地 `.env` 导入当前终端；上述命令通过进程环境传递密码，不把真实值写入仓库或命令历史。
 - Biz 服务启动时不会修改表结构，也不会执行 Flyway。
 - 脚本不使用物理外键；关联一致性由应用服务、唯一约束和索引保证。
 - 任何表结构或演示数据变更都必须同步修改这一个脚本，并在空 MySQL 8 数据库中验证。
@@ -139,6 +148,7 @@ java -jar .\edu-gateway\target\edu-gateway-0.1.0-SNAPSHOT.jar --spring.profiles.
 | STUDENT | `student` | `123456` |
 | TEACHER | `teacher` | `t123456` |
 | SUPER_ADMIN + ADMIN | `admin` | `admin123` |
+| ADMIN（普通管理员边界测试） | `admin_ops` | `admin123` |
 | TEACHER（越权测试） | `teacher2` | `t123456` |
 
 以上账号和弱口令只用于本地联调与演示，密码在数据库中保存为 BCrypt 哈希；生产环境不得沿用。
@@ -159,7 +169,7 @@ GET/POST/PUT/DELETE /api/v1/admin/course-categories[/{categoryId}]
 GET /api/v1/teacher/courses/templates|term-windows|teacher-directory|collab-invitations
 POST /api/v1/teacher/courses/collab-invitations/{courseId}/accept|reject
 GET/POST /api/v1/teacher/courses
-GET/PUT  /api/v1/teacher/courses/{courseId}
+GET/PUT/DELETE /api/v1/teacher/courses/{courseId}
 POST /api/v1/teacher/courses/{courseId}/submit-review|publish|start|finish|offline
 GET/PUT  /api/v1/admin/courses/{courseId}
 POST /api/v1/admin/courses/{courseId}/offline

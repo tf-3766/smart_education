@@ -21,11 +21,12 @@
 | File | Owner | Scope | Status |
 |---|---|---|---|
 | `online_education_bootstrap.sql` | A+B | auth, course, collaboration invitation state, term enrollment windows, learning, assignment, grade, forum, warning, exam, question, category, announcement, and AI acceptance audit tables with demo data | Active |
-| `manual-upgrades/2026-07-18_front_back_alignment.sql` | A+B | Idempotent local upgrade for pre-2026-07-18 course-teacher and term-window schemas; not auto-executed | Local upgrade only |
+| `manual-upgrades/2026-07-19-demo-showcase.sql` | A+B | Idempotent final-demo data set; import explicitly as UTF-8 | Local demo only |
+| `manual-upgrades/2026-07-23-course-definitions-real-demo-files.sql` | A+B | Existing local DB upgrade: allow multiple teaching offerings per course code and repair showcase file metadata | Existing local DB only |
 
 ## Existing Local Databases
 
-Compose only executes the Bootstrap SQL for an empty MySQL volume. A local database created before 2026-07-18 must either be recreated from the Bootstrap SQL or upgraded once with `manual-upgrades/2026-07-18_front_back_alignment.sql`. The manual script is idempotent, but it is not a production migration framework; back up any non-demo data before running it.
+Compose only executes the Bootstrap SQL for an empty MySQL volume. Existing databases should be backed up before applying a dedicated upgrade. For the 2026-07-23 course-definition and real showcase-file repair, run `manual-upgrades/2026-07-23-course-definitions-real-demo-files.sql`, then restart Biz so packaged resources are materialized under `FILE_STORAGE_ROOT`.
 ## Review Checklist
 
 - [ ] The Bootstrap SQL matches the Entity and Mapper changes.

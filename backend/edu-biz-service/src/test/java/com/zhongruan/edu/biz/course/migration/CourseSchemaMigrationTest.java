@@ -41,8 +41,9 @@ class CourseSchemaMigrationTest {
     }
 
     @Test
-    void courseRelationshipsHaveRequiredUniqueConstraints() {
-        assertUniqueConstraintExists("edu_course", "UK_COURSE_CODE");
+    void courseRelationshipsKeepOfferingUniquenessWithoutMakingCourseCodeGloballyUnique() {
+        assertNoUniqueConstraint("edu_course", "UK_COURSE_CODE");
+        assertIndexExists("edu_course", "IDX_COURSE_CODE");
         assertUniqueConstraintExists("edu_course_teacher", "UK_COURSE_TEACHER");
         assertUniqueConstraintExists("edu_course_enrollment", "UK_COURSE_ENROLLMENT");
         assertUniqueConstraintExists("edu_lesson_learning_record", "UK_LESSON_STUDENT");
@@ -73,5 +74,28 @@ class CourseSchemaMigrationTest {
                         Integer.class,
                         table,
                         constraint));
+    }
+
+    private void assertNoUniqueConstraint(String table, String constraint) {
+        assertEquals(
+                0,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS "
+                                + "WHERE CONSTRAINT_SCHEMA = 'public' AND LOWER(TABLE_NAME) = ? "
+                                + "AND UPPER(CONSTRAINT_NAME) = ? AND CONSTRAINT_TYPE = 'UNIQUE'",
+                        Integer.class,
+                        table,
+                        constraint));
+    }
+
+    private void assertIndexExists(String table, String index) {
+        assertEquals(
+                1,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.INDEXES "
+                                + "WHERE INDEX_SCHEMA = 'public' AND LOWER(TABLE_NAME) = ? AND UPPER(INDEX_NAME) = ?",
+                        Integer.class,
+                        table,
+                        index));
     }
 }

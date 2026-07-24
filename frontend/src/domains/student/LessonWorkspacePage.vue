@@ -47,6 +47,7 @@
     <main class="panel lesson-stage">
       <header class="lesson-header">
         <div>
+          <button class="lesson-back" type="button" @click="router.push('/student/courses')"><ArrowLeft :size="15" />返回我的课程</button>
           <p class="eyebrow">{{ chapterTitle }}</p>
           <h1>{{ lesson.title }}</h1>
           <p v-if="lesson.content" class="lesson-overview">{{ lesson.content }}</p>
@@ -127,7 +128,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronLeft, ChevronRight, File, FileImage, FileText, FileWarning, Film, FolderOpen, Link2, Maximize2, Minimize2, Presentation, Search } from 'lucide-vue-next'
+import { ArrowLeft, ChevronLeft, ChevronRight, File, FileImage, FileText, FileWarning, Film, FolderOpen, Link2, Maximize2, Minimize2, Presentation, Search } from 'lucide-vue-next'
 import AiResultPanel from '@/components/AiResultPanel.vue'
 import AppButton from '@/components/AppButton.vue'
 import AsyncState from '@/components/AsyncState.vue'
@@ -210,7 +211,7 @@ function materialFileId(material: MaterialAccessVO | null): string | null {
   return material.accessUrl.match(/\/files\/(\d+)\/content/)?.[1] ?? null
 }
 function releaseViewerUrl() {
-  if (viewerUrl.value.startsWith('blob:')) URL.revokeObjectURL(viewerUrl.value)
+  if (typeof viewerUrl.value === 'string' && viewerUrl.value.startsWith('blob:')) URL.revokeObjectURL(viewerUrl.value)
   viewerUrl.value = ''
   documentText.value = ''
 }
@@ -378,7 +379,9 @@ onBeforeUnmount(() => {
   void syncHeartbeat()
   releaseViewerUrl()
 })
-watch(() => route.params.lessonId, load)
+watch(() => route.params.lessonId, (lessonId) => {
+  if (typeof lessonId === 'string' && lessonId) void load()
+})
 </script>
 
 <style scoped>
@@ -406,6 +409,9 @@ watch(() => route.params.lessonId, load)
 .tree-empty { color: var(--muted); font-size: 12px; margin: 8px; }
 .lesson-stage { padding: 0; overflow: hidden; min-height: 660px; }
 .lesson-header { padding: 22px 24px 18px; display: flex; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
+.lesson-back { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 10px; padding: 0; border: 0; color: var(--brand-ink); background: transparent; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.lesson-back:hover { color: var(--brand-hover); text-decoration: underline; }
+.lesson-back:focus-visible { outline: 3px solid rgba(20, 104, 232, .25); outline-offset: 3px; border-radius: 4px; }
 .lesson-header h1 { margin: 5px 0; font-size: 25px; }
 .lesson-overview { color: var(--muted); margin: 7px 0 0; line-height: 1.65; max-width: 700px; }
 .lesson-status { display: grid; gap: 8px; justify-items: end; color: var(--muted); font-size: 12px; white-space: nowrap; }
@@ -442,4 +448,21 @@ watch(() => route.params.lessonId, load)
 .material-stage:fullscreen .slide-viewer { flex: 1 1 auto; min-height: 0; height: calc(100vh - 96px); grid-template-columns: 56px minmax(0, 1fr) 56px; }
 .material-stage:fullscreen .slide-image { width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 128px); }
 .material-stage:fullscreen .resource-image, .material-stage:fullscreen .resource-frame, .material-stage:fullscreen .resource-viewer { max-height: calc(100vh - 100px); height: calc(100vh - 100px); }
+@media (min-width: 1281px) {
+  .learning-workspace { height: 100%; min-height: 0; align-items: stretch; }
+  .course-tree,
+  .lesson-stage,
+  .ai-sidebar { min-width: 0; min-height: 0; height: 100%; }
+  .course-tree { position: static; max-height: none; overflow-y: auto; }
+  .lesson-stage { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+  .material-stage { min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+  .material-toolbar { flex: 0 0 auto; }
+  .resource-frame,
+  .resource-viewer { flex: 1 1 0; min-height: 320px; height: 100%; }
+  .resource-image { flex: 1 1 auto; min-height: 0; }
+  .document-text,
+  .document-placeholder,
+  .slide-viewer { flex: 1 1 0; min-height: 320px; max-height: none; }
+  .ai-sidebar { position: static; overflow-y: auto; }
+}
 @keyframes preview-spin { to { transform: rotate(360deg); } }</style>

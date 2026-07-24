@@ -69,6 +69,13 @@ export const courseReviewsApi = {
     if (isRealMode()) return post<CourseReviewVO>(`/api/v1/admin/course-reviews/${courseId}/approve`, body)
     const course = requirePendingCourse(courseId)
     const admin = currentUser('ADMIN')
+    const definition = db.courseTemplates.find((item) => item.courseCode === course.courseCode)
+    if (definition) {
+      course.name = definition.name
+      course.summary = definition.summary ?? null
+    } else {
+      db.courseTemplates.push({ templateId: course.courseId, courseCode: course.courseCode, name: course.name, summary: course.summary ?? null })
+    }
     Object.assign(course, { reviewStatus: 'APPROVED', latestReviewReason: null, updatedAt: nowIso(), version: course.version + 1 })
     const row: ReviewRow = { reviewId: nextId(), courseId, reviewStatus: 'APPROVED', reviewerId: admin.userId, remark: body.remark ?? null, reviewedAt: nowIso() }
     db.courseReviews.push(row)

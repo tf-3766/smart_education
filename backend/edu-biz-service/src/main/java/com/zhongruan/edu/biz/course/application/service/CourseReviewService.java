@@ -91,6 +91,7 @@ public class CourseReviewService {
     @Transactional
     public CourseReviewVO approve(Long adminId, Long courseId, ReviewCourseRequest request) {
         CourseEntity course = requirePending(courseId);
+        courseManagementService.alignWithApprovedDefinition(course);
         course.setReviewStatus(CourseReviewStatus.APPROVED.name());
         updateCourse(course);
         return record(courseId, adminId, CourseReviewStatus.APPROVED, null, request == null ? null : trim(request.remark()));

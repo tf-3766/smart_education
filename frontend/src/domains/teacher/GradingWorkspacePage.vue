@@ -77,11 +77,12 @@
       </section>
       <section v-if="batchPanelOpen" class="batch-grading-panel" aria-labelledby="batch-grading-title">
         <div class="spread wrap"><div><h3 id="batch-grading-title">批量辅助批改设置</h3><p>评分标准越具体，建议越可复核。已发布成绩不会加入本次批次。</p></div><span class="safety-note"><ShieldCheck :size="14" />仅生成草稿</span></div>
-        <label class="field-label">评分标准<textarea v-model="batchRubric" class="textarea" rows="3" placeholder="例如：概念准确 40 分，步骤完整 30 分，边界情况 20 分，表达规范 10 分" /></label>
+        <label class="field-label" for="batch-rubric">评分标准<textarea id="batch-rubric" v-model="batchRubric" class="textarea" rows="3" placeholder="例如：概念准确 40 分，步骤完整 30 分，边界情况 20 分，表达规范 10 分" /></label>
         <div class="batch-settings">
-          <label class="field-label">人工复核阈值<select v-model.number="batchThreshold" class="select"><option :value="0.7">70%</option><option :value="0.75">75%</option><option :value="0.8">80%</option><option :value="0.85">85%</option></select></label>
+          <label class="field-label" for="batch-review-threshold">人工复核阈值<select id="batch-review-threshold" v-model.number="batchThreshold" class="select"><option :value="0.7">70%</option><option :value="0.75">75%</option><option :value="0.8">80%</option><option :value="0.85">85%</option></select></label>
           <div class="batch-generate"><span>{{ batchCandidates.length }} 份待处理</span><AppButton variant="primary" :loading="batchLoading" :disabled="!batchRubric.trim() || !batchCandidates.length" @click="generateBatchGrading">生成批改建议</AppButton></div>
         </div>
+        <AiGenerationProgress :active="batchLoading" label="正在生成批改建议" class="push-top" />
         <p v-if="batchError" class="form-error" role="alert">{{ batchError }}</p>
         <template v-if="batchDraft">
           <div class="batch-summary"><span><strong>{{ batchDraft.totalCount }}</strong> 已分析</span><span class="review"><strong>{{ batchDraft.reviewCount }}</strong> 需人工复核</span><span><strong>{{ batchDraft.totalCount - batchDraft.reviewCount }}</strong> 可优先检查</span></div>
@@ -125,6 +126,7 @@
       </div></section>
       <label class="field-label push-top" for="gw-grade-score">得分（满分 {{ current?.maxScore }}）</label><input id="gw-grade-score" v-model.number="score" class="input" type="number" min="0" :max="current?.maxScore" />
       <div class="spread" style="margin-top: 16px"><label class="field-label" for="gw-grade-comment" style="margin: 0">教师评语</label><AiAssistButton label="AI 评语草稿" :loading="aiLoading" @click="draftComment" /></div>
+      <AiGenerationProgress :active="aiLoading" label="正在生成评语草稿" class="push-top" />
       <textarea id="gw-grade-comment" v-model="comment" class="textarea" placeholder="填写正式评语" />
       <p v-if="aiError" class="form-error" role="alert">{{ aiError }}</p>
       <AiResultPanel v-if="aiDraft" :result="aiDraft" adopt-label="采用到评语" class="push-top" @adopt="comment = $event" @regenerate="draftComment" />
@@ -139,7 +141,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Plus, ShieldCheck, Sparkles } from 'lucide-vue-next'
 import AiAssistButton from '@/components/AiAssistButton.vue'
 import { useRoute } from 'vue-router'
-import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'
+import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiGenerationProgress from '@/components/AiGenerationProgress.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'
 import { aiApi, assignmentsApi, teacherCoursesApi } from '@/services/api'; import type { AssignmentDetailVO, AssignmentQuestion, AssignmentQuestionType, BatchGradingDraftItemVO, BatchGradingDraftVO, TeacherCourseListItemVO, TeacherSubmissionGradeVO, TeacherSubmissionRosterVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
 import { aiDraftToResult } from '@/services/aiDraft'
 import { aiErrorMessage } from '@/services/aiHint'
@@ -163,7 +165,7 @@ function batchStudentName(submissionId: string) { return roster.value.find((item
 function assignmentTone(item: AssignmentDetailVO) { return item.assignmentStatus.code === 'PUBLISHED' ? 'green' : item.assignmentStatus.code === 'CLOSED' ? 'gray' : 'amber' }
 function assignmentLabel(item: AssignmentDetailVO) { return item.assignmentStatus.code === 'DRAFT' && item.source === 'AI' ? 'AI 草稿' : item.assignmentStatus.label }
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
-async function load() { const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 })); if (page) { courses.value = page.records; courseId.value = page.records.some((item) => item.courseId === targetCourseId.value) ? targetCourseId.value : courseId.value || page.records[0]?.courseId || ''; assignmentId.value = targetAssignmentId.value || assignmentId.value; await loadAssignments() } }
+async function load() { const page = await state.run(() => teacherCoursesApi.listFormal({ page: 1, size: 100 })); if (page) { courses.value = page.records; courseId.value = page.records.some((item) => item.courseId === targetCourseId.value) ? targetCourseId.value : courseId.value || page.records[0]?.courseId || ''; assignmentId.value = targetAssignmentId.value || assignmentId.value; await loadAssignments() } }
 async function onCourseChange() { assignmentId.value = ''; roster.value = []; await loadAssignments() }
 async function loadAssignments() {
   if (!courseId.value) { assignments.value = []; assignmentId.value = ''; return }

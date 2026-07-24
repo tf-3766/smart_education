@@ -29,15 +29,16 @@
         </tbody>
       </table></div>
     </section>
-    <AppModal :open="openCreate" title="新建课程" description="可从内置课程库选用历年课程，也可自定义新课（会自动沉淀进内置库）。" @close="closeCreate">
+    <AppModal :open="openCreate" title="新建课程" description="可复用已审核课程定义，也可提交全新课程；新课程审核通过后进入内置课程库。" @close="closeCreate">
       <label class="field-label" for="cm-template">课程</label>
       <select id="cm-template" v-model="templateId" class="select" @change="applyTemplate">
         <option value="">自定义新课程</option>
         <option v-for="tpl in templates" :key="tpl.templateId" :value="tpl.templateId">{{ tpl.name }}（{{ tpl.courseCode }}）</option>
       </select>
-      <label class="field-label push-top" for="cm-code">课程编码</label><input id="cm-code" v-model.trim="form.courseCode" class="input" placeholder="字母、数字与 . _ - ，如 WEB2026" />
-      <label class="field-label push-top" for="cm-name">课程名称</label><input id="cm-name" v-model="form.name" class="input" placeholder="课程名称" />
-      <label class="field-label push-top" for="cm-summary">课程简介</label><textarea id="cm-summary" v-model="form.summary" class="textarea" placeholder="课程目标与内容" />
+      <label class="field-label push-top" for="cm-code">课程编码</label><input id="cm-code" v-model.trim="form.courseCode" class="input" :readonly="!!templateId" placeholder="字母、数字与 . _ - ，如 WEB2026" />
+      <label class="field-label push-top" for="cm-name">课程名称</label><input id="cm-name" v-model="form.name" class="input" :readonly="!!templateId" placeholder="课程名称" />
+      <label class="field-label push-top" for="cm-summary">课程简介</label><textarea id="cm-summary" v-model="form.summary" class="textarea" :readonly="!!templateId" placeholder="课程目标与内容" />
+      <p v-if="templateId" class="muted" style="margin: 6px 0 0; font-size: 12.5px">课程编码、名称和简介来自已审核课程定义；不同教师可分别创建自己的开课记录。</p>
       <div class="form-grid push-top"><div><label class="field-label" for="cm-term">学期</label><select id="cm-term" v-model="form.term" class="select"><option value="">未设置</option><option v-for="term in termOptions" :key="term" :value="term">{{ term }}</option></select></div><div><label class="field-label" for="cm-credit">学分</label><input id="cm-credit" v-model.number="form.credit" class="input" type="number" min="0" /></div></div>
       <template v-if="termWindow && (termWindow.enrollmentOpenAt || termWindow.enrollmentCloseAt)">
         <div class="field-label push-top">选课时间</div>
@@ -77,20 +78,24 @@
     <AppModal :open="editOpen" title="编辑课程" description="课程编码不可修改；其余信息保存后立即生效。" @close="closeEdit">
       <label class="field-label" for="ce-name">课程名称</label><input id="ce-name" v-model="editForm.name" class="input" />
       <label class="field-label push-top" for="ce-summary">课程简介</label><textarea id="ce-summary" v-model="editForm.summary" class="textarea" />
-      <div class="form-grid push-top"><div><label class="field-label" for="ce-term">学期</label><select id="ce-term" v-model="editForm.term" class="select"><option value="">未设置</option><option v-for="term in termOptions" :key="term" :value="term">{{ term }}</option></select></div><div><label class="field-label" for="ce-credit">学分</label><input id="ce-credit" v-model.number="editForm.credit" class="input" type="number" min="0" /></div></div>
-      <div class="form-grid push-top"><div><label class="field-label" for="ce-enroll-open">选课开始</label><input id="ce-enroll-open" v-model="editForm.enrollmentOpenAt" class="input" type="datetime-local" /></div><div><label class="field-label" for="ce-enroll-close">选课截止</label><input id="ce-enroll-close" v-model="editForm.enrollmentCloseAt" class="input" type="datetime-local" /></div></div>
+      <div class="form-grid push-top"><div><label class="field-label" for="ce-term">学期</label><select id="ce-term" v-model="editForm.term" class="select" @change="applyEditTermWindow"><option value="">未设置</option><option v-if="editForm.term && !termOptions.includes(editForm.term)" :value="editForm.term">{{ editForm.term }}（历史值）</option><option v-for="term in termOptions" :key="term" :value="term">{{ term }}</option></select></div><div><label class="field-label" for="ce-credit">学分</label><input id="ce-credit" v-model.number="editForm.credit" class="input" type="number" min="0" /></div></div>
+      <template v-if="editUsesTermWindow && editTermWindow">
+        <div class="managed-window push-top"><strong>继续复用管理员统一选课时间</strong><span>{{ windowText(editTermWindow) }}</span><small>保存时直接沿用管理端当前学期窗口，不转换为自定义时间。</small></div>
+      </template>
+      <div v-else class="form-grid push-top"><div><label class="field-label" for="ce-enroll-open">选课开始</label><input id="ce-enroll-open" v-model="editForm.enrollmentOpenAt" class="input" type="datetime-local" /></div><div><label class="field-label" for="ce-enroll-close">选课截止</label><input id="ce-enroll-close" v-model="editForm.enrollmentCloseAt" class="input" type="datetime-local" /></div></div>
       <p v-if="editError" class="form-error" role="alert">{{ editError }}</p>
-      <div class="form-actions"><AppButton variant="secondary" @click="closeEdit">取消</AppButton><AppButton variant="primary" :loading="state.loading.value" :disabled="!editForm.name.trim()" @click="saveEdit">保存修改</AppButton></div>
+      <div class="form-actions"><AppButton v-if="editCanDelete" class="draft-delete-button" variant="secondary" :loading="state.loading.value" @click="deleteDraft">删除草稿</AppButton><AppButton variant="secondary" @click="closeEdit">取消</AppButton><AppButton variant="primary" :loading="state.loading.value" :disabled="!editForm.name.trim()" @click="saveEdit">保存修改</AppButton></div>
     </AppModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { formatDateTime } from '@/utils/datetime'
+import { formatDateTime, toDateTimeLocalValue } from '@/utils/datetime'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Plus, Search } from 'lucide-vue-next'
 import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'
 import { teacherCoursesApi } from '@/services/api'; import type { CollabInvitationVO, CourseTeacherVO, CourseTemplateVO, TeacherCourseListItemVO, TeacherOptionVO, TermEnrollmentWindowVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
+import { confirmDialog } from '@/services/confirmDialog'
 
 const state = usePageState(); const courses = ref<TeacherCourseListItemVO[]>([]); const keyword = ref(''); const statusFilter = ref(''); const openCreate = ref(false); const message = ref(''); const createError = ref('')
 const templates = ref<CourseTemplateVO[]>([]); const templateId = ref('')
@@ -114,13 +119,16 @@ const termOptions = computed(() => {
   const year = new Date().getFullYear()
   const options: string[] = []
   for (let y = year - 1; y <= year + 1; y += 1) options.push(`${y} 春季`, `${y} 秋季`)
+  for (const term of termWindows.value.map((item) => item.term)) {
+    if (/^\d{4} (春季|秋季)$/.test(term) && !options.includes(term)) options.push(term)
+  }
   return options
 })
 const currentTerm = `${new Date().getFullYear()} ${new Date().getMonth() + 1 <= 6 ? '春季' : '秋季'}`
 const form = reactive({ courseCode: '', name: '', summary: '', term: currentTerm, credit: 2, enrollmentOpenAt: '', enrollmentCloseAt: '' })
 const filtered = computed(() => courses.value.filter((course) => (!statusFilter.value || course.status.code === statusFilter.value) && (!keyword.value || `${course.name}${course.courseCode}`.toLowerCase().includes(keyword.value.toLowerCase()))))
 const formatTime = formatDateTime
-function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
+function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 4000) }
 async function load() { const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 })); if (page) courses.value = page.records }
 // 我收到的待确认协作邀请（顶部提醒区）。
 const invitations = ref<CollabInvitationVO[]>([])
@@ -165,7 +173,7 @@ async function addTeam() {
 }
 async function removeTeam(t: CourseTeacherVO) {
   const msg = t.status.code === 'PENDING' ? `撤回对「${t.teacherName}」的协作邀请？` : `将「${t.teacherName}」移出课程团队？`
-  if (!window.confirm(msg)) return
+  if (!(await confirmDialog(msg))) return
   const result = await state.run(async () => { await teacherCoursesApi.removeTeacher(teamModal.courseId, t.teacherId); return true })
   if (result) await reloadTeam()
   else teamModal.error = state.error.value?.message ?? '移除失败。'
@@ -182,9 +190,26 @@ const editOpen = ref(false); const editError = ref('')
 const editForm = reactive({
   courseId: '', name: '', summary: '', term: '', credit: 0, enrollmentOpenAt: '', enrollmentCloseAt: '', version: 0,
   coverUrl: null as string | null, categoryId: null as string | null, department: null as string | null,
-  startAt: null as string | null, endAt: null as string | null,
+  startAt: null as string | null, endAt: null as string | null, status: '', reviewStatus: '',
 })
+const editUsesTermWindow = ref(false)
+const editTermWindow = computed(() => termWindows.value.find((window) => window.term === editForm.term) ?? null)
+const editCanDelete = computed(() => editForm.status === 'DRAFT' && ['NOT_SUBMITTED', 'REJECTED'].includes(editForm.reviewStatus))
+function sameInstant(left?: string | null, right?: string | null) {
+  if (!left && !right) return true
+  if (!left || !right) return false
+  return new Date(left).getTime() === new Date(right).getTime()
+}
+function applyEditTermWindow() {
+  const window = editTermWindow.value
+  editUsesTermWindow.value = !!(window && (window.enrollmentOpenAt || window.enrollmentCloseAt))
+  if (!editUsesTermWindow.value) {
+    editForm.enrollmentOpenAt = ''
+    editForm.enrollmentCloseAt = ''
+  }
+}
 async function startEdit(courseId: string) {
+  termWindows.value = await teacherCoursesApi.termWindows().catch(() => [])
   const detail = await state.run(() => teacherCoursesApi.getDetail(courseId))
   if (!detail) return
   Object.assign(editForm, {
@@ -193,22 +218,29 @@ async function startEdit(courseId: string) {
     summary: detail.summary ?? '',
     term: detail.term ?? '',
     credit: detail.credit ?? 0,
-    enrollmentOpenAt: detail.enrollmentOpenAt ? detail.enrollmentOpenAt.slice(0, 16) : '',
-    enrollmentCloseAt: detail.enrollmentCloseAt ? detail.enrollmentCloseAt.slice(0, 16) : '',
+    enrollmentOpenAt: toDateTimeLocalValue(detail.enrollmentOpenAt),
+    enrollmentCloseAt: toDateTimeLocalValue(detail.enrollmentCloseAt),
     version: detail.version,
     coverUrl: detail.coverUrl ?? null,
     categoryId: detail.categoryId ?? null,
     department: detail.department ?? null,
     startAt: detail.startAt ?? null,
     endAt: detail.endAt ?? null,
+    status: detail.status.code,
+    reviewStatus: detail.reviewStatus.code,
   })
+  const managed = termWindows.value.find((window) => window.term === editForm.term)
+  editUsesTermWindow.value = !!(managed
+    && (managed.enrollmentOpenAt || managed.enrollmentCloseAt)
+    && sameInstant(detail.enrollmentOpenAt, managed.enrollmentOpenAt)
+    && sameInstant(detail.enrollmentCloseAt, managed.enrollmentCloseAt))
   editError.value = ''
   editOpen.value = true
 }
 function closeEdit() { editOpen.value = false; editError.value = '' }
 async function saveEdit() {
   editError.value = ''
-  if (editForm.enrollmentOpenAt && editForm.enrollmentCloseAt && new Date(editForm.enrollmentOpenAt) >= new Date(editForm.enrollmentCloseAt)) {
+  if (!editUsesTermWindow.value && editForm.enrollmentOpenAt && editForm.enrollmentCloseAt && new Date(editForm.enrollmentOpenAt) >= new Date(editForm.enrollmentCloseAt)) {
     editError.value = '选课截止时间需晚于开始时间'; return
   }
   const result = await state.run(() => teacherCoursesApi.update(editForm.courseId, {
@@ -221,12 +253,18 @@ async function saveEdit() {
     department: editForm.department,
     startAt: editForm.startAt,
     endAt: editForm.endAt,
-    enrollmentOpenAt: editForm.enrollmentOpenAt ? new Date(editForm.enrollmentOpenAt).toISOString() : null,
-    enrollmentCloseAt: editForm.enrollmentCloseAt ? new Date(editForm.enrollmentCloseAt).toISOString() : null,
+    enrollmentOpenAt: editUsesTermWindow.value ? (editTermWindow.value?.enrollmentOpenAt ?? null) : (editForm.enrollmentOpenAt ? new Date(editForm.enrollmentOpenAt).toISOString() : null),
+    enrollmentCloseAt: editUsesTermWindow.value ? (editTermWindow.value?.enrollmentCloseAt ?? null) : (editForm.enrollmentCloseAt ? new Date(editForm.enrollmentCloseAt).toISOString() : null),
     version: editForm.version,
   }))
   if (result) { closeEdit(); flash('课程信息已更新'); await load() }
   else editError.value = state.error.value?.message ?? '保存失败，请稍后重试。'
+}
+async function deleteDraft() {
+  if (!editCanDelete.value || !(await confirmDialog(`删除课程草稿「${editForm.name}」？删除后不可恢复。`, { confirmLabel: '确认删除' }))) return
+  const deleted = await state.run(async () => { await teacherCoursesApi.deleteDraft(editForm.courseId); return true })
+  if (deleted) { closeEdit(); await load(); flash('课程草稿已删除') }
+  else editError.value = state.error.value?.message ?? '删除失败，请稍后重试。'
 }
 function startCreate() {
   createError.value = ''; templateId.value = ''; openCreate.value = true
@@ -275,3 +313,10 @@ async function create() {
 }
 onMounted(() => { load(); loadInvitations() })
 </script>
+
+<style scoped>
+.managed-window { display: grid; gap: 5px; padding: 13px 14px; border: 1px solid rgba(48, 126, 226, .25); color: var(--ink); background: rgba(235, 246, 255, .72); }
+.managed-window span { color: #245ca6; font-weight: 700; }
+.managed-window small { color: var(--muted); }
+.draft-delete-button { margin-right: auto; color: #b42318 !important; border-color: rgba(180, 35, 24, .28) !important; background: rgba(255, 244, 242, .84) !important; }
+</style>

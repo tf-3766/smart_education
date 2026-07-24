@@ -14,6 +14,7 @@
           <AppButton variant="primary" :loading="briefLoading" @click="generateOperationsBrief">{{ operationsBrief ? '刷新简报' : '生成今日简报' }}</AppButton>
         </div>
         <label class="brief-instruction"><span>关注重点（可选）</span><input v-model="briefInstruction" class="input" placeholder="例如：优先检查高风险课程和 AI 服务异常" /></label>
+        <AiGenerationProgress :active="briefLoading" label="正在生成每日运营简报" />
         <p v-if="briefError" class="form-error" role="alert">{{ briefError }}</p>
         <AiResultPanel v-if="operationsBrief" :result="operationsBrief" :allow-adopt="false" />
         <footer class="brief-safety">
@@ -31,7 +32,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'; import { useRouter } from 'vue-router'; import { ArrowRight, BookOpen, Megaphone, ShieldCheck, Sparkles, TriangleAlert, Users } from 'lucide-vue-next'
-import AiResultPanel from '@/components/AiResultPanel.vue'; import AppButton from '@/components/AppButton.vue'; import AppMetric from '@/components/AppMetric.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'
+import AiGenerationProgress from '@/components/AiGenerationProgress.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'; import AppButton from '@/components/AppButton.vue'; import AppMetric from '@/components/AppMetric.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'
 import { loadAdminOverview, type AdminOverview } from '@/services/adapters/adminAdapter'; import { aiApi } from '@/services/api'; import { aiDraftToResult } from '@/services/aiDraft'; import { aiErrorMessage } from '@/services/aiHint'; import { usePageState } from '@/services/pageState'; import { useSessionStore } from '@/stores/session'; import type { AiResult } from '@/types/domain'
 const router = useRouter(); const state = usePageState(); const overview = ref<AdminOverview | null>(null); const session = useSessionStore()
 const briefInstruction = ref(''); const operationsBrief = ref<AiResult | null>(null); const briefLoading = ref(false); const briefError = ref('')
@@ -53,13 +54,13 @@ onMounted(load)
 </script>
 
 <style scoped>
-.operations-brief { display: grid; gap: 16px; margin: 18px 0; padding: 22px; overflow: hidden; border: 1px solid #cfe0f5; border-radius: 20px; background: linear-gradient(135deg, rgba(239,246,255,.96), rgba(255,255,255,.98) 58%, rgba(238,242,255,.94)); box-shadow: 0 12px 30px rgba(37,99,235,.08); }
+.operations-brief { display: grid; gap: 16px; margin: 18px 0; padding: 22px; overflow: hidden; border: 1px solid rgba(255,255,255,.82); border-radius: 20px; background: linear-gradient(135deg, rgba(235,248,255,.58), rgba(255,255,255,.44) 58%, rgba(224,240,255,.52)); box-shadow: inset 0 1px 0 rgba(255,255,255,.62), 0 8px 14px rgba(31,99,155,.13); backdrop-filter: blur(20px) saturate(155%); }
 .operations-brief-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
 .operations-brief-head h2 { margin: 8px 0 5px; color: var(--ink); font-size: 21px; }
 .operations-brief-head p { margin: 0; color: var(--muted); line-height: 1.65; }
-.ai-brief-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; color: #1d4ed8; background: #dbeafe; font-size: 12px; font-weight: 750; }
-.brief-instruction { display: grid; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 650; }
-.brief-safety { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding-top: 13px; border-top: 1px solid #dbe7f5; color: var(--muted); font-size: 12px; }
+.ai-brief-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; color: #135ec7; background: rgba(220,240,255,.58); font-size: 12px; font-weight: 750; }
+.brief-instruction { display: grid; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 650; }.brief-instruction .input { background: rgba(255,255,255,.52); border-color: rgba(79,154,226,.44); }
+.brief-safety { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding-top: 13px; border-top: 1px solid rgba(255,255,255,.58); color: var(--muted); font-size: 12px; }
 .brief-safety > span, .brief-safety .text-link { display: inline-flex; align-items: center; gap: 6px; }
 .brief-safety .text-link { border: 0; background: transparent; cursor: pointer; font-weight: 700; }
 @media (max-width: 720px) {

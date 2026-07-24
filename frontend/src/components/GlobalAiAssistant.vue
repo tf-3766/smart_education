@@ -68,16 +68,16 @@
         <textarea v-model="question" rows="2" :placeholder="placeholder" @keydown.enter.exact.prevent="ask" />
         <button type="submit" :disabled="asking || !question.trim()" aria-label="发送问题"><Send :size="18" /></button>
       </form>
-      <p class="ai-disclaimer">回答会结合角色、当前页面与已授权课程；正式发布和评分仍需人工确认。</p>
+      <p class="ai-disclaimer">{{ disclaimer }}</p>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { BookOpen, Bot, Check, CheckCircle2, ExternalLink, Minus, RotateCcw, Send, Sparkles, X } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
-import { aiApi } from '@/services/api'
+import { aiApi, studentLearningApi } from '@/services/api'
 import type { AiActionEvent, AiCapabilityEvent, AiCitationVO, AiToolEvent } from '@/services/api/types'
 import { useSessionStore } from '@/stores/session'
 import { cleanAiText } from '@/utils/aiText'
@@ -115,14 +115,19 @@ let dragOffset = { x: 0, y: 0 }
 const isDragging = ref(false)
 
 const roleName = computed(() => session.currentRole === 'teacher' ? '教师助手' : session.currentRole === 'admin' ? '管理员助手' : '学生助手')
-const courseId = computed(() => String(route.params.courseId || route.query.courseId || '') || null)
 const lessonId = computed(() => String(route.params.lessonId || route.query.lessonId || '') || null)
+const directCourseId = computed(() => String(route.params.courseId || route.query.courseId || '') || null)
+const resolvedCourseId = ref<string | null>(null)
+const courseId = computed(() => directCourseId.value || resolvedCourseId.value)
 const placeholder = computed(() => courseId.value ? '询问当前课程、资料或操作…' : '询问平台功能或当前页面操作…')
+const disclaimer = computed(() => session.currentRole === 'student'
+  ? '学生助手仅提供授权问答，不会创建、修改或发布任何业务数据。'
+  : '教师/管理员可自动创建 AI 草稿；发布、评分和高风险操作仍需逐项人工确认。')
 const suggestions = computed(() => session.currentRole === 'teacher'
-  ? [courseId.value ? '按当前课程资料创建教学包，先给出计划并逐步确认' : '推荐一门课程创建教学包，先只给计划', '按评分标准辅助批改，异常答案进入人工复核', '分析风险学生并生成补救任务计划']
+  ? ['根据我负责课程的资料和章节生成一套题，并创建 AI 草稿题库', '生成教学包：教案、摘要、作业、题目和公告草稿', '按评分标准辅助批改，异常答案进入人工复核', '分析风险学生并生成补救任务计划']
   : session.currentRole === 'admin'
-    ? ['生成今日运营简报和异常告警，只提供可确认处理方案', '批量预审待审核教师，逐项给出风险', '分析选课容量、时间窗口与课程供需']
-    : ['我接下来有哪些学习任务？', '我的考试和成绩情况如何？', '进入课程后帮我解释资料内容'])
+    ? ['生成今日运营简报、异常信号和可确认处置方案', ...(session.isSuperAdmin ? ['批量预审待审核教师，逐项给出风险'] : []), '检查课程资料完整度和合规风险', '查询 AI 服务状态并分析选课时间窗口']
+    : ['我接下来有哪些作业、考试和学习任务？', '我的学习进度、已发布成绩和预警如何？', '有哪些课程公告和通知？', '进入课程后帮我解释课时与资料内容'])
 const floatStyle = computed(() => ({ left: `${position.value.x}px`, top: `${position.value.y}px` }))
 
 function clampPosition(x: number, y: number) {
@@ -269,6 +274,18 @@ async function loadPersistedActions() {
   try { persistedActions.value = await aiApi.listActions(50) }
   catch { persistedActions.value = [] }
 }
+async function resolveRouteCourse() {
+  resolvedCourseId.value = null
+  if (directCourseId.value || !lessonId.value || session.currentRole !== 'student') return
+  try {
+    const detail = await studentLearningApi.lessonDetail(lessonId.value)
+    if (!directCourseId.value && lessonId.value === detail.lessonId) resolvedCourseId.value = detail.courseId
+  } catch { /* 页面本身负责显示无权访问或课时不存在；助手保持平台级问答。 */ }
+}
+async function loadCapabilities() {
+  try { capabilities.value = await aiApi.capabilities(courseId.value) }
+  catch { capabilities.value = [] }
+}
 async function ask() {
   const prompt = question.value.trim()
   if (!prompt || asking.value) return
@@ -281,7 +298,7 @@ async function ask() {
   try {
     await aiApi.assistantStream({ question: prompt, courseId: courseId.value, lessonId: lessonId.value, pagePath: route.fullPath, pageTitle: document.title, conversationId }, (event) => {
       if (event.type === 'delta') reply.content += String(event.data ?? '')
-      if (event.type === 'capability') capabilities.value = (event.data as AiCapabilityEvent[]).filter((item) => item.enabled)
+      if (event.type === 'capability') capabilities.value = event.data as AiCapabilityEvent[]
       if (event.type === 'tool') {
         const tool = event.data as AiToolEvent
         reply.activities.push({ id: `${tool.toolName}-${reply.activities.length}`, status: tool.status, summary: tool.summary || `已调用 ${tool.toolName}` })
@@ -321,11 +338,15 @@ onMounted(() => {
   window.addEventListener('resize', onResize)
   window.addEventListener('smart-education:ai-compose', composeFromPage)
   void loadPersistedActions()
+  void resolveRouteCourse()
+  void loadCapabilities()
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('smart-education:ai-compose', composeFromPage)
 })
+watch([courseId, () => session.currentRole], () => void loadCapabilities())
+watch([directCourseId, lessonId, () => session.currentRole], () => void resolveRouteCourse())
 </script>
 
 <style scoped>

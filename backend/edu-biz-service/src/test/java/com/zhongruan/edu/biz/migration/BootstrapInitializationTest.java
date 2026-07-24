@@ -47,11 +47,11 @@ class BootstrapInitializationTest {
                 "edu_notification_preference",
                 "edu_ai_generation_record",
                 "edu_ai_action")));
-        assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
+        assertEquals(12, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user", Integer.class));
         assertEquals(
-                4,
+                5,
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM sys_user WHERE username IN ('student','teacher','teacher2','admin')",
+                        "SELECT COUNT(*) FROM sys_user WHERE username IN ('student','teacher','teacher2','admin','admin_ops')",
                         Integer.class));
         assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_role", Integer.class));
         assertEquals(5, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_permission", Integer.class));
@@ -59,10 +59,23 @@ class BootstrapInitializationTest {
         assertPasswordMatches("teacher", "t123456");
         assertPasswordMatches("teacher2", "t123456");
         assertPasswordMatches("admin", "admin123");
+        assertPasswordMatches("admin_ops", "admin123");
         assertEquals(
                 1,
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM sys_permission WHERE permission_code = 'auth:profile:read'",
+                        Integer.class));
+        assertEquals(
+                1,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM sys_user_role ur JOIN sys_role r ON r.id = ur.role_id "
+                                + "WHERE ur.user_id = 1014 AND r.role_code = 'ADMIN' AND ur.deleted = 0",
+                        Integer.class));
+        assertEquals(
+                0,
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM sys_user_role ur JOIN sys_role r ON r.id = ur.role_id "
+                                + "WHERE ur.user_id = 1014 AND r.role_code = 'SUPER_ADMIN' AND ur.deleted = 0",
                         Integer.class));
         assertEquals(
                 1,

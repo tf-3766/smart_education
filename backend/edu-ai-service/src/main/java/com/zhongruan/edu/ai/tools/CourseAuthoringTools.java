@@ -1,7 +1,7 @@
 package com.zhongruan.edu.ai.tools;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhongruan.edu.ai.api.vo.AiActionVO;
 import com.zhongruan.edu.common.api.ApiResponse;
@@ -11,9 +11,16 @@ import com.zhongruan.edu.feign.ai.AiAuthoringResultResponse;
 import com.zhongruan.edu.feign.ai.AiExamDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionBankDraftRequest;
 import com.zhongruan.edu.feign.ai.AiQuestionDraft;
+import com.zhongruan.edu.feign.ai.AiQuestionOptionDraft;
 import com.zhongruan.edu.feign.ai.BizAiAuthoringFeignClient;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
@@ -78,8 +85,10 @@ public class CourseAuthoringTools {
         List<AiQuestionDraft> questions;
         try {
             questions = parseQuestions(questionsJson);
-        } catch (JsonProcessingException exception) {
-            return "题目 JSON 无法解析，题库草稿未创建。请修复 JSON 数组后重试：" + exception.getOriginalMessage();
+        } catch (JsonProcessingException | IllegalArgumentException exception) {
+            String message = exception instanceof JsonProcessingException jsonException
+                    ? jsonException.getOriginalMessage() : exception.getMessage();
+            return "题目 JSON 无法解析，题库草稿未创建。请修复 JSON 数组后重试：" + message;
         }
         if (questions.isEmpty()) {
             return "未提供任何题目，题库草稿未创建。请先检索资料并生成题目后再调用。";
@@ -192,7 +201,184 @@ public class CourseAuthoringTools {
         if (questionsJson == null || questionsJson.isBlank()) {
             return List.of();
         }
-        return objectMapper.readValue(questionsJson, new TypeReference<List<AiQuestionDraft>>() {});
+        JsonNode root = objectMapper.readTree(questionsJson);
+        if (!root.isArray()) throw new IllegalArgumentException("questionsJson 必须是 JSON 数组");
+        List<AiQuestionDraft> questions = new ArrayList<>();
+        for (JsonNode item : root) questions.add(normalizeQuestion(item));
+        return List.copyOf(questions);
+    }
+
+    private AiQuestionDraft normalizeQuestion(JsonNode item) {
+        if (item == null || !item.isObject()) throw new IllegalArgumentException("每道题必须是 JSON 对象");
+        String questionType = normalizeQuestionType(text(item, "questionType", "type", "question_type"));
+        String stem = text(item, "stem", "question", "text", "content");
+        if (stem == null || stem.isBlank()) throw new IllegalArgumentException("题干不能为空");
+        String analysis = text(item, "analysis", "explanation", "rationale", "解析");
+        String difficulty = normalizeDifficulty(text(item, "difficulty", "level"));
+        BigDecimal score = decimal(item, "score", "points", "defaultScore");
+        if (score == null || score.signum() <= 0) score = new BigDecimal("2");
+        Set<String> correctAnswers = correctAnswers(item);
+        List<AiQuestionOptionDraft> options = normalizeOptions(item.get("options"), correctAnswers);
+        return new AiQuestionDraft(questionType, stem.trim(), analysis, difficulty, score, options);
+    }
+
+    private List<AiQuestionOptionDraft> normalizeOptions(JsonNode node, Set<String> correctAnswers) {
+        if (node == null || node.isNull()) return List.of();
+        List<AiQuestionOptionDraft> options = new ArrayList<>();
+        if (node.isArray()) {
+            for (int index = 0; index < node.size(); index++) {
+                JsonNode option = node.get(index);
+                String defaultLabel = String.valueOf((char) ('A' + index));
+                if (option.isTextual()) {
+                    String raw = option.asText().trim();
+                    String label = optionLabel(raw, defaultLabel);
+                    String content = optionContent(raw, label);
+                    options.add(new AiQuestionOptionDraft(
+                            label, content, isCorrect(correctAnswers, label, content), index + 1));
+                } else if (option.isObject()) {
+                    String label = first(text(option, "label", "key", "id", "option"), defaultLabel).toUpperCase(Locale.ROOT);
+                    String content = first(text(option, "content", "text", "value", "title"), "");
+                    boolean correct = booleanValue(option, "correct", "isCorrect")
+                            || isCorrect(correctAnswers, label, content);
+                    Integer sortOrder = integer(option, "sortOrder", "order", "index");
+                    options.add(new AiQuestionOptionDraft(label, content, correct,
+                            sortOrder == null || sortOrder <= 0 ? index + 1 : sortOrder));
+                }
+            }
+        } else if (node.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            int index = 0;
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                String label = field.getKey().trim().toUpperCase(Locale.ROOT);
+                JsonNode value = field.getValue();
+                String content = value.isTextual()
+                        ? value.asText() : first(text(value, "content", "text", "value", "title"), "");
+                boolean correct = (value.isObject() && booleanValue(value, "correct", "isCorrect"))
+                        || isCorrect(correctAnswers, label, content);
+                options.add(new AiQuestionOptionDraft(label, content, correct, ++index));
+            }
+        } else {
+            throw new IllegalArgumentException("options 必须是数组或对象");
+        }
+        return applyNumericCorrectAnswers(options, correctAnswers);
+    }
+
+    private Set<String> correctAnswers(JsonNode item) {
+        Set<String> values = new HashSet<>();
+        JsonNode answer = firstNode(item, "correctAnswer", "correctAnswers", "answer", "answers");
+        if (answer == null || answer.isNull()) return values;
+        if (answer.isArray()) answer.forEach(value -> addAnswerNode(values, value));
+        else addAnswerNode(values, answer);
+        return values;
+    }
+
+    private void addAnswerNode(Set<String> values, JsonNode value) {
+        if (value == null || value.isNull()) return;
+        if (value.isObject()) {
+            addAnswer(values, text(value, "label", "key", "value", "answer", "text", "content"));
+        } else {
+            addAnswer(values, value.asText());
+        }
+    }
+
+    private void addAnswer(Set<String> values, String value) {
+        if (value == null) return;
+        for (String part : value.split("[,，;；|]")) {
+            String normalized = part.trim()
+                    .replaceFirst("^(?i:OPTION)\\s*", "")
+                    .replaceFirst("^选项\\s*", "");
+            if (normalized.matches("(?i)^[A-Z][.、:：)）\\s-]+.+")) normalized = normalized.substring(0, 1);
+            if (!normalized.isEmpty()) values.add(normalized.toUpperCase(Locale.ROOT));
+        }
+    }
+
+    private List<AiQuestionOptionDraft> applyNumericCorrectAnswers(
+            List<AiQuestionOptionDraft> options, Set<String> answers) {
+        if (options.isEmpty() || answers.isEmpty()) return List.copyOf(options);
+        boolean zeroBased = answers.contains("0");
+        List<AiQuestionOptionDraft> normalized = new ArrayList<>(options.size());
+        for (int index = 0; index < options.size(); index++) {
+            AiQuestionOptionDraft option = options.get(index);
+            String numeric = String.valueOf(zeroBased ? index : index + 1);
+            boolean correct = option.correct() || answers.contains(numeric);
+            normalized.add(new AiQuestionOptionDraft(
+                    option.label(), option.content(), correct, option.sortOrder()));
+        }
+        return List.copyOf(normalized);
+    }
+
+    private boolean isCorrect(Set<String> answers, String label, String content) {
+        return answers.contains(label.toUpperCase(Locale.ROOT))
+                || answers.contains(content.trim().toUpperCase(Locale.ROOT));
+    }
+
+    private String optionLabel(String value, String fallback) {
+        return value.matches("(?i)^[A-Z][.、:：)）\\s-]+.+")
+                ? value.substring(0, 1).toUpperCase(Locale.ROOT) : fallback;
+    }
+
+    private String optionContent(String value, String label) {
+        if (!value.regionMatches(true, 0, label, 0, label.length())) return value;
+        return value.substring(label.length()).replaceFirst("^[.、:：)）\\s-]+", "").trim();
+    }
+
+    private String normalizeQuestionType(String value) {
+        String normalized = normalizeEnum(value, "SINGLE_CHOICE");
+        return switch (normalized) {
+            case "SINGLE", "SINGLECHOICE", "CHOICE", "RADIO", "单选", "单选题", "选择题" -> "SINGLE_CHOICE";
+            case "MULTIPLE", "MULTIPLECHOICE", "MULTI_CHOICE", "CHECKBOX", "多选", "多选题" -> "MULTIPLE_CHOICE";
+            case "TRUEFALSE", "JUDGEMENT", "JUDGMENT", "判断", "判断题" -> "TRUE_FALSE";
+            case "FILL", "FILLBLANK", "填空", "填空题" -> "FILL_BLANK";
+            case "SHORT", "ESSAY", "简答", "简答题", "问答题" -> "SHORT_ANSWER";
+            default -> normalized;
+        };
+    }
+
+    private String normalizeDifficulty(String value) {
+        String normalized = normalizeEnum(value, "MEDIUM");
+        return switch (normalized) {
+            case "SIMPLE", "LOW", "简单", "容易" -> "EASY";
+            case "NORMAL", "MIDDLE", "中等", "一般" -> "MEDIUM";
+            case "DIFFICULT", "HIGH", "困难", "难" -> "HARD";
+            default -> normalized;
+        };
+    }
+
+    private String normalizeEnum(String value, String fallback) {
+        return value == null || value.isBlank()
+                ? fallback : value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+    }
+
+    private String text(JsonNode node, String... names) {
+        JsonNode value = firstNode(node, names);
+        return value == null || value.isNull() ? null : value.asText();
+    }
+
+    private JsonNode firstNode(JsonNode node, String... names) {
+        if (node == null) return null;
+        for (String name : names) if (node.has(name)) return node.get(name);
+        return null;
+    }
+
+    private BigDecimal decimal(JsonNode node, String... names) {
+        JsonNode value = firstNode(node, names);
+        if (value == null || value.isNull()) return null;
+        try { return value.decimalValue(); } catch (RuntimeException ignored) { return null; }
+    }
+
+    private Integer integer(JsonNode node, String... names) {
+        JsonNode value = firstNode(node, names);
+        return value == null || !value.canConvertToInt() ? null : value.asInt();
+    }
+
+    private boolean booleanValue(JsonNode node, String... names) {
+        JsonNode value = firstNode(node, names);
+        return value != null && (value.asBoolean(false) || "true".equalsIgnoreCase(value.asText()));
+    }
+
+    private String first(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim();
     }
 
     private void emitCreated(String capabilityId, AiAuthoringResultResponse result, String href) {

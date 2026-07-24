@@ -3,7 +3,7 @@
     <div class="page-header"><div><h1 class="page-title">考试题库</h1><p class="page-subtitle">维护题库与题目，创建考试并组卷发布，交卷后在此阅卷。</p></div></div>
     <div v-if="message" class="toast">{{ message }}</div>
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="load" />
-    <div class="filter-bar"><label class="filter-field"><span>课程</span><select v-model="courseId" class="select" @change="loadResources"><option v-for="course in courses" :key="course.courseId" :value="course.courseId">{{ course.name }}</option></select></label></div>
+    <div class="filter-bar"><label class="filter-field"><span>课程</span><select v-model="courseId" class="select" @change="loadResources"><option v-if="!courses.length" value="" disabled>暂无可管理课程</option><option v-for="course in courses" :key="course.courseId" :value="course.courseId">{{ course.name }}</option></select></label></div>
 
     <div v-if="focusedBank" class="ai-draft-banner" role="status">
       <Sparkles :size="19" />
@@ -121,16 +121,17 @@
       <div class="table-scroll"><table class="table">
         <thead><tr><th></th><th>题干</th><th>题型</th><th class="num">分值</th></tr></thead>
         <tbody>
-          <tr v-for="item in paperForm.pool" :key="item.questionId">
+          <tr v-for="item in paperForm.pool" :key="item.questionId" :data-question-id="item.questionId">
             <td><input v-model="item.picked" data-test="paper-pick" type="checkbox" /></td>
             <td>{{ item.stem }}</td><td>{{ typeLabel(item.questionType) }}</td>
-            <td class="num"><input v-model.number="item.score" class="input" type="number" min="1" style="width: 72px" /></td>
+            <td class="num"><input v-model.number="item.score" data-test="paper-score" class="input" type="number" min="1" style="width: 72px" /></td>
           </tr>
         </tbody>
       </table></div>
       <div class="spread push-top"><span class="muted">已选 {{ pickedQuestions.length }} 题，合计 {{ pickedScore }} / {{ paperForm.totalScore }} 分</span><AiAssistButton label="AI 组卷建议" :loading="aiPaperLoading" @click="draftPaperSuggestion" /></div>
+      <AiGenerationProgress :active="aiPaperLoading" label="正在生成组卷建议" class="push-top" />
       <p v-if="aiPaperError" class="form-error" role="alert">{{ aiPaperError }}</p>
-      <AiResultPanel v-if="aiPaper" :result="aiPaper" class="push-top" @regenerate="draftPaperSuggestion" />
+      <AiResultPanel v-if="aiPaper" :result="aiPaper" adopt-label="采用建议" class="push-top" @adopt="adoptPaperSuggestion" @regenerate="draftPaperSuggestion" />
       <div class="form-actions"><AppButton variant="secondary" @click="paperForm.open = false">取消</AppButton><AppButton variant="primary" :loading="state.loading.value" :disabled="!pickedQuestions.length || pickedScore !== paperForm.totalScore" @click="savePaper">保存试卷</AppButton></div>
     </AppModal>
 
@@ -157,11 +158,13 @@ import { formatDateTime } from '@/utils/datetime'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Plus, Sparkles } from 'lucide-vue-next'
-import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'; import AiAssistButton from '@/components/AiAssistButton.vue'
+import AppButton from '@/components/AppButton.vue'; import AppModal from '@/components/AppModal.vue'; import AsyncState from '@/components/AsyncState.vue'; import StatusBadge from '@/components/StatusBadge.vue'; import AiGenerationProgress from '@/components/AiGenerationProgress.vue'; import AiResultPanel from '@/components/AiResultPanel.vue'; import AiAssistButton from '@/components/AiAssistButton.vue'
 import { aiApi, examsApi, teacherCoursesApi } from '@/services/api'; import type { ExamAttemptVO, ExamVO, QuestionBankVO, QuestionVO, TeacherCourseListItemVO } from '@/services/api/types'; import { usePageState } from '@/services/pageState'
 import { aiDraftToResult } from '@/services/aiDraft'
 import { aiErrorMessage } from '@/services/aiHint'
+import { parsePaperScoreSuggestions } from '@/utils/paperSuggestion'
 import type { AiResult } from '@/types/domain'
+import { confirmDialog } from '@/services/confirmDialog'
 
 const route = useRoute()
 const state = usePageState(); const courses = ref<TeacherCourseListItemVO[]>([]); const courseId = ref(''); const banks = ref<QuestionBankVO[]>([]); const exams = ref<ExamVO[]>([])
@@ -217,6 +220,25 @@ async function draftPaperSuggestion() {
     aiPaperError.value = aiErrorMessage(caught)
   } finally { aiPaperLoading.value = false }
 }
+function adoptPaperSuggestion(content: string) {
+  aiPaperError.value = ''
+  const suggestions = parsePaperScoreSuggestions(content)
+  const knownIds = new Set(paperForm.pool.map((item) => item.questionId))
+  const applicable = suggestions.filter((item) => knownIds.has(item.questionId))
+  if (!applicable.length) {
+    aiPaperError.value = 'AI 建议中没有可匹配的题目，请重新生成后再采用。'
+    return
+  }
+  const scores = new Map(applicable.map((item) => [item.questionId, item.score]))
+  for (const item of paperForm.pool) {
+    const suggestedScore = scores.get(item.questionId)
+    item.picked = suggestedScore != null
+    if (suggestedScore != null) item.score = suggestedScore
+  }
+  flash(pickedScore.value === paperForm.totalScore
+    ? `已采用 AI 建议：${applicable.length} 题，共 ${pickedScore.value} 分`
+    : `已回填 ${applicable.length} 题，当前合计 ${pickedScore.value} 分，请核对考试总分`)
+}
 const questionValid = computed(() => {
   if (!questionForm.stem.trim() || questionForm.score < 1) return false
   if (manualQuestionType(questionForm.questionType)) return true
@@ -227,7 +249,7 @@ const questionValid = computed(() => {
 })
 
 async function load() {
-  const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 }))
+  const page = await state.run(() => teacherCoursesApi.listFormal({ page: 1, size: 100 }))
   if (!page) return
   courses.value = page.records
   let requestedCourseId = String(route.query.courseId || '')
@@ -298,7 +320,7 @@ async function saveQuestion() {
   if (saved) { questionForm.open = false; flash('题目已保存'); await selectBank(selectedBankId.value) }
 }
 async function removeQuestion(question: QuestionVO) {
-  if (!window.confirm(`删除题目「${question.stem.slice(0, 20)}…」？`)) return
+  if (!(await confirmDialog(`删除题目「${question.stem.slice(0, 20)}…」？`, { confirmLabel: '确认删除' }))) return
   const done = await state.run(async () => { await examsApi.deleteQuestion(question.questionId); return true })
   if (done) { flash('题目已删除'); await selectBank(selectedBankId.value) }
 }

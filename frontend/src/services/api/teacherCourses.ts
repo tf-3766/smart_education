@@ -114,12 +114,12 @@ export const teacherCoursesApi = {
 
   async create(body: CreateCourseRequest): Promise<CourseDetailVO> {
     if (isRealMode()) return post<CourseDetailVO>('/api/v1/teacher/courses', body)
-    if (db.courses.some((item) => item.courseCode === body.courseCode)) conflict('课程编码已存在。')
+    const definition = db.courseTemplates.find((item) => item.courseCode === body.courseCode)
     const teacher = currentUser('TEACHER')
     const row: CourseRow = {
       courseId: nextId(),
-      courseCode: body.courseCode,
-      name: body.name,
+      courseCode: definition?.courseCode ?? body.courseCode,
+      name: definition?.name ?? body.name,
       ownerTeacherId: teacher.userId,
       status: 'DRAFT',
       reviewStatus: 'NOT_SUBMITTED',
@@ -128,12 +128,12 @@ export const teacherCoursesApi = {
       version: 0,
     }
     applyCourseFields(row, body)
+    if (definition) {
+      row.name = definition.name
+      row.summary = definition.summary ?? null
+    }
     db.courses.push(row)
     db.courseTeachers.push({ relationId: nextId(), courseId: row.courseId, teacherId: teacher.userId, role: 'OWNER', status: 'ACTIVE', version: 0 })
-    // 与后端一致：新建课程沉淀进内置课程库（同编码跳过）。
-    if (!db.courseTemplates.some((item) => item.courseCode === row.courseCode)) {
-      db.courseTemplates.push({ templateId: nextId(), courseCode: row.courseCode, name: row.name, summary: row.summary ?? null })
-    }
     persist()
     return demoDelay(toCourseDetailVO(row))
   },
@@ -148,10 +148,18 @@ export const teacherCoursesApi = {
       .filter((row) => mine.has(row.courseId))
       .filter((row) => !query.status || row.status === query.status)
       .filter((row) => !query.reviewStatus || row.reviewStatus === query.reviewStatus)
+      .filter((row) => !query.formalOnly || (
+        row.reviewStatus === 'APPROVED' && ['PUBLISHED', 'ONGOING', 'FINISHED'].includes(row.status)
+      ))
       .filter((row) => !query.term || row.term === query.term)
       .filter((row) => !keyword || row.name.toLowerCase().includes(keyword) || row.courseCode.toLowerCase().includes(keyword))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     return demoDelay(paginate(rows.map(toListItem), query))
+  },
+
+  /** 作业、考试、预警和互动等正式业务只允许使用已审核且已经进入教学生命周期的课程。 */
+  async listFormal(query: CourseListQuery = {}): Promise<PageResponse<TeacherCourseListItemVO>> {
+    return this.list({ ...query, formalOnly: true })
   },
 
   async getDetail(courseId: string): Promise<CourseDetailVO> {
@@ -167,6 +175,18 @@ export const teacherCoursesApi = {
     row.version += 1
     persist()
     return demoDelay(toCourseDetailVO(row))
+  },
+
+  async deleteDraft(courseId: string): Promise<void> {
+    if (isRealMode()) return del(`/api/v1/teacher/courses/${courseId}`)
+    const row = requireTeacherCourse(courseId)
+    if (row.status !== 'DRAFT' || !['NOT_SUBMITTED', 'REJECTED'].includes(row.reviewStatus)) {
+      conflict('仅未提交或已驳回的课程草稿可以删除。', 'OPERATION_NOT_ALLOWED')
+    }
+    db.courseTeachers = db.courseTeachers.filter((relation) => relation.courseId !== courseId)
+    db.courses.splice(db.courses.findIndex((course) => course.courseId === courseId), 1)
+    persist()
+    return demoDelay(undefined)
   },
 
   async submitReview(courseId: string): Promise<CourseDetailVO> {

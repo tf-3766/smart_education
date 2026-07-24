@@ -7,9 +7,10 @@
       </div>
     </div>
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="load" />
-    <div class="course-switcher">
+    <div class="filter-bar course-switcher">
       <span>当前课程</span>
       <select v-model="courseId" class="select" @change="loadTopics">
+        <option v-if="!courses.length" value="" disabled>暂无已选课程，请先到选课中心选择课程</option>
         <option v-for="course in courses" :key="course.courseId" :value="course.courseId">
           {{ course.name }} · {{ course.ownerTeacherName }}老师
         </option>
@@ -129,7 +130,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.course-switcher { padding: 14px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 14px; background: #f5f7fb; border: 1px solid var(--line); }
+.course-switcher { margin-bottom: 14px; align-items: center; gap: 14px; }
 .course-switcher > span { font-size: 13px; font-weight: 700; }
 .course-switcher .select { max-width: 460px; }
 .topic-composer h2 { margin: 5px 0 0; font-size: 18px; }

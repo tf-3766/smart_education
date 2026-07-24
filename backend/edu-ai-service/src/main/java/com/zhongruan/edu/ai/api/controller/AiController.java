@@ -1,22 +1,26 @@
 package com.zhongruan.edu.ai.api.controller;
 
 import com.zhongruan.edu.ai.api.dto.CourseQaRequest;
+import com.zhongruan.edu.ai.api.dto.AdminGovernanceDraftRequest;
 import com.zhongruan.edu.ai.api.dto.BatchGradingDraftRequest;
 import com.zhongruan.edu.ai.api.dto.AssistantChatRequest;
 import com.zhongruan.edu.ai.api.dto.AiDraftInstructionRequest;
 import com.zhongruan.edu.ai.api.dto.LessonSummaryRequest;
 import com.zhongruan.edu.ai.api.dto.PaperSuggestionRequest;
 import com.zhongruan.edu.ai.api.vo.AiDraftVO;
+import com.zhongruan.edu.ai.api.vo.AdminGovernanceDraftVO;
 import com.zhongruan.edu.ai.api.vo.BatchGradingDraftVO;
 import com.zhongruan.edu.ai.api.vo.AiKnowledgeBaseStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiServiceStatusVO;
 import com.zhongruan.edu.ai.api.vo.AiStreamEvent;
+import com.zhongruan.edu.ai.api.vo.AiCapabilityVO;
 import com.zhongruan.edu.ai.application.AiApplicationService;
 import com.zhongruan.edu.common.api.ApiResponse;
 import com.zhongruan.edu.common.error.CommonErrorCode;
 import com.zhongruan.edu.common.exception.BusinessException;
 import jakarta.validation.Valid;
 import java.util.Set;
+import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -26,6 +30,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -217,6 +222,28 @@ public class AiController {
         requireRole(role, ADMIN_ROLES);
         return service.adminOperationsBrief(
                         authorization, userId, role, body.instruction(), traceId)
+                .map(draft -> ApiResponse.success(draft, traceId));
+    }
+
+    @GetMapping("/capabilities")
+    public ApiResponse<List<AiCapabilityVO>> capabilities(
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @RequestParam(required = false) Long courseId) {
+        requireRole(role, QA_ROLES);
+        return ApiResponse.success(service.capabilities(role, courseId), traceId);
+    }
+
+    @PostMapping("/admin/governance-review-draft")
+    public Mono<ApiResponse<AdminGovernanceDraftVO>> adminGovernanceDraft(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader("X-Trace-Id") String traceId,
+            @Valid @RequestBody AdminGovernanceDraftRequest body) {
+        requireRole(role, ADMIN_ROLES);
+        return service.adminGovernanceDraft(
+                        authorization, userId, role, body.teacherUserIds(), body.courseIds(), body.criteria(), traceId)
                 .map(draft -> ApiResponse.success(draft, traceId));
     }
 

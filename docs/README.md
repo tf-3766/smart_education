@@ -9,6 +9,7 @@
 | [api-reference.md](./api-reference.md) | 前端联调入口，区分已实现、待实现和内部接口 |
 | [team-division.md](./team-division.md) | 当前三人任务边界和优先级 |
 | [local-development.md](./local-development.md) | 本地启动、环境变量、Bootstrap SQL 初始化 |
+| [ai-final-demo-acceptance.md](./ai-final-demo-acceptance.md) | 最终 AI 功能总表、自动化验收与三角色浏览器测试顺序 |
 | [database-conventions.md](./database-conventions.md) | 表设计和唯一 Bootstrap SQL 规则 |
 | [module-ownership.md](./module-ownership.md) | 后端模块、表和公共文件归属 |
 

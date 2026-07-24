@@ -3,7 +3,7 @@
     <div class="page-header"><div><h1 class="page-title">课程互动</h1><p class="page-subtitle">管理负责课程的讨论区与课程公告，可隐藏或恢复主题和回复。</p></div><AppButton variant="primary" :disabled="!courseId" @click="openAnnounce"><span class="row"><Plus :size="16" />发布课程公告</span></AppButton></div>
     <div v-if="message" class="toast">{{ message }}</div>
     <AsyncState :loading="state.loading.value" :error="state.error.value" :retry="load" />
-    <div class="filter-bar"><label class="filter-field"><span>课程</span><select v-model="courseId" class="select" @change="loadCourseData"><option v-for="course in courses" :key="course.courseId" :value="course.courseId">{{ course.name }}</option></select></label></div>
+    <div class="filter-bar"><label class="filter-field"><span>课程</span><select v-model="courseId" class="select" @change="loadCourseData"><option v-if="!courses.length" value="" disabled>暂无可管理课程</option><option v-for="course in courses" :key="course.courseId" :value="course.courseId">{{ course.name }}</option></select></label></div>
     <div v-if="focusedAnnouncement" class="ai-draft-banner" role="status">
       <Sparkles :size="19" /><div><strong>已定位 AI 公告草稿《{{ focusedAnnouncement.title }}》</strong><p>请检查正文和受众范围，确认后才会通知学生。</p></div>
       <AppButton v-if="focusedAnnouncement.status === 'DRAFT'" variant="primary" @click="confirmAnnouncement(focusedAnnouncement)">确认发布</AppButton>
@@ -73,6 +73,7 @@ import { announcementsApi, forumApi, teacherCoursesApi } from '@/services/api'
 const route = useRoute()
 import type { AnnouncementAudience, AnnouncementVO, ForumReplyVO, ForumTopicDetailVO, ForumTopicListItemVO, TeacherCourseListItemVO } from '@/services/api/types'
 import { usePageState } from '@/services/pageState'
+import { confirmDialog } from '@/services/confirmDialog'
 const targetAnnouncementId = computed(() => String(route.query.announcementId || ''))
 const focusedAnnouncement = computed(() => announcements.value.find((item) => item.announcementId === targetAnnouncementId.value) ?? null)
 const state = usePageState(); const courses = ref<TeacherCourseListItemVO[]>([]); const courseId = ref(''); const topics = ref<ForumTopicListItemVO[]>([]); const topicDetails = reactive<Record<string, ForumTopicDetailVO>>({}); const announcements = ref<AnnouncementVO[]>([])
@@ -83,7 +84,7 @@ const announcementTone = (item: AnnouncementVO) => item.status === 'PUBLISHED' ?
 const announcementLabel = (item: AnnouncementVO) => item.status === 'DRAFT' && item.source === 'AI' ? 'AI 草稿' : item.status === 'DRAFT' ? '草稿' : item.status === 'PUBLISHED' ? '已发布' : '已撤回'
 function flash(text: string) { message.value = text; window.setTimeout(() => (message.value = ''), 2200) }
 async function load() {
-  const page = await state.run(() => teacherCoursesApi.list({ page: 1, size: 100 }))
+  const page = await state.run(() => teacherCoursesApi.listFormal({ page: 1, size: 100 }))
   if (!page) return
   courses.value = page.records
   const requestedCourseId = String(route.query.courseId || '')
@@ -116,7 +117,7 @@ async function publishAnnouncement() {
   if (created) { announceForm.open = false; flash('课程公告已发布'); await loadAnnouncements() }
 }
 async function withdrawAnnouncement(item: AnnouncementVO) {
-  if (!window.confirm(`确认撤回公告《${item.title}》？撤回后学生不再看到该公告。`)) return
+  if (!(await confirmDialog(`确认撤回公告《${item.title}》？撤回后学生不再看到该公告。`, { title: '撤回公告', confirmLabel: '确认撤回' }))) return
   const updated = await state.run(() => announcementsApi.teacherWithdraw(item.announcementId, { version: item.version }))
   if (updated) { flash('公告已撤回'); await loadAnnouncements() }
 }
@@ -157,11 +158,11 @@ watch(() => [route.query.courseId, route.query.announcementId], () => { void loa
 .deep-linked { outline: 2px solid #79a8ff; outline-offset: -2px; background: #eff6ff !important; }
 @media (max-width: 720px) { .ai-draft-banner { grid-template-columns: auto 1fr; } }
 
-.discussion-board { border: 1px solid var(--line); background: #f4f6f9; }
-.discussion-board-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; background: #fff; border-bottom: 1px solid var(--line); }
+.discussion-board { overflow: hidden; border: 1px solid rgba(255,255,255,.78); border-radius: 18px; background: rgba(233,246,255,.42); box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 8px 14px rgba(31,99,155,.12); backdrop-filter: blur(20px) saturate(155%); }
+.discussion-board-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; background: rgba(255,255,255,.42); border-bottom: 1px solid rgba(255,255,255,.58); }
 .discussion-board-head h2 { margin: 0; font-size: 19px; }
 .discussion-board-head p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
-.discussion-post { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; margin: 14px; padding: 18px; background: #fff; border: 1px solid #e5eaf1; box-shadow: 0 2px 9px rgba(15,23,42,.04); }
+.discussion-post { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; margin: 14px; padding: 18px; background: rgba(255,255,255,.48); border: 1px solid rgba(255,255,255,.66); box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 4px 10px rgba(34,93,141,.08); }
 .forum-avatar { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: #075fc9; background: linear-gradient(145deg,#dbeafe,#eff6ff); border: 1px solid #bfdbfe; font-size: 18px; font-weight: 800; }
 .post-body { min-width: 0; }
 .post-author { display: flex; justify-content: space-between; gap: 14px; }
